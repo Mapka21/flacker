@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.components
 
+import android.content.Context
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -24,9 +25,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -37,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +55,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +74,7 @@ import coil3.toBitmap
 import com.marco.audiopro.container
 import com.marco.audiopro.data.subsonic.Album
 import com.marco.audiopro.data.subsonic.Song
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 
@@ -92,7 +104,7 @@ fun <T> rememberLoad(key: Any?, block: suspend () -> T): Loader<T> {
 fun <T> LoadBox(loader: Loader<T>, modifier: Modifier = Modifier, content: @Composable (T) -> Unit) {
     when (val s = loader.state.value) {
         is Load.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Hifi.Amber, strokeWidth = 2.dp)
+            CircularProgressIndicator(color = Hifi.Accent, strokeWidth = 2.dp)
         }
         is Load.Err -> ErrorBox(s.message, loader.retry, modifier)
         is Load.Ok -> content(s.value)
@@ -109,14 +121,16 @@ fun ErrorBox(message: String, retry: () -> Unit, modifier: Modifier = Modifier) 
         Text("SIN SEÑAL", style = Mono.copy(color = Hifi.LedRed, fontSize = 14.sp))
         Spacer(Modifier.height(8.dp))
         Text(message, color = Hifi.TextDim, fontSize = 13.sp)
-        TextButton(onClick = retry) { Text("Reintentar") }
+        Spacer(Modifier.height(4.dp))
+        Text("Tus descargas siguen disponibles sin conexión.", color = Hifi.TextFaint, fontSize = 12.sp)
+        TextButton(onClick = retry) { Text("Reintentar", color = Hifi.Accent) }
     }
 }
 
 // ------------------------------------------------------------------ portadas
 
 @Composable
-fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, corner: Dp = 6.dp) {
+fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, corner: Dp = 8.dp) {
     val api = LocalContext.current.container.api
     val url = remember(coverArt, size) { api.coverUrl(coverArt, size) }
     Box(
@@ -130,19 +144,33 @@ fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, 
     }
 }
 
-/** Color dominante de la portada (para fondos degradados). */
+/** Colores sacados de la portada: un fondo oscuro y un acento legible sobre negro. */
+data class CoverColors(val background: Color, val accent: Color)
+
+private val paletteCache = object : LinkedHashMap<String, CoverColors>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CoverColors>?) = size > 64
+}
+
+suspend fun coverColors(ctx: Context, coverArt: String?): CoverColors? {
+    coverArt ?: return null
+    paletteCache[coverArt]?.let { return it }
+    val url = ctx.container.api.coverUrl(coverArt, 120) ?: return null
+    val req = ImageRequest.Builder(ctx).data(url).allowHardware(false).build()
+    val res = SingletonImageLoader.get(ctx).execute(req) as? SuccessResult ?: return null
+    val p = Palette.from(res.image.toBitmap()).generate()
+    val bg = (p.darkVibrantSwatch ?: p.darkMutedSwatch ?: p.dominantSwatch)?.rgb?.let(::Color) ?: return null
+    var accent = (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.lightMutedSwatch ?: p.dominantSwatch)?.rgb?.let(::Color) ?: Hifi.Cyan
+    // Que el acento siempre se lea bien sobre el fondo oscuro.
+    if (accent.luminance() < 0.3f) accent = lerp(accent, Color.White, 0.45f)
+    return CoverColors(bg, accent).also { paletteCache[coverArt] = it }
+}
+
+/** Color de fondo de la portada, animado (para degradados). */
 @Composable
 fun rememberCoverColor(coverArt: String?, fallback: Color = Hifi.Panel): State<Color> {
     val ctx = LocalContext.current
     val target = remember { mutableStateOf(fallback) }
-    LaunchedEffect(coverArt) {
-        val url = ctx.container.api.coverUrl(coverArt, 120) ?: return@LaunchedEffect
-        val req = ImageRequest.Builder(ctx).data(url).allowHardware(false).build()
-        val res = SingletonImageLoader.get(ctx).execute(req) as? SuccessResult ?: return@LaunchedEffect
-        val p = Palette.from(res.image.toBitmap()).generate()
-        val sw = p.darkVibrantSwatch ?: p.vibrantSwatch ?: p.darkMutedSwatch ?: p.dominantSwatch
-        if (sw != null) target.value = Color(sw.rgb)
-    }
+    LaunchedEffect(coverArt) { coverColors(ctx, coverArt)?.let { target.value = it.background } }
     return animateColorAsState(target.value, tween(600), label = "cover")
 }
 
@@ -152,20 +180,21 @@ fun rememberCoverColor(coverArt: String?, fallback: Color = Hifi.Panel): State<C
 fun FormatBadge(song: Song?, modifier: Modifier = Modifier, large: Boolean = false) {
     if (song == null) return
     val color = when {
-        song.isHiRes -> Hifi.Amber
+        song.isHiRes -> Hifi.HiResGold
         song.isLossless -> Hifi.Cream
         else -> Hifi.TextDim
     }
+    val fs = if (large) 11.sp else 9.sp
     Row(
         modifier
-            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(color.copy(alpha = 0.10f))
+            .border(1.dp, color.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
             .padding(horizontal = if (large) 8.dp else 5.dp, vertical = if (large) 3.dp else 1.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (song.isHiRes) {
-            Text("HI-RES ", style = Mono.copy(color = color, fontSize = if (large) 11.sp else 9.sp, fontWeight = FontWeight.Bold))
-        }
-        Text(song.formatLabel, style = Mono.copy(color = color, fontSize = if (large) 11.sp else 9.sp))
+        if (song.isHiRes) Text("HI-RES ", style = Mono.copy(color = color, fontSize = fs, fontWeight = FontWeight.Bold))
+        Text(song.formatLabel, style = Mono.copy(color = color, fontSize = fs))
     }
 }
 
@@ -177,15 +206,18 @@ fun formatDuration(seconds: Int?): String {
 
 fun formatMs(ms: Long): String = formatDuration((ms / 1000).toInt())
 
+fun formatBytes(b: Long): String = when {
+    b >= 1L shl 30 -> "%.2f GB".format(b / (1L shl 30).toDouble())
+    else -> "%.0f MB".format(b / (1L shl 20).toDouble())
+}
+
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Row(
-        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp),
+        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 22.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(width = 3.dp, height = 14.dp).background(Hifi.Amber))
-        Spacer(Modifier.width(8.dp))
-        Text(title.uppercase(), style = Mono.copy(color = Hifi.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+        Text(title, style = Display.copy(fontSize = 19.sp, color = Hifi.Text), modifier = Modifier.weight(1f))
         action?.invoke()
     }
 }
@@ -194,13 +226,70 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Compos
 
 @Composable
 fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(6.dp)) {
-        CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f), size = 400)
-        Spacer(Modifier.height(6.dp))
+    Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(6.dp)) {
+        CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f), size = 400, corner = 10.dp)
+        Spacer(Modifier.height(8.dp))
         Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Text(
             listOfNotNull(album.artist, album.year?.toString()).joinToString(" · "),
             maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, color = Hifi.TextDim,
+        )
+    }
+}
+
+/** Corazón de "me gusta" sincronizado con Navidrome. */
+@Composable
+fun LikeButton(song: Song, modifier: Modifier = Modifier, size: Dp = 24.dp) {
+    val likes = LocalContext.current.container.likes
+    val liked = song.id in likes.ids.collectAsState().value
+    val tint by animateColorAsState(if (liked) Hifi.Accent else Hifi.TextDim, label = "like")
+    IconButton(onClick = { likes.toggle(song) }, modifier) {
+        Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Me gusta", tint = tint, modifier = Modifier.size(size))
+    }
+}
+
+/**
+ * Botón de descarga para una o varias canciones: muestra progreso, y si ya está todo
+ * descargado ofrece quitarlo (con confirmación).
+ */
+@Composable
+fun DownloadButton(songs: List<Song>, modifier: Modifier = Modifier) {
+    val downloads = LocalContext.current.container.downloads
+    val items by downloads.items.collectAsState()
+    var confirm by remember { mutableStateOf(false) }
+    if (songs.isEmpty()) return
+    val states = songs.map { items[it.id] }
+    val done = states.count { it?.done == true }
+    val active = states.filterNotNull().filter { it.active }
+    val failed = states.any { it?.failed == true }
+    LaunchedEffect(active.isNotEmpty()) {
+        while (active.isNotEmpty()) { downloads.pollProgress(); kotlinx.coroutines.delay(1000) }
+    }
+    Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        when {
+            done == songs.size -> IconButton(onClick = { confirm = true }) {
+                Icon(Icons.Default.DownloadForOffline, "Descargado", tint = Hifi.Accent)
+            }
+            active.isNotEmpty() -> {
+                val progress = (done + active.sumOf { it.percent.toDouble() / 100 }).toFloat() / songs.size
+                CircularProgressIndicator(
+                    progress = { progress.coerceIn(0.02f, 1f) }, modifier = Modifier.size(26.dp),
+                    color = Hifi.Accent, trackColor = Hifi.Line, strokeWidth = 2.5.dp,
+                )
+            }
+            else -> IconButton(onClick = { downloads.download(songs) }) {
+                Icon(if (failed) Icons.Outlined.ErrorOutline else Icons.Outlined.Download, "Descargar", tint = if (failed) Hifi.LedRed else Hifi.TextDim)
+            }
+        }
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("¿Quitar descarga?") },
+            text = { Text(if (songs.size == 1) "Se borra la copia local de esta canción." else "Se borran las ${songs.size} canciones del almacenamiento del teléfono.") },
+            confirmButton = { TextButton(onClick = { downloads.remove(songs); confirm = false }) { Text("Quitar", color = Hifi.LedRed) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar") } },
+            containerColor = Hifi.Panel,
         )
     }
 }
@@ -218,45 +307,72 @@ fun TrackRow(
     showFormat: Boolean = false,
     onGoToAlbum: (() -> Unit)? = null,
 ) {
-    val player = LocalContext.current.container.player
+    val c = LocalContext.current.container
+    val liked = song.id in c.likes.ids.collectAsState().value
+    val offline = c.downloads.items.collectAsState().value[song.id]
     var menu by remember { mutableStateOf(false) }
     Row(
         modifier
             .fillMaxWidth()
+            .background(if (isCurrent) Hifi.Accent.copy(alpha = 0.07f) else Color.Transparent)
             .combinedClickable(onClick = onClick, onLongClick = { menu = true })
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
-            showCover -> CoverArt(song.coverArt, Modifier.size(44.dp), size = 120, corner = 4.dp)
-            isCurrent -> Icon(Icons.Default.GraphicEq, null, tint = Hifi.Amber, modifier = Modifier.width(28.dp).size(18.dp))
+            showCover -> CoverArt(song.coverArt, Modifier.size(46.dp), size = 120, corner = 6.dp)
+            isCurrent -> Icon(Icons.Default.GraphicEq, null, tint = Hifi.Accent, modifier = Modifier.width(28.dp).size(18.dp))
             else -> Text(leading ?: "", style = Mono.copy(color = Hifi.TextFaint), modifier = Modifier.width(28.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 15.sp,
-                color = if (isCurrent) Hifi.Amber else Hifi.Text,
+                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isCurrent) Hifi.Accent else Hifi.Text,
             )
             val sub = listOfNotNull(if (showArtist) song.artist else null, formatDuration(song.duration)).joinToString(" · ")
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (offline?.done == true) {
+                    Icon(Icons.Default.DownloadForOffline, "Descargado", tint = Hifi.Accent, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.weight(1f, fill = false))
                 if (showFormat) { Spacer(Modifier.width(6.dp)); FormatBadge(song) }
             }
         }
+        if (liked) Icon(Icons.Default.Favorite, "Me gusta", tint = Hifi.Accent, modifier = Modifier.size(15.dp))
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, null, tint = Hifi.TextFaint) }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Hifi.PanelHi) {
+                DropdownMenuItem(
+                    text = { Text(if (liked) "Quitar de Me gusta" else "Me gusta") },
+                    leadingIcon = { Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Hifi.Accent) },
+                    onClick = { c.likes.toggle(song); menu = false },
+                )
                 DropdownMenuItem(
                     text = { Text("Reproducir siguiente") },
                     leadingIcon = { Icon(Icons.Default.SkipNext, null) },
-                    onClick = { player.playNext(listOf(song)); menu = false },
+                    onClick = { c.player.playNext(listOf(song)); menu = false },
                 )
                 DropdownMenuItem(
                     text = { Text("Agregar a la cola") },
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) },
-                    onClick = { player.enqueue(listOf(song)); menu = false },
+                    onClick = { c.player.enqueue(listOf(song)); menu = false },
                 )
+                if (offline?.done == true || offline?.active == true) {
+                    DropdownMenuItem(
+                        text = { Text("Quitar descarga") },
+                        leadingIcon = { Icon(Icons.Default.Delete, null) },
+                        onClick = { c.downloads.remove(listOf(song)); menu = false },
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text("Descargar") },
+                        leadingIcon = { Icon(Icons.Outlined.Download, null) },
+                        onClick = { c.downloads.download(listOf(song)); menu = false },
+                    )
+                }
                 if (onGoToAlbum != null && song.albumId != null) {
                     DropdownMenuItem(
                         text = { Text("Ir al álbum") },

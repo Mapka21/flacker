@@ -15,6 +15,14 @@ Cliente Android personal para Navidrome, con enfoque audiófilo.
 
 ## Qué trae
 
+- **Descargas offline**: botón ⬇ en álbumes, playlists, Me gusta, el reproductor y el menú de
+  cada canción. Se guardan en el teléfono y suenan sin conexión aunque el servidor esté apagado.
+  Calidad de descarga y "sólo con Wi-Fi" configurables.
+- **Me gusta**: canciones con ♥ sincronizadas con Navidrome (starred), con su propia pantalla,
+  "Radio Me gusta" y descarga de todo de un toque.
+- **Temas de color**: Ámbar VU, Cian estudio, Rosa neón, Fósforo, Violeta o "Portada"
+  (toma el color del disco que suena). Tipografías Space Grotesk, Inter y JetBrains Mono.
+
 - **EQ paramétrico de 10 bandas**: peaking, shelves, low/high pass. Procesa en double,
   con pre-amp automático anti-clipping, dither TPDF, presets propios y A/B (mantener presionado).
   La curva se edita arrastrando los nodos, con el espectro en vivo detrás.
@@ -38,5 +46,13 @@ gradlew assembleRelease      # → app/build/outputs/apk/release/app-release.apk
 gradlew testDebugUnitTest    # pruebas del DSP
 ```
 
-Si en el disco `S:` Gradle falla con "Permission denied" al escribir `.class`,
-borra `app/build/tmp/kotlin-classes` y vuelve a compilar.
+Si el proyecto está en un disco de red (NAS) y Gradle falla con "Permission denied" al
+escribir `.class`, agrega a `local.properties` una carpeta local para compilar:
+
+```
+marco.buildRoot=C\:/Users/<tu-usuario>/AppData/Local/MarcoAudioProBuild
+```
+
+Ojo: el APK se firma con la llave debug de esta PC (`~/.android/debug.keystore`).
+Para poder actualizar la app sin desinstalarla, compila siempre desde la misma PC
+(o respalda ese archivo).

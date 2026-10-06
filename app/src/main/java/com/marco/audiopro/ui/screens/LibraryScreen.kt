@@ -22,8 +22,10 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -34,6 +36,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -43,6 +46,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +67,7 @@ import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
 import com.marco.audiopro.ui.openPlaylist
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 
@@ -69,10 +76,10 @@ import com.marco.audiopro.ui.theme.Mono
 fun LibraryScreen(nav: NavController) {
     var tab by rememberSaveable { mutableStateOf(0) }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Biblioteca", fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 8.dp))
+        Text("Biblioteca", style = Display.copy(fontSize = 30.sp), modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 8.dp))
         SecondaryTabRow(
-            selectedTabIndex = tab, containerColor = Hifi.Bg, contentColor = Hifi.Amber,
-            indicator = { TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(tab), color = Hifi.Amber) },
+            selectedTabIndex = tab, containerColor = Hifi.Bg, contentColor = Hifi.Accent,
+            indicator = { TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(tab), color = Hifi.Accent) },
             divider = {},
         ) {
             listOf("Álbumes", "Artistas", "Playlists").forEachIndexed { i, t ->
@@ -126,7 +133,7 @@ private fun AlbumsGrid(nav: NavController) {
             items(sorts) { (key, label) ->
                 FilterChip(
                     selected = sort == key, onClick = { sort = key }, label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AmberDim, selectedLabelColor = Hifi.Cream),
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
                 )
             }
         }
@@ -149,7 +156,7 @@ private fun ArtistsList(nav: NavController) {
         LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
             grouped.forEach { (letter, list) ->
                 item(key = "h$letter") {
-                    Text(letter.toString(), style = Mono.copy(color = Hifi.Amber, fontSize = 13.sp), modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp))
+                    Text(letter.toString(), style = Mono.copy(color = Hifi.Accent, fontSize = 13.sp), modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp))
                 }
                 items(list, key = { it.id }) { ArtistRow(it) { nav.openArtist(it.id) } }
             }
@@ -173,17 +180,31 @@ fun ArtistRow(a: Artist, onClick: () -> Unit) {
 private fun PlaylistsList(nav: NavController) {
     val c = LocalContext.current.container
     val loader = rememberLoad(Unit) { c.api.playlists() }
+    val liked by c.likes.songs.collectAsState()
     LoadBox(loader) { lists ->
-        if (lists.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No hay playlists en el servidor", color = Hifi.TextDim) }
-        }
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth().clickable { nav.navigate("liked") }.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)).background(Brush.linearGradient(listOf(Hifi.Accent, Hifi.AccentDim))),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Default.Favorite, null, tint = Color.White) }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Me gusta", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text("${liked.size} canciones", fontSize = 12.sp, color = Hifi.TextDim)
+                    }
+                }
+            }
+            if (lists.isEmpty()) {
+                item { Text("No hay playlists en el servidor", color = Hifi.TextDim, modifier = Modifier.padding(20.dp)) }
+            }
             items(lists, key = { it.id }) { p ->
                 Row(Modifier.fillMaxWidth().clickable { nav.openPlaylist(p.id) }.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(52.dp)) {
                         CoverArt(p.coverArt, Modifier.fillMaxSize(), size = 150)
                         Icon(
-                            Icons.AutoMirrored.Filled.PlaylistPlay, null, tint = Hifi.Amber,
+                            Icons.AutoMirrored.Filled.PlaylistPlay, null, tint = Hifi.Accent,
                             modifier = Modifier.align(Alignment.BottomEnd).background(Hifi.Bg.copy(alpha = 0.7f), CircleShape).padding(2.dp).size(16.dp),
                         )
                     }

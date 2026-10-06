@@ -55,7 +55,7 @@ fun LoginScreen() {
     ) {
         Visualizer(VizMode.SPECTRUM, Modifier.fillMaxWidth().height(70.dp))
         Spacer(Modifier.height(20.dp))
-        Text("MARCO", style = Mono.copy(color = Hifi.Amber, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 10.sp))
+        Text("MARCO", style = Mono.copy(color = Hifi.Accent, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 10.sp))
         Text("AUDIO PRO", style = Mono.copy(color = Hifi.Cream, fontSize = 14.sp, letterSpacing = 8.sp))
         Spacer(Modifier.height(8.dp))
         Text("Conecta tu servidor Navidrome", color = Hifi.TextDim, fontSize = 14.sp)
@@ -89,7 +89,7 @@ fun LoginScreen() {
                 }
             },
             enabled = !busy && url.isNotBlank() && user.isNotBlank() && pass.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = Hifi.Amber, contentColor = androidx.compose.ui.graphics.Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = Hifi.Accent, contentColor = androidx.compose.ui.graphics.Color.Black),
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) {
             if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = androidx.compose.ui.graphics.Color.Black)

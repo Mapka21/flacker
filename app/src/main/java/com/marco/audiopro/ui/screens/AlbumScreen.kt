@@ -63,6 +63,8 @@ import com.marco.audiopro.data.info.AlbumSummary
 import com.marco.audiopro.data.info.InfoSource
 import com.marco.audiopro.data.subsonic.Album
 import com.marco.audiopro.ui.components.CoverArt
+import com.marco.audiopro.ui.components.DownloadButton
+import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.FormatBadge
 import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.SectionHeader
@@ -72,6 +74,7 @@ import com.marco.audiopro.ui.components.rememberCoverColor
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 import kotlinx.coroutines.launch
@@ -97,7 +100,7 @@ fun AlbumScreen(id: String, nav: NavController) {
             itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
                 if (multiDisc && (i == 0 || songs[i - 1].discNumber != s.discNumber)) {
                     Text(
-                        "DISCO ${s.discNumber ?: 1}", style = Mono.copy(color = Hifi.Amber),
+                        "DISCO ${s.discNumber ?: 1}", style = Mono.copy(color = Hifi.Accent),
                         modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
                     )
                 }
@@ -139,16 +142,16 @@ private fun AlbumHeader(album: Album, nav: NavController) {
         }
         CoverArt(
             album.coverArt,
-            Modifier.size(250.dp).shadow(24.dp, RoundedCornerShape(8.dp)),
-            size = 800, corner = 8.dp,
+            Modifier.size(256.dp).shadow(32.dp, RoundedCornerShape(12.dp)),
+            size = 800, corner = 12.dp,
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(20.dp))
         Text(
-            album.name, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+            album.name, style = Display.copy(fontSize = 26.sp), textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
         Text(
-            album.artist ?: "", fontSize = 16.sp, color = Hifi.Amber,
+            album.artist ?: "", fontSize = 16.sp, color = Hifi.Accent,
             modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { album.artistId?.let(nav::openArtist) }.padding(4.dp),
         )
         val genres = album.genres?.map { it.name }?.filter { it.isNotBlank() }.orEmpty().ifEmpty { listOfNotNull(album.genre) }
@@ -160,24 +163,19 @@ private fun AlbumHeader(album: Album, nav: NavController) {
         Spacer(Modifier.height(8.dp))
         FormatBadge(songs.firstOrNull(), large = true)
         Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        PlayActions(
+            onPlay = { c.player.play(songs) },
+            onShuffle = { c.player.play(songs, shuffle = true) },
+            modifier = Modifier.padding(horizontal = 20.dp),
+        ) {
             IconButton(onClick = {
                 starred = !starred
                 scope.launch { runCatching { c.api.star(album.id, starred) } }
             }) {
-                Icon(if (starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (starred) Hifi.Amber else Hifi.TextDim)
+                Icon(if (starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Álbum favorito", tint = if (starred) Hifi.Accent else Hifi.TextDim)
             }
-            Button(
-                onClick = { c.player.play(songs) },
-                colors = ButtonDefaults.buttonColors(containerColor = Hifi.Amber, contentColor = Color.Black),
-                modifier = Modifier.height(48.dp),
-            ) {
-                Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("REPRODUCIR", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(onClick = { c.player.play(songs, shuffle = true) }, modifier = Modifier.height(48.dp)) {
-                Icon(Icons.Default.Shuffle, null, tint = Hifi.Cream)
-            }
-            IconButton(onClick = { c.player.enqueue(songs) }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = Hifi.TextDim) }
+            DownloadButton(songs)
+            IconButton(onClick = { c.player.enqueue(songs) }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Agregar a la cola", tint = Hifi.TextDim) }
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -209,8 +207,8 @@ private fun AlbumSummaryCard(album: Album) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("ACERCA DEL ÁLBUM", style = Mono.copy(color = Hifi.Text, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
             if (s != null && s.source != InfoSource.NONE) {
-                Box(Modifier.border(1.dp, Hifi.AmberDim, RoundedCornerShape(3.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                    Text(s.source.label.uppercase(), style = Mono.copy(color = Hifi.Amber, fontSize = 9.sp))
+                Box(Modifier.border(1.dp, Hifi.AccentDim, RoundedCornerShape(3.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text(s.source.label.uppercase(), style = Mono.copy(color = Hifi.Accent, fontSize = 9.sp))
                 }
             }
         }
@@ -224,7 +222,7 @@ private fun AlbumSummaryCard(album: Album) {
                     modifier = Modifier.clickable { expanded = !expanded },
                 )
                 if (!expanded && s.text.length > 320) {
-                    Text("Leer más", color = Hifi.Amber, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp).clickable { expanded = true })
+                    Text("Leer más", color = Hifi.Accent, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp).clickable { expanded = true })
                 }
             }
             else -> Text(s?.error ?: "Sin información.", color = Hifi.TextDim, fontSize = 13.sp)
@@ -257,9 +255,9 @@ private fun AlbumSummaryCard(album: Album) {
                     loading = false
                 }
             }) {
-                Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp), tint = Hifi.Amber)
+                Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp), tint = Hifi.Accent)
                 Spacer(Modifier.width(6.dp))
-                Text(if (s?.source == InfoSource.CLAUDE) "Regenerar con IA" else "Generar reseña con IA", color = Hifi.Amber)
+                Text(if (s?.source == InfoSource.CLAUDE) "Regenerar con IA" else "Generar reseña con IA", color = Hifi.Accent)
             }
         }
     }

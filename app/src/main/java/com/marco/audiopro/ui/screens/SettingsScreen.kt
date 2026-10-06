@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +32,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,15 +48,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.marco.audiopro.BuildConfig
 import com.marco.audiopro.container
 import com.marco.audiopro.data.ReplayGainMode
 import com.marco.audiopro.data.StreamQuality
 import com.marco.audiopro.ui.components.SectionHeader
+import com.marco.audiopro.ui.theme.AccentTheme
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 import kotlinx.coroutines.Dispatchers
@@ -79,11 +89,48 @@ fun SettingsScreen(nav: NavController) {
             OutlinedButton(onClick = { c.settings.saveAccount(null) }) { Text("Cerrar sesión", color = Hifi.LedRed) }
         }
 
+        SectionHeader("Apariencia")
+        Card {
+            Text("Color de acento", fontSize = 15.sp)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                AccentTheme.entries.forEach { t ->
+                    val sel = prefs.accent == t
+                    Column(
+                        Modifier.clip(RoundedCornerShape(10.dp)).clickable { c.settings.updatePrefs { it.copy(accent = t) } }.padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape)
+                                .background(t.color?.let { SolidColor(it) } ?: Brush.sweepGradient(listOf(Color(0xFFFF4D8D), Color(0xFFFFB000), Color(0xFF3CF28E), Color(0xFF3DD9EB), Color(0xFFA48BFF), Color(0xFFFF4D8D))))
+                                .border(if (sel) 3.dp else 1.dp, if (sel) Color.White else Hifi.Line, CircleShape),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(t.label, fontSize = 9.sp, color = if (sel) Hifi.Text else Hifi.TextFaint, maxLines = 1)
+                    }
+                }
+            }
+            Hint("\"Portada\" toma el color del disco que está sonando.")
+        }
+
         SectionHeader("Calidad de streaming")
         Card {
             QualityPicker("Wi-Fi", prefs.wifiQuality) { q -> c.settings.updatePrefs { it.copy(wifiQuality = q) } }
             QualityPicker("Datos móviles", prefs.mobileQuality) { q -> c.settings.updatePrefs { it.copy(mobileQuality = q) } }
             Hint("Las opciones con pérdida las transcodifica Navidrome (necesita ffmpeg). Aplica a las canciones que pongas a partir de ahora.")
+        }
+
+        SectionHeader("Descargas")
+        Card {
+            QualityPicker("Calidad de descarga", prefs.downloadQuality) { q -> c.settings.updatePrefs { it.copy(downloadQuality = q) } }
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Descargar sólo con Wi-Fi", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                Switch(
+                    prefs.downloadWifiOnly, { on -> c.settings.updatePrefs { it.copy(downloadWifiOnly = on) } },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
+                )
+            }
+            Hint("Las descargas se guardan en la memoria del teléfono y suenan sin conexión, aunque tu servidor esté apagado.")
         }
 
         SectionHeader("ReplayGain")
@@ -93,7 +140,7 @@ fun SettingsScreen(nav: NavController) {
                     FilterChip(
                         selected = prefs.replayGain == m, onClick = { c.settings.updatePrefs { it.copy(replayGain = m) } },
                         label = { Text(m.label) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AmberDim, selectedLabelColor = Hifi.Cream),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
                     )
                 }
             }
@@ -102,7 +149,7 @@ fun SettingsScreen(nav: NavController) {
                 Slider(
                     prefs.replayGainPreampDb, { v -> c.settings.updatePrefs { it.copy(replayGainPreampDb = Math.round(v * 2) / 2f) } },
                     valueRange = -12f..6f, modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Amber, inactiveTrackColor = Hifi.Line),
+                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
                 )
                 Text("%+.1f dB".format(prefs.replayGainPreampDb), style = Mono.copy(color = Hifi.Cream), modifier = Modifier.width(70.dp).padding(start = 8.dp))
             }
@@ -116,7 +163,7 @@ fun SettingsScreen(nav: NavController) {
                 Slider(
                     prefs.visualOffsetMs.toFloat(), { v -> c.settings.updatePrefs { it.copy(visualOffsetMs = (v / 10).toInt() * 10) } },
                     valueRange = -100f..400f, modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Amber, inactiveTrackColor = Hifi.Line),
+                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
                 )
                 Text("${prefs.visualOffsetMs} ms", style = Mono.copy(color = Hifi.Cream), modifier = Modifier.width(70.dp).padding(start = 8.dp))
             }
@@ -151,7 +198,7 @@ fun SettingsScreen(nav: NavController) {
         }
 
         Text(
-            "MARCO AUDIO PRO · v1.0", style = Mono.copy(color = Hifi.TextFaint),
+            "MARCO AUDIO PRO · v${BuildConfig.VERSION_NAME}", style = Mono.copy(color = Hifi.TextFaint),
             modifier = Modifier.fillMaxWidth().padding(28.dp),
         )
     }
@@ -177,8 +224,8 @@ private fun QualityPicker(label: String, value: StreamQuality, onPick: (StreamQu
         Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f))
         Box {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(value.label, color = Hifi.Amber, fontSize = 14.sp)
-                Icon(Icons.Default.ArrowDropDown, null, tint = Hifi.Amber)
+                Text(value.label, color = Hifi.Accent, fontSize = 14.sp)
+                Icon(Icons.Default.ArrowDropDown, null, tint = Hifi.Accent)
             }
             DropdownMenu(open, { open = false }) {
                 StreamQuality.entries.forEach { q ->

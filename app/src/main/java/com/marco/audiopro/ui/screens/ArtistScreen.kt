@@ -109,7 +109,7 @@ fun ArtistScreen(id: String, nav: NavController) {
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = { playAll(false) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Hifi.Amber, contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(containerColor = Hifi.Accent, contentColor = Color.Black),
                     ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("REPRODUCIR TODO", fontWeight = FontWeight.Bold) }
                     OutlinedButton(onClick = { playAll(true) }) { Icon(Icons.Default.Shuffle, null, tint = Hifi.Cream) }
                 }

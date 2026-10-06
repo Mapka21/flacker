@@ -100,6 +100,9 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
             .sortedByDescending { it.synced }.firstOrNull { it.line.isNotEmpty() }
     }.getOrNull()
 
+    /** Todo lo marcado con "me gusta" (canciones, álbumes y artistas). */
+    suspend fun starred(): SearchResult = get("getStarred2", "starred2", default = SearchResult())
+
     suspend fun star(id: String, starred: Boolean) { call(if (starred) "star" else "unstar", mapOf("id" to id)) }
 
     suspend fun scrobble(id: String, submission: Boolean) {

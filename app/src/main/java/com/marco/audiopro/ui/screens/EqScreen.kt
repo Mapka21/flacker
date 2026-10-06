@@ -97,12 +97,12 @@ fun EqScreen() {
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("DSP", style = Mono.copy(color = Hifi.Amber, fontSize = 11.sp, letterSpacing = 4.sp))
+                Text("DSP", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 4.sp))
                 Text("Ecualizador paramétrico", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Switch(
                 cfg.enabled, { on -> engine.update { it.copy(enabled = on) } },
-                colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Amber, checkedThumbColor = Color.Black),
+                colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -115,8 +115,8 @@ fun EqScreen() {
                 val sel = i == selected
                 Column(
                     Modifier.clip(RoundedCornerShape(6.dp))
-                        .background(if (sel) Hifi.AmberDim else Hifi.Panel)
-                        .border(1.dp, if (sel) Hifi.Amber else Hifi.Line, RoundedCornerShape(6.dp))
+                        .background(if (sel) Hifi.AccentDim else Hifi.Panel)
+                        .border(1.dp, if (sel) Hifi.Accent else Hifi.Line, RoundedCornerShape(6.dp))
                         .clickable { selected = i }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -134,7 +134,7 @@ fun EqScreen() {
         PreampEditor(cfg, engine)
 
         SectionHeader("Presets") {
-            TextButton(onClick = { saveDialog = true }) { Text("Guardar", color = Hifi.Amber) }
+            TextButton(onClick = { saveDialog = true }) { Text("Guardar", color = Hifi.Accent) }
         }
         PresetRow(cfg, engine)
 
@@ -244,7 +244,7 @@ private fun EqGraph(cfg: EqConfig, engine: AudioEngine, selected: Int, onSelect:
         }
         // Curva de respuesta
         val active = cfg.enabled
-        val curveColor = if (active) Hifi.Amber else Hifi.TextFaint
+        val curveColor = if (active) Hifi.Accent else Hifi.TextFaint
         curve.reset(); fill.reset()
         for (i in response.indices) {
             val x = w * i / (response.size - 1)
@@ -259,7 +259,7 @@ private fun EqGraph(cfg: EqConfig, engine: AudioEngine, selected: Int, onSelect:
             val x = EqMath.xOf(b.freq) * w
             val y = if (b.type.hasGain) mid - b.gainDb / DB_RANGE * mid else mid
             val sel = i == selected
-            val col = if (!b.enabled) Hifi.TextFaint else if (sel) Hifi.Cream else Hifi.Amber
+            val col = if (!b.enabled) Hifi.TextFaint else if (sel) Hifi.Cream else Hifi.Accent
             if (sel) drawCircle(col.copy(alpha = 0.18f), 20.dp.toPx(), Offset(x, y))
             drawCircle(Color.Black, 10.dp.toPx(), Offset(x, y))
             drawCircle(col, 10.dp.toPx(), Offset(x, y), style = Stroke(2.dp.toPx()))
@@ -299,13 +299,13 @@ private fun BandEditor(b: EqBand, onChange: ((EqBand) -> EqBand) -> Unit) {
                 items(FilterType.entries) { t ->
                     FilterChip(
                         selected = b.type == t, onClick = { onChange { it.copy(type = t) } }, label = { Text(t.label, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AmberDim, selectedLabelColor = Hifi.Cream),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
                     )
                 }
             }
             Switch(
                 b.enabled, { on -> onChange { it.copy(enabled = on) } },
-                colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Amber, checkedThumbColor = Color.Black),
+                colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
             )
         }
         // Frecuencia en escala log
@@ -331,7 +331,7 @@ private fun LabeledSlider(name: String, value: String, v: Float, range: ClosedFl
         Text(name, style = Mono.copy(color = Hifi.TextDim), modifier = Modifier.width(44.dp))
         Slider(
             v, onChange, valueRange = range, modifier = Modifier.weight(1f),
-            colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Amber, inactiveTrackColor = Hifi.Line),
+            colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
         )
         Text(value, style = Mono.copy(color = Hifi.Cream), modifier = Modifier.width(82.dp).padding(start = 8.dp))
     }
@@ -358,7 +358,7 @@ private fun PreampEditor(cfg: EqConfig, engine: AudioEngine) {
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Amber, checkedThumbColor = Color.Black))
+        Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black))
     }
 }
 
@@ -375,8 +375,8 @@ private fun PresetRow(cfg: EqConfig, engine: AudioEngine) {
             val isUser = user.any { it.name == p.name }
             Box(
                 Modifier.clip(RoundedCornerShape(16.dp))
-                    .background(if (sel) Hifi.AmberDim else Hifi.Panel)
-                    .border(1.dp, if (sel) Hifi.Amber else Hifi.Line, RoundedCornerShape(16.dp))
+                    .background(if (sel) Hifi.AccentDim else Hifi.Panel)
+                    .border(1.dp, if (sel) Hifi.Accent else Hifi.Line, RoundedCornerShape(16.dp))
                     .combinedClickable(onClick = { engine.applyPreset(p) }, onLongClick = { if (isUser) confirmDelete = p.name })
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {

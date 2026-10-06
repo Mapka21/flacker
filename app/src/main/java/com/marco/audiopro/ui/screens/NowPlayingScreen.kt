@@ -1,6 +1,9 @@
 package com.marco.audiopro.ui.screens
 
+import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -65,7 +68,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -84,11 +91,14 @@ import com.marco.audiopro.data.subsonic.Song
 import com.marco.audiopro.data.subsonic.StructuredLyrics
 import com.marco.audiopro.data.subsonic.khz
 import com.marco.audiopro.ui.components.CoverArt
+import com.marco.audiopro.ui.components.DownloadButton
+import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.formatMs
 import com.marco.audiopro.ui.components.rememberCoverColor
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
 import com.marco.audiopro.ui.rememberPlaybackPosition
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 import com.marco.audiopro.ui.viz.Visualizer
@@ -119,10 +129,17 @@ fun NowPlayingScreen(nav: NavController) {
     val pager = rememberPagerState(initialPage = page) { panels.size }
     LaunchedEffect(pager.currentPage) { page = pager.currentPage }
 
+    // Fondo: la portada enorme y difuminada (Android 12+), bajo un velo del color del disco.
+    Box(Modifier.fillMaxSize().background(Hifi.Bg)) {
+        AsyncImage(
+            c.api.coverUrl(song.coverArt, 400), null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().blur(90.dp).graphicsLayer { alpha = if (Build.VERSION.SDK_INT >= 31) 0.55f else 0f },
+        )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = 0.55f), 0.55f to Hifi.Bg.copy(alpha = 0.85f), 1f to Hifi.Bg)))
+    }
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(0f to tint.copy(alpha = 0.85f), 0.75f to Hifi.Bg))
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -140,11 +157,16 @@ fun NowPlayingScreen(nav: NavController) {
         HorizontalPager(pager, Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(horizontal = 24.dp), pageSpacing = 16.dp) { i ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 when (val p = panels[i]) {
-                    CoverPanel -> CoverArt(
-                        song.coverArt,
-                        Modifier.fillMaxWidth().aspectRatio(1f).shadow(28.dp, RoundedCornerShape(10.dp)),
-                        size = 1000, corner = 10.dp,
-                    )
+                    CoverPanel -> {
+                        // La portada "respira": se encoge un poco en pausa.
+                        val scale by animateFloatAsState(if (st.isPlaying) 1f else 0.9f, tween(400), label = "cover")
+                        CoverArt(
+                            song.coverArt,
+                            Modifier.fillMaxWidth().aspectRatio(1f).graphicsLayer { scaleX = scale; scaleY = scale }
+                                .shadow(36.dp, RoundedCornerShape(14.dp)),
+                            size = 800, corner = 14.dp,
+                        )
+                    }
                     is VizPanel -> DisplayPanel { Visualizer(p.mode, Modifier.fillMaxSize().padding(12.dp)) }
                     LyricsPanel -> DisplayPanel { LyricsView(song) }
                 }
@@ -156,7 +178,7 @@ fun NowPlayingScreen(nav: NavController) {
                 val sel = pager.currentPage == i
                 Box(
                     Modifier.padding(horizontal = 3.dp).size(if (sel) 7.dp else 5.dp).clip(CircleShape)
-                        .background(if (sel) Hifi.Amber else Hifi.TextFaint)
+                        .background(if (sel) Hifi.Accent else Hifi.TextFaint)
                         .clickable { pager.requestScrollToPage(i) },
                 )
             }
@@ -174,9 +196,10 @@ fun NowPlayingScreen(nav: NavController) {
             SeekBar(st.durationMs)
             Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
             st.error?.let { Text(it, color = Hifi.LedRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 BottomAction(Icons.Default.Equalizer, "DSP") { nav.navigate("dsp") }
                 BottomAction(Icons.Default.Route, "SEÑAL") { showPath = true }
+                DownloadButton(listOf(song))
                 BottomAction(Icons.AutoMirrored.Filled.QueueMusic, "COLA") { showQueue = true }
             }
         }
@@ -211,13 +234,13 @@ private fun LcdStrip(song: Song, engine: AudioEngine, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color(0xFF0E0B05))
-            .border(1.dp, Hifi.AmberDim.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+            .background(lerp(Color.Black, Hifi.Accent, 0.06f).copy(alpha = 0.85f))
+            .border(1.dp, Hifi.Accent.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val lcd = Mono.copy(color = Hifi.Amber, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        val lcd = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         val parts = buildList {
             add((song.suffix ?: "?").uppercase())
             song.bitDepth?.takeIf { it > 0 }?.let { add("$it BIT") }
@@ -235,14 +258,11 @@ private fun LcdStrip(song: Song, engine: AudioEngine, onClick: () -> Unit) {
 
 @Composable
 private fun TitleBlock(song: Song, nav: NavController) {
-    val c = LocalContext.current.container
-    val scope = rememberCoroutineScope()
-    var starred by remember(song.id) { mutableStateOf(song.starred != null) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(song.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.basicMarquee())
+            Text(song.title, style = Display.copy(fontSize = 24.sp), maxLines = 1, modifier = Modifier.basicMarquee())
             Text(
-                song.artist ?: "", fontSize = 16.sp, color = Hifi.Amber, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                song.artist ?: "", fontSize = 16.sp, color = Hifi.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable { song.artistId?.let(nav::openArtist) },
             )
             Text(
@@ -251,12 +271,7 @@ private fun TitleBlock(song: Song, nav: NavController) {
                 modifier = Modifier.clickable { song.albumId?.let(nav::openAlbum) },
             )
         }
-        IconButton(onClick = {
-            starred = !starred
-            scope.launch { runCatching { c.api.star(song.id, starred) } }
-        }) {
-            Icon(if (starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (starred) Hifi.Amber else Hifi.TextDim)
-        }
+        LikeButton(song, size = 28.dp)
     }
 }
 
@@ -271,7 +286,7 @@ private fun SeekBar(durationMs: Long) {
         value = value,
         onValueChange = { dragging = it },
         onValueChangeFinished = { dragging?.let { player.seekTo((it * dur).toLong()) }; dragging = null },
-        colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Amber, inactiveTrackColor = Hifi.Line),
+        colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
         modifier = Modifier.height(28.dp),
     )
     Row(Modifier.fillMaxWidth()) {
@@ -286,11 +301,11 @@ private fun Controls(playing: Boolean, buffering: Boolean, shuffle: Boolean, rep
     val scale by animateFloatAsState(if (playing) 1f else 0.94f, label = "play")
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { player.toggleShuffle() }) {
-            Icon(Icons.Default.Shuffle, null, tint = if (shuffle) Hifi.Amber else Hifi.TextDim)
+            Icon(Icons.Default.Shuffle, null, tint = if (shuffle) Hifi.Accent else Hifi.TextDim)
         }
         IconButton(onClick = { player.previous() }, Modifier.size(56.dp)) { Icon(Icons.Default.SkipPrevious, null, Modifier.size(36.dp)) }
         Box(
-            Modifier.size(76.dp * scale).clip(CircleShape).background(Hifi.Amber).clickable { player.toggle() },
+            Modifier.size(76.dp * scale).clip(CircleShape).background(Hifi.Accent).clickable { player.toggle() },
             contentAlignment = Alignment.Center,
         ) {
             if (buffering) CircularProgressIndicator(Modifier.size(30.dp), color = Color.Black, strokeWidth = 2.dp)
@@ -300,7 +315,7 @@ private fun Controls(playing: Boolean, buffering: Boolean, shuffle: Boolean, rep
         IconButton(onClick = { player.cycleRepeat() }) {
             Icon(
                 if (repeat == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, null,
-                tint = if (repeat != Player.REPEAT_MODE_OFF) Hifi.Amber else Hifi.TextDim,
+                tint = if (repeat != Player.REPEAT_MODE_OFF) Hifi.Accent else Hifi.TextDim,
             )
         }
     }
@@ -345,7 +360,7 @@ private fun LyricsView(song: Song) {
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                         color = when {
                             !l.synced -> Hifi.Text
-                            active -> Hifi.Amber
+                            active -> Hifi.Accent
                             i < current -> Hifi.TextFaint
                             else -> Hifi.TextDim
                         },
@@ -382,10 +397,10 @@ private fun QueueSheet() {
                     CoverArt(s.coverArt, Modifier.size(40.dp), size = 120, corner = 4.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (cur) Hifi.Amber else Hifi.Text, fontSize = 14.sp)
+                        Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (cur) Hifi.Accent else Hifi.Text, fontSize = 14.sp)
                         Text(s.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, color = Hifi.TextDim, fontSize = 12.sp)
                     }
-                    if (cur) Icon(Icons.Default.GraphicEq, null, tint = Hifi.Amber, modifier = Modifier.padding(horizontal = 12.dp))
+                    if (cur) Icon(Icons.Default.GraphicEq, null, tint = Hifi.Accent, modifier = Modifier.padding(horizontal = 12.dp))
                     else IconButton(onClick = { player.removeAt(i) }) { Icon(Icons.Default.Close, null, tint = Hifi.TextFaint) }
                 }
             }
@@ -395,14 +410,14 @@ private fun QueueSheet() {
 
 // ------------------------------------------------------------------ Ruta de señal
 
-private enum class Quality(val color: Color) { LOSSLESS(Hifi.LedGreen), PROCESSED(Hifi.Amber), LOSSY(Color(0xFFFF7A45)) }
+private enum class Quality(val color: Color) { LOSSLESS(Hifi.LedGreen), PROCESSED(Hifi.Accent), LOSSY(Color(0xFFFF7A45)) }
 
 @Composable
 private fun SignalPathSheet(song: Song, engine: AudioEngine) {
     val eq by engine.config.collectAsState()
     val signal by engine.signal.collectAsState()
     val fmt = engine.eq.currentFormat
-    val transcoded = signal.transport.isNotEmpty() && !signal.transport.startsWith("Original")
+    val transcoded = signal.transport.contains("Opus") || signal.transport.contains("MP3")
 
     val steps = buildList {
         add(
@@ -421,7 +436,7 @@ private fun SignalPathSheet(song: Song, engine: AudioEngine) {
         add(
             Triple(
                 "TRANSPORTE",
-                if (transcoded) "${signal.transport} (transcodificado en el servidor)" else "Archivo original sin transcodificar",
+                when { transcoded -> "${signal.transport} (transcodificado en el servidor)"; signal.transport.startsWith("Descargado") -> "${signal.transport} · desde el teléfono"; else -> "Archivo original sin transcodificar" },
                 if (transcoded) Quality.LOSSY else Quality.LOSSLESS,
             ),
         )

@@ -37,11 +37,14 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.marco.audiopro.container
 import com.marco.audiopro.ui.components.CoverArt
+import com.marco.audiopro.ui.components.DownloadButton
+import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.TrackRow
 import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 
 @Composable
@@ -55,24 +58,19 @@ fun PlaylistScreen(id: String, nav: NavController) {
             item {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
                 Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CoverArt(pl.coverArt, Modifier.size(120.dp), size = 400)
+                    CoverArt(pl.coverArt, Modifier.size(124.dp), size = 400, corner = 12.dp)
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text(pl.name, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(pl.name, style = Display.copy(fontSize = 24.sp))
                         Text("${songs.size} canciones · ${formatDuration(pl.duration)}", color = Hifi.TextDim, fontSize = 13.sp)
                         pl.comment?.takeIf { it.isNotBlank() }?.let { Text(it, color = Hifi.TextFaint, fontSize = 12.sp) }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = { c.player.play(songs) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Hifi.Amber, contentColor = Color.Black),
-                        modifier = Modifier.height(46.dp),
-                    ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("REPRODUCIR", fontWeight = FontWeight.Bold) }
-                    OutlinedButton(onClick = { c.player.play(songs, shuffle = true) }, modifier = Modifier.height(46.dp)) {
-                        Icon(Icons.Default.Shuffle, null, tint = Hifi.Cream)
-                    }
-                }
+                PlayActions(
+                    onPlay = { c.player.play(songs) },
+                    onShuffle = { c.player.play(songs, shuffle = true) },
+                    modifier = Modifier.padding(20.dp),
+                ) { DownloadButton(songs) }
             }
             itemsIndexed(songs, key = { i, s -> "$i-${s.id}" }) { i, s ->
                 TrackRow(

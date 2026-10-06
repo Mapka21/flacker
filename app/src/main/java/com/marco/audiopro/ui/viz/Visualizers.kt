@@ -65,7 +65,7 @@ private val monoSmall = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 
 
 /** Visualizador en tiempo real alimentado por el AnalyzerTap (audio post-EQ). */
 @Composable
-fun Visualizer(mode: VizMode, modifier: Modifier = Modifier, accent: Color = Hifi.Amber) {
+fun Visualizer(mode: VizMode, modifier: Modifier = Modifier, accent: Color = Hifi.Accent) {
     val ctx = LocalContext.current
     val c = ctx.container
     val analyzer = remember { Analyzer(c.engine.tap) }
@@ -387,7 +387,7 @@ private fun Goniometer(a: Analyzer, tick: State<Long>, tm: TextMeasurer, accent:
         drawRoundRect(Hifi.Panel, Offset(bx, by), Size(bw, 6.dp.toPx()), CornerRadius(3.dp.toPx()))
         drawLine(Hifi.TextFaint, Offset(bx + bw / 2, by - 2f), Offset(bx + bw / 2, by + 6.dp.toPx() + 2f), 1f)
         val mx = bx + bw * (st.corr + 1) / 2
-        val col = when { st.corr < 0f -> Hifi.LedRed; st.corr < 0.3f -> Hifi.Amber; else -> Hifi.LedGreen }
+        val col = when { st.corr < 0f -> Hifi.LedRed; st.corr < 0.3f -> Hifi.Accent; else -> Hifi.LedGreen }
         drawCircle(col, 5.dp.toPx(), Offset(mx, by + 3.dp.toPx()))
         drawLabel(tm, "-1", Offset(bx - 12.dp.toPx(), by - 2.dp.toPx()))
         drawLabel(tm, "+1", Offset(bx + bw + 4.dp.toPx(), by - 2.dp.toPx()))

@@ -2,6 +2,7 @@ package com.marco.audiopro.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.marco.audiopro.ui.theme.AccentTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,9 @@ data class AppPrefs(
     val visualOffsetMs: Int = 40,
     val lastFmKey: String = "",
     val anthropicKey: String = "",
+    val accent: AccentTheme = AccentTheme.AMBER,
+    val downloadQuality: StreamQuality = StreamQuality.ORIGINAL,
+    val downloadWifiOnly: Boolean = true,
 )
 
 /** Todo lo persistente que no es el EQ. Una app personal: SharedPreferences basta. */
@@ -68,6 +72,9 @@ class Settings(context: Context) {
         visualOffsetMs = sp.getInt("vis_off", 40),
         lastFmKey = sp.getString("lastfm", "")!!,
         anthropicKey = sp.getString("anthropic", "")!!,
+        accent = enumOr(sp.getString("accent", null), AccentTheme.AMBER),
+        downloadQuality = enumOr(sp.getString("q_download", null), StreamQuality.ORIGINAL),
+        downloadWifiOnly = sp.getBoolean("dl_wifi", true),
     )
 
     fun updatePrefs(f: (AppPrefs) -> AppPrefs) {
@@ -80,6 +87,9 @@ class Settings(context: Context) {
             .putInt("vis_off", p.visualOffsetMs)
             .putString("lastfm", p.lastFmKey.trim())
             .putString("anthropic", p.anthropicKey.trim())
+            .putString("accent", p.accent.name)
+            .putString("q_download", p.downloadQuality.name)
+            .putBoolean("dl_wifi", p.downloadWifiOnly)
             .apply()
         _prefs.value = p
     }

@@ -40,7 +40,7 @@ class PlaybackService : MediaSessionService() {
 
     private var session: MediaSession? = null
     private val scope = MainScope()
-    private val resolvedQuality = HashMap<String, StreamQuality>()
+    private val resolvedTransport = HashMap<String, String>()
     private var scrobbledId: String? = null
 
     override fun onCreate() {
@@ -65,11 +65,16 @@ class PlaybackService : MediaSessionService() {
                 .build()
         }
 
+        // Descargas (sólo lectura) → caché LRU de streaming → red.
         val upstream = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(c.streamHttp))
-        val dataSource = CacheDataSource.Factory()
+        val streamCache = CacheDataSource.Factory()
             .setCache(c.mediaCache)
             .setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        val dataSource = CacheDataSource.Factory()
+            .setCache(c.downloadCache)
+            .setUpstreamDataSourceFactory(streamCache)
+            .setCacheWriteDataSinkFactory(null)
 
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -129,8 +134,13 @@ class PlaybackService : MediaSessionService() {
 
     /** La UI manda MediaItems sin URI (no cruzan el IPC): aquí se arma la URL de stream. */
     private fun resolve(item: MediaItem): MediaItem {
+        container.downloads.completed(item.mediaId)?.let { req ->
+            val q = req.customCacheKey?.substringAfter(':')?.let { runCatching { StreamQuality.valueOf(it) }.getOrNull() }
+            resolvedTransport[item.mediaId] = "Descargado · ${q?.label ?: "local"}"
+            return item.buildUpon().setUri(req.uri).setCustomCacheKey(req.customCacheKey).build()
+        }
         val q = container.currentQuality()
-        resolvedQuality[item.mediaId] = q
+        resolvedTransport[item.mediaId] = q.label
         return item.buildUpon()
             .setUri(container.api.streamUrl(item.mediaId, q))
             .setCustomCacheKey("${item.mediaId}:${q.name}")
@@ -142,7 +152,7 @@ class PlaybackService : MediaSessionService() {
         val song = item?.toSong()
         val prefs = container.settings.prefs.value
         val rg = song?.replayGain
-        val transport = item?.let { resolvedQuality[it.mediaId]?.label } ?: ""
+        val transport = item?.let { resolvedTransport[it.mediaId] } ?: ""
 
         val (gain, peak, label) = when (prefs.replayGain) {
             ReplayGainMode.OFF -> Triple(null, null, null)
