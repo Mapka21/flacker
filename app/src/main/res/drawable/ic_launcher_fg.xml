@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Barras de espectro sobre un anillo tipo VU. Zona segura 66dp centrada en 108dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFB000"
+        android:strokeWidth="2.5"
+        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0" />
+    <path android:fillColor="#FFFFB000" android:pathData="M38,60h4v10h-4z" />
+    <path android:fillColor="#FFFFB000" android:pathData="M44,48h4v22h-4z" />
+    <path android:fillColor="#FFFFB000" android:pathData="M50,38h4v32h-4z" />
+    <path android:fillColor="#FFFFB000" android:pathData="M56,44h4v26h-4z" />
+    <path android:fillColor="#FFFFB000" android:pathData="M62,52h4v18h-4z" />
+    <path android:fillColor="#FFFFB000" android:pathData="M68,58h4v12h-4z" />
+</vector>
