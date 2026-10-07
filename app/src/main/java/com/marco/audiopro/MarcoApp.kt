@@ -4,6 +4,10 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
+import android.net.wifi.WifiManager
+import android.os.Build
+import com.marco.audiopro.connect.ConnectService
+import com.marco.audiopro.data.info.LyricsRepository
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
@@ -82,6 +86,14 @@ class AppContainer(private val context: Context) : AppGraph {
     val eqProcessor = ParametricEqProcessor(engine.eq)
     override val albumInfo = AlbumInfoRepository(context.filesDir, api, LastFm(http), ClaudeReviewer(), settings)
     override val player = PlayerConnection(context)
+    override val lyrics = LyricsRepository(http, api, context.filesDir)
+    override val connect: ConnectService by lazy {
+        ConnectService(Build.MODEL ?: "Android", "android", settings, player, appScope) {
+            // Sin esto muchos teléfonos descartan los anuncios UDP de la red.
+            context.applicationContext.getSystemService(WifiManager::class.java)
+                ?.createMulticastLock("marco-connect")?.apply { setReferenceCounted(false); acquire() }
+        }
+    }
     override val likes = Likes(api, appScope)
     override val versionName: String = BuildConfig.VERSION_NAME
     override val isDesktop = false

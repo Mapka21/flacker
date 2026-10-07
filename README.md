@@ -14,9 +14,9 @@ Cliente personal y audiófilo para Navidrome, en **Android** y **Windows** (el m
 ### Windows
 1. Descomprime `MarcoAudioPro-Windows.zip` donde quieras (por ejemplo en `C:\Programas`).
 2. Abre `MarcoAudioPro\MarcoAudioPro.exe`. No necesita instalar Java ni ffmpeg: ya vienen dentro.
-3. **Miniplayer estilo iPod**: botón ⧉ en la barra de reproducción. Ventanita flotante siempre
-   encima con click wheel: gira la rueda para el volumen; MENU, doble clic en la pantalla o la ✕
-   regresan a la app completa; arrastra la pantalla para moverlo.
+3. **Miniplayer iPod nano**: botón ⧉ arriba a la derecha. iPod nano del color de la portada,
+   siempre encima; se arrastra desde cualquier parte menos la rueda. Gira la rueda para el
+   volumen; MENU, doble clic en la pantalla o la ✕ regresan a la app completa.
 4. Atajos: **Ctrl+Espacio** play/pausa · **Ctrl+→ / Ctrl+←** siguiente/anterior ·
    **Ctrl+↑ / Ctrl+↓** volumen · también las teclas multimedia del teclado.
 
@@ -24,6 +24,17 @@ Opcional (Ajustes → Reseñas de álbum): API key de Last.fm (gratis) para rese
 y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tiene nada.
 
 ## Qué trae
+
+- **Marco Connect** (como Spotify Connect, sin nube): el celular y la PC se ven en la misma red
+  Wi-Fi. Botón de dispositivos → tocas tu PC y la canción sigue ahí en el mismo segundo;
+  "Traer aquí" la regresa. Si algo suena en otro dispositivo aparece la barra verde
+  "Reproduciendo en …" con control remoto. Sólo se ven dispositivos con tu misma cuenta de
+  Navidrome. En la PC, la primera vez Windows pregunta por el firewall: permite "redes privadas".
+- **Letras de internet**: si Navidrome no tiene la letra, se busca en LRCLIB (sincronizada
+  cuando existe) y se guarda.
+- **PC en tres columnas**: barra lateral (menú, biblioteca, tus playlists), contenido, y
+  Reproduciendo + A continuación a la derecha, en paneles de vidrio sobre el fondo vivo.
+  En ventanas angostas el reproductor se vuelve una píldora flotante.
 
 - **Diseño estilo Apple Music**: fondo "vivo" con los colores de la portada en movimiento,
   paneles de vidrio, controles blancos, barras finas que se engrosan al tocarlas, letras

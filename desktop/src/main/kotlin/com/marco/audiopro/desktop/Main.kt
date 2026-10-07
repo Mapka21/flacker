@@ -29,6 +29,8 @@ import com.marco.audiopro.data.Settings
 import com.marco.audiopro.data.info.AlbumInfoRepository
 import com.marco.audiopro.data.info.ClaudeReviewer
 import com.marco.audiopro.data.info.LastFm
+import com.marco.audiopro.data.info.LyricsRepository
+import com.marco.audiopro.connect.ConnectService
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.resources.Res
 import com.marco.audiopro.resources.app_icon
@@ -87,9 +89,13 @@ class DesktopGraph : AppGraph {
     }
     override val albumInfo = AlbumInfoRepository(dataDir, api, LastFm(http), ClaudeReviewer(), settings)
     override val likes = Likes(api, scope)
+    override val lyrics = LyricsRepository(http, api, dataDir)
+    override val connect = ConnectService(
+        System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
+    )
     override val downloads = null
     override val cache = null
-    override val versionName = "1.3.0"
+    override val versionName = "1.4.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -97,6 +103,7 @@ class DesktopGraph : AppGraph {
 
 fun main() {
     val graph = DesktopGraph()
+    graph.connect.start()
     SingletonImageLoader.setSafe { ctx ->
         ImageLoader.Builder(ctx)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }

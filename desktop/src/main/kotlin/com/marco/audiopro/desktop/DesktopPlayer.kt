@@ -395,6 +395,17 @@ class DesktopPlayer(
         cmds.put(Cmd.Load(start, 0, true))
     }
 
+    override fun playFrom(songs: List<Song>, index: Int, positionMs: Long) {
+        if (songs.isEmpty()) return
+        val start = index.coerceIn(0, songs.lastIndex)
+        synchronized(lock) {
+            queue = songs
+            shuffle = false
+            rebuildOrder(start)
+        }
+        cmds.put(Cmd.Load(start, positionMs, true))
+    }
+
     override fun playNext(songs: List<Song>) {
         val empty = synchronized(lock) {
             val c = _state.value.currentIndex

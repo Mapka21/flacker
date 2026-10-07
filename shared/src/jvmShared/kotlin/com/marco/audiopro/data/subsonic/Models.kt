@@ -144,6 +144,8 @@ data class Lyric(val start: Long? = null, val value: String = "")
 data class StructuredLyrics(
     val synced: Boolean = false,
     val line: List<Lyric> = emptyList(),
+    /** De dónde salió: "Navidrome" o "LRCLIB" (no viene del servidor). */
+    val source: String? = null,
 )
 
 @Serializable

@@ -74,4 +74,13 @@ class SharedDspTest {
         val album = prefs.copy(replayGain = com.marco.audiopro.data.ReplayGainMode.ALBUM)
         assertEquals(-7f, replayGainFor(song, album)!!.first, 1e-6f)
     }
+
+    @Test fun parsesLrc() {
+        val l = com.marco.audiopro.data.info.LyricsRepository.parseLrc(
+            listOf("[ar:Alguien]", "[00:01.50]Primera", "[00:03.2]Segunda", "[01:02.345][01:10.00]Coro", "[00:00.00]").joinToString("\n"),
+        )
+        assertEquals(listOf(0L, 1500L, 3200L, 62345L, 70000L), l.map { it.start })
+        assertEquals("Coro", l[3].value)
+        assertEquals("Primera", l[1].value)
+    }
 }

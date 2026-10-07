@@ -49,6 +49,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.marco.audiopro.ui.components.ConnectToast
+import com.marco.audiopro.ui.components.DevicesButton
+import com.marco.audiopro.ui.components.RemotePlaybackBanner
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -101,7 +104,8 @@ import kotlin.reflect.KClass
 // ------------------------------------------------------------------ rutas
 
 @Serializable data object HomeRoute
-@Serializable data object LibraryRoute
+/** @param tab 0 = álbumes, 1 = artistas, 2 = playlists. */
+@Serializable data class LibraryRoute(val tab: Int = 0)
 @Serializable data object SearchRoute
 @Serializable data object DownloadsRoute
 @Serializable data object DspRoute
@@ -152,7 +156,7 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(180)) },
     ) {
         composable<HomeRoute> { HomeScreen(nav) }
-        composable<LibraryRoute> { LibraryScreen(nav) }
+        composable<LibraryRoute> { LibraryScreen(nav, it.toRoute<LibraryRoute>().tab) }
         composable<SearchRoute> { SearchScreen(nav) }
         composable<DownloadsRoute> { DownloadsScreen() }
         composable<DspRoute> { EqScreen() }
@@ -222,7 +226,7 @@ private fun PhoneShell(nav: NavHostController) {
     val playback by c.player.state.collectAsState()
     val tabs = buildList {
         add(NavItem(HomeRoute, "Inicio", Icons.Default.Home))
-        add(NavItem(LibraryRoute, "Biblioteca", Icons.Default.LibraryMusic))
+        add(NavItem(LibraryRoute(), "Biblioteca", Icons.Default.LibraryMusic))
         add(NavItem(SearchRoute, "Buscar", Icons.Default.Search))
         if (c.downloads != null) add(NavItem(DownloadsRoute, "Descargas", Icons.Outlined.DownloadForOffline))
         add(NavItem(DspRoute, "DSP", Icons.Default.Equalizer))
@@ -238,6 +242,7 @@ private fun PhoneShell(nav: NavHostController) {
                         .background(Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Black.copy(alpha = 0.78f)))
                         .drawBehind { drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, 0f), Offset(size.width, 0f), 1f) },
                 ) {
+                    RemotePlaybackBanner(Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     if (playback.current != null) MiniPlayer { nav.openPlayer() }
                     BottomBar(tabs, dest) { nav.openTab(it) }
                 }
@@ -247,6 +252,7 @@ private fun PhoneShell(nav: NavHostController) {
         Box(Modifier.fillMaxSize()) {
             AmbientBackground(playback.current?.coverArt, intensity = 0.4f)
             AppNavHost(nav, Modifier.padding(pad))
+            ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
         }
     }
 }
@@ -298,6 +304,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
                 Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(song.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Hifi.TextDim)
             }
+            DevicesButton(size = 20)
             LikeButton(song, size = 20.dp)
             IconButton(onClick = { player.toggle() }) {
                 Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Hifi.Text)

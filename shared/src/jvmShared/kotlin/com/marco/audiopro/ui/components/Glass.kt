@@ -66,6 +66,8 @@ fun Modifier.bouncyClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
     }.clickable(interaction, indication = null, enabled = enabled, onClick = onClick)
 }
 
+val DuskPalette = listOf(Color(0xFF8E1B3A), Color(0xFF2A2370), Color(0xFF0F1B45), Color(0xFF5A1A5E))
+
 /**
  * Fondo "vivo" como el de Apple Music: manchas de los colores de la portada que se mueven
  * lentamente, bajo un velo oscuro para que el texto se lea.
@@ -75,7 +77,8 @@ fun Modifier.bouncyClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
 fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensity: Float = 1f) {
     val ctx = LocalPlatformContext.current
     val api = LocalApp.current.api
-    var target by remember { mutableStateOf(listOf(Hifi.PanelHi, Hifi.Panel, Hifi.PanelHi, Hifi.Panel)) }
+    // Sin portada: atardecer neón (carmesí, índigo, azul noche, ciruela).
+    var target by remember { mutableStateOf(DuskPalette) }
     LaunchedEffect(coverArt) { coverColors(ctx, api, coverArt)?.let { target = it.swatches } }
     val c0 by animateColorAsState(target[0], tween(1400), label = "a0")
     val c1 by animateColorAsState(target[1], tween(1400), label = "a1")
@@ -100,11 +103,11 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
             val a = phase * speed + offset
             val center = Offset(w * (0.5f + 0.38f * cos(a)), h * (0.5f + 0.34f * sin(a * 1.3f)))
             drawCircle(
-                Brush.radialGradient(listOf(color.copy(alpha = 0.62f * intensity), Color.Transparent), center, r),
+                Brush.radialGradient(listOf(color.copy(alpha = (0.8f * intensity).coerceAtMost(0.85f)), Color.Transparent), center, r),
                 r, center,
             )
         }
         // Velo: más oscuro abajo, donde van los controles y el texto.
-        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.18f), Color.Black.copy(alpha = 0.62f))))
+        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.50f))))
     }
 }

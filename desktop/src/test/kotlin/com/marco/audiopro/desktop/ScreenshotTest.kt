@@ -132,6 +132,18 @@ class ScreenshotTest {
         File(outDir, "7-visualizers.png").writeBytes(ui { viz.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
         ui { viz.close() }
 
+        // Ventana de PC angosta: la columna derecha se vuelve píldora flotante.
+        val narrow = ui { ImageComposeScene(1100, 760, Density(1f)) {
+            WithOwners {
+                val n = rememberNavController()
+                CompositionLocalProvider(LocalApp provides graph) { MarcoTheme { DesktopRoot(n) } }
+            }
+        } }
+        val nEnd = System.currentTimeMillis() + 3000
+        while (System.currentTimeMillis() < nEnd) { ui { narrow.render(System.nanoTime()) }; Thread.sleep(30) }
+        File(outDir, "13-narrow.png").writeBytes(ui { narrow.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
+        ui { narrow.close() }
+
         // La misma UI en tamaño de teléfono (la cáscara de Android, con barra inferior).
         var pnav: NavHostController? = null
         val phone = ui { ImageComposeScene(412, 915, Density(1f)) {
@@ -152,7 +164,7 @@ class ScreenshotTest {
         ui { phone.close() }
 
         // Miniplayer iPod (sin ventana: sólo el cuerpo, sobre fondo gris para ver la sombra).
-        val ipod = ui { ImageComposeScene(250, 420, Density(1f)) {
+        val ipod = ui { ImageComposeScene(178, 266, Density(1f)) {
             WithOwners {
                 CompositionLocalProvider(LocalApp provides graph) {
                     MarcoTheme(background = false) {

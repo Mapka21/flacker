@@ -74,8 +74,8 @@ import com.marco.audiopro.ui.theme.Mono
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(nav: NavController) {
-    var tab by rememberSaveable { mutableStateOf(0) }
+fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
+    var tab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text("Biblioteca", style = Display.copy(fontSize = 30.sp), modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 8.dp))
         SecondaryTabRow(

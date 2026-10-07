@@ -5,6 +5,8 @@ import com.marco.audiopro.audio.AudioEngine
 import com.marco.audiopro.data.Likes
 import com.marco.audiopro.data.Settings
 import com.marco.audiopro.data.info.AlbumInfoRepository
+import com.marco.audiopro.data.info.LyricsRepository
+import com.marco.audiopro.connect.ConnectService
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.download.OfflineStore
 import com.marco.audiopro.player.PlayerController
@@ -22,6 +24,9 @@ interface AppGraph {
     val api: SubsonicApi
     val engine: AudioEngine
     val albumInfo: AlbumInfoRepository
+    val lyrics: LyricsRepository
+    /** Marco Connect: otros dispositivos con la app en la red. */
+    val connect: ConnectService
     val player: PlayerController
     val likes: Likes
     /** Descargas offline; `null` donde no aplican (PC). */

@@ -42,7 +42,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MarcoAudioPro"
-            packageVersion = "1.3.0"
+            packageVersion = "1.4.0"
             description = "Cliente audiófilo para Navidrome"
             vendor = "Marco"
             includeAllModules = true

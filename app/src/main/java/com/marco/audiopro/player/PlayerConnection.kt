@@ -95,6 +95,16 @@ class PlayerConnection(private val context: Context) : PlayerController {
         }
     }
 
+    override fun playFrom(songs: List<Song>, index: Int, positionMs: Long) {
+        if (songs.isEmpty()) return
+        with { c ->
+            c.shuffleModeEnabled = false
+            c.setMediaItems(items(songs), index.coerceIn(0, songs.lastIndex), positionMs)
+            c.prepare()
+            c.play()
+        }
+    }
+
     override fun playNext(songs: List<Song>) = with { c ->
         if (c.mediaItemCount == 0) { c.setMediaItems(items(songs)); c.prepare(); c.play() }
         else c.addMediaItems(c.currentMediaItemIndex + 1, items(songs))

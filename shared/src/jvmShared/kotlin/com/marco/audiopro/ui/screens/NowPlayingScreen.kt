@@ -452,7 +452,7 @@ private fun LyricsView(song: Song) {
     val c = LocalApp.current
     var lyrics by remember(song.id) { mutableStateOf<StructuredLyrics?>(null) }
     var loaded by remember(song.id) { mutableStateOf(false) }
-    LaunchedEffect(song.id) { lyrics = c.api.lyrics(song.id); loaded = true }
+    LaunchedEffect(song.id) { lyrics = c.lyrics.get(song); loaded = true }
     val pos by rememberPlaybackPosition(150)
     val l = lyrics
     when {

@@ -26,6 +26,8 @@ interface PlayerController {
     fun setVolume(v: Float) {}
 
     fun play(songs: List<Song>, startIndex: Int = 0, shuffle: Boolean = false)
+    /** Reproduce `songs` desde `index` en la posición exacta (para pasar la música entre dispositivos). */
+    fun playFrom(songs: List<Song>, index: Int, positionMs: Long)
     fun playNext(songs: List<Song>)
     fun enqueue(songs: List<Song>)
     fun toggle()
