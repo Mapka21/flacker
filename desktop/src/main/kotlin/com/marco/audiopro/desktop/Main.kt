@@ -1,7 +1,11 @@
 package com.marco.audiopro.desktop
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -76,7 +80,7 @@ class DesktopGraph : AppGraph {
     override val settings = Settings(PrefsStore(Preferences.userRoot().node("marco-audio-pro$profileSuffix")))
     override val api = SubsonicApi(http) { settings.account.value }
     private val desktopPlayer = DesktopPlayer(api, settings, scope)
-    override val player = desktopPlayer
+    override val player: DesktopPlayer = desktopPlayer
     override val engine = AudioEngine(settings, desktopPlayer.tap).also { e ->
         desktopPlayer.eq = e.eq
         desktopPlayer.onSignal = { e.signal.value = it }
@@ -85,7 +89,7 @@ class DesktopGraph : AppGraph {
     override val likes = Likes(api, scope)
     override val downloads = null
     override val cache = null
-    override val versionName = "1.2.0"
+    override val versionName = "1.3.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -109,31 +113,40 @@ fun main() {
     application {
         val windowState = rememberWindowState(width = 1380.dp, height = 880.dp)
         val player = remember { graph.player }
+        // -Dmarco.startMini=true arranca directo en el miniplayer (útil para probarlo).
+        var mini by remember { mutableStateOf(System.getProperty("marco.startMini") == "true") }
         Window(
             onCloseRequest = { graph.shutdown(); exitApplication() },
             state = windowState,
+            // La ventana grande se oculta (no se cierra) mientras el miniplayer está activo.
+            visible = !mini,
             title = "Marco Audio Pro",
             icon = painterResource(Res.drawable.app_icon),
-            onPreviewKeyEvent = { e ->
-                // Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen.
-                if (e.type != KeyEventType.KeyDown) return@Window false
-                when {
-                    e.isCtrlPressed && e.key == Key.Spacebar -> { player.toggle(); true }
-                    e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
-                    e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
-                    e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(player.volume.value + 0.05f); true }
-                    e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume(player.volume.value - 0.05f); true }
-                    e.key == Key.MediaPlayPause -> { player.toggle(); true }
-                    e.key == Key.MediaNext -> { player.next(); true }
-                    e.key == Key.MediaPrevious -> { player.previous(); true }
-                    else -> false
-                }
-            },
+            onPreviewKeyEvent = { e -> handleShortcut(e, player) },
         ) {
             window.minimumSize = Dimension(1050, 700)
             CompositionLocalProvider(LocalApp provides graph) {
-                MarcoTheme { DesktopRoot() }
+                MarcoTheme { DesktopRoot(onMiniPlayer = { mini = true }) }
             }
         }
+        if (mini) {
+            IpodWindow(graph, onExpand = { mini = false }, onKey = { e -> handleShortcut(e, player) })
+        }
+    }
+}
+
+/** Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen, teclas multimedia. */
+fun handleShortcut(e: KeyEvent, player: DesktopPlayer): Boolean {
+    if (e.type != KeyEventType.KeyDown) return false
+    return when {
+        e.isCtrlPressed && e.key == Key.Spacebar -> { player.toggle(); true }
+        e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
+        e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
+        e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(player.volume.value + 0.05f); true }
+        e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume(player.volume.value - 0.05f); true }
+        e.key == Key.MediaPlayPause -> { player.toggle(); true }
+        e.key == Key.MediaNext -> { player.next(); true }
+        e.key == Key.MediaPrevious -> { player.previous(); true }
+        else -> false
     }
 }

@@ -1,6 +1,20 @@
 package com.marco.audiopro.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.bouncyClick
+import com.marco.audiopro.ui.components.glass
+import com.marco.audiopro.ui.screens.AppleBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,25 +84,36 @@ import com.marco.audiopro.ui.theme.Mono
 import com.marco.audiopro.ui.viz.Visualizer
 import com.marco.audiopro.ui.viz.VizMode
 
-/** Cáscara de PC: barra lateral, contenido y barra de reproducción abajo (estilo Feishin). */
+/**
+ * Cáscara de PC: barra lateral, contenido y barra de reproducción abajo.
+ * @param onMiniPlayer si no es null, aparece el botón para pasar al miniplayer (iPod).
+ */
 @Composable
-fun DesktopRoot(nav: NavHostController = rememberNavController()) = MarcoGate { DesktopShell(nav) }
+fun DesktopRoot(nav: NavHostController = rememberNavController(), onMiniPlayer: (() -> Unit)? = null) =
+    MarcoGate { DesktopShell(nav, onMiniPlayer) }
 
 @Composable
-private fun DesktopShell(nav: NavHostController) {
+private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     val c = LocalApp.current
     val entry by nav.currentBackStackEntryAsState()
     val dest = entry?.destination
     val playback by c.player.state.collectAsState()
     val onPlayer = dest.isIn(PlayerRoute::class)
 
-    Column(Modifier.fillMaxSize().background(Hifi.Bg)) {
-        Row(Modifier.weight(1f)) {
-            Sidebar(dest) { nav.openTab(it) }
-            Box(Modifier.width(1.dp).fillMaxHeight().background(Hifi.Line))
-            AppNavHost(nav, Modifier.weight(1f).fillMaxHeight())
+    Box(Modifier.fillMaxSize()) {
+        // Fondo vivo sutil con los colores de lo que suena: se transparenta en el vidrio.
+        AmbientBackground(playback.current?.coverArt, intensity = 0.45f)
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.weight(1f)) {
+                Sidebar(dest) { nav.openTab(it) }
+                AppNavHost(nav, Modifier.weight(1f).fillMaxHeight())
+            }
+            AnimatedVisibility(
+                playback.current != null && !onPlayer,
+                enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 300f)) { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+            ) { PlayerBar(onMiniPlayer) { nav.openPlayer() } }
         }
-        if (playback.current != null && !onPlayer) PlayerBar { nav.openPlayer() }
     }
 }
 
@@ -101,7 +126,12 @@ private fun Sidebar(dest: NavDestination?, onSelect: (Any) -> Unit) {
         NavItem(LikedRoute, "Me gusta", Icons.Default.Favorite),
         NavItem(DspRoute, "DSP / Ecualizador", Icons.Default.Equalizer),
     )
-    Column(Modifier.width(232.dp).fillMaxHeight().background(Hifi.Panel).padding(vertical = 20.dp)) {
+    Column(
+        Modifier.width(232.dp).fillMaxHeight()
+            .background(Color.Black.copy(alpha = 0.32f))
+            .drawBehind { drawLine(Color.White.copy(alpha = 0.07f), Offset(size.width, 0f), Offset(size.width, size.height), 1f) }
+            .padding(vertical = 20.dp),
+    ) {
         Column(Modifier.padding(horizontal = 22.dp)) {
             Text("MARCO", style = Mono.copy(color = Hifi.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 6.sp))
             Text("AUDIO PRO", style = Mono.copy(color = Hifi.Cream, fontSize = 10.sp, letterSpacing = 5.sp))
@@ -121,8 +151,8 @@ private fun SidebarItem(item: NavItem, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.padding(horizontal = 10.dp, vertical = 2.dp).fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Hifi.Accent.copy(alpha = 0.10f) else Color.Transparent)
-            .clickable(onClick = onClick)
+            .background(if (selected) Color.White.copy(alpha = 0.10f) else Color.Transparent)
+            .bouncyClick(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -133,36 +163,37 @@ private fun SidebarItem(item: NavItem, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlayerBar(onOpen: () -> Unit) {
+private fun PlayerBar(onMiniPlayer: (() -> Unit)?, onOpen: () -> Unit) {
     val c = LocalApp.current
     val player = c.player
     val st by player.state.collectAsState()
     val song = st.current ?: return
-    val tint by rememberCoverTint(song.coverArt, Hifi.Panel, 0.35f)
+    val tint by rememberCoverTint(song.coverArt, Color.Black, 0.5f)
     val pos by rememberPlaybackPosition(200)
     var dragging by remember { mutableStateOf<Float?>(null) }
     val dur = st.durationMs.coerceAtLeast(1)
     val value = dragging ?: (pos.toFloat() / dur).coerceIn(0f, 1f)
 
     Row(
-        Modifier.fillMaxWidth().height(96.dp)
-            .background(Brush.horizontalGradient(listOf(tint, Hifi.Panel, Hifi.Panel)))
+        Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp).fillMaxWidth().height(92.dp)
+            .shadow(24.dp, RoundedCornerShape(22.dp))
+            .glass(RoundedCornerShape(22.dp), tint.copy(alpha = 0.62f))
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Canción actual
-        Row(Modifier.width(320.dp).clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
-            CoverArt(song.coverArt, Modifier.size(64.dp), size = 400, corner = 8.dp)
+        Row(Modifier.width(320.dp).bouncyClick(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
+            CoverArt(song.coverArt, Modifier.size(64.dp).shadow(10.dp, RoundedCornerShape(10.dp)), size = 400, corner = 10.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(song.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist ?: "", fontSize = 13.sp, color = Hifi.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.artist ?: "", fontSize = 13.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val fmt = listOfNotNull(
                     song.suffix?.uppercase(),
                     song.bitDepth?.takeIf { it > 0 }?.let { "$it-bit" },
                     song.samplingRate?.takeIf { it > 0 }?.let { "${khz(it)} kHz" },
                 ).joinToString(" · ")
-                Text(fmt, style = Mono.copy(color = Hifi.Accent, fontSize = 10.sp))
+                Text(fmt, style = Mono.copy(color = if (song.isHiRes) Hifi.HiResGold else Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp))
             }
             LikeButton(song, size = 20.dp)
         }
@@ -171,11 +202,11 @@ private fun PlayerBar(onOpen: () -> Unit) {
         Column(Modifier.weight(1f).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 IconButton(onClick = { player.toggleShuffle() }) {
-                    Icon(Icons.Default.Shuffle, "Aleatorio", tint = if (st.shuffle) Hifi.Accent else Hifi.TextDim, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Shuffle, "Aleatorio", tint = if (st.shuffle) Color.White else Hifi.OnArt.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                 }
                 IconButton(onClick = { player.previous() }) { Icon(Icons.Default.SkipPrevious, "Anterior", Modifier.size(28.dp)) }
                 Box(
-                    Modifier.size(44.dp).clip(CircleShape).background(Hifi.Accent).clickable { player.toggle() },
+                    Modifier.size(44.dp).clip(CircleShape).background(Color.White).bouncyClick { player.toggle() },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (st.isBuffering) CircularProgressIndicator(Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
@@ -185,18 +216,16 @@ private fun PlayerBar(onOpen: () -> Unit) {
                 IconButton(onClick = { player.cycleRepeat() }) {
                     Icon(
                         if (st.repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, "Repetir",
-                        tint = if (st.repeat != RepeatMode.OFF) Hifi.Accent else Hifi.TextDim, modifier = Modifier.size(20.dp),
+                        tint = if (st.repeat != RepeatMode.OFF) Color.White else Hifi.OnArt.copy(alpha = 0.5f), modifier = Modifier.size(20.dp),
                     )
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(formatMs((value * dur).toLong()), style = Mono.copy(color = Hifi.TextDim, fontSize = 10.sp), modifier = Modifier.width(48.dp))
-                Slider(
-                    value = value,
-                    onValueChange = { dragging = it },
-                    onValueChangeFinished = { dragging?.let { player.seekTo((it * dur).toLong()) }; dragging = null },
-                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
-                    modifier = Modifier.weight(1f).height(20.dp),
+                AppleBar(
+                    value, onChange = { dragging = it },
+                    onCommit = { v -> player.seekTo((v * dur).toLong()); dragging = null },
+                    modifier = Modifier.weight(1f),
                 )
                 Text(formatMs(dur), style = Mono.copy(color = Hifi.TextDim, fontSize = 10.sp), modifier = Modifier.width(48.dp).padding(start = 8.dp))
             }
@@ -211,12 +240,14 @@ private fun PlayerBar(onOpen: () -> Unit) {
                 IconButton(onClick = { player.setVolume(if (vol > 0f) 0f else 0.8f) }) {
                     Icon(if (vol > 0f) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, "Volumen", tint = Hifi.TextDim, modifier = Modifier.size(20.dp))
                 }
-                Slider(
-                    vol, { player.setVolume(it) }, modifier = Modifier.width(110.dp),
-                    colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
-                )
+                AppleBar(vol, onChange = { player.setVolume(it) }, onCommit = { player.setVolume(it) }, modifier = Modifier.width(110.dp))
             }
-            IconButton(onClick = onOpen) { Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.TextDim, modifier = Modifier.size(18.dp)) }
+            if (onMiniPlayer != null) {
+                IconButton(onClick = onMiniPlayer) {
+                    Icon(Icons.Default.PictureInPictureAlt, "Miniplayer", tint = Hifi.OnArt, modifier = Modifier.size(18.dp))
+                }
+            }
+            IconButton(onClick = onOpen) { Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(18.dp)) }
         }
     }
 }

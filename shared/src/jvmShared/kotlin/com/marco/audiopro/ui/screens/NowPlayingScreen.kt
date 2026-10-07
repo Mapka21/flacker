@@ -1,6 +1,24 @@
 package com.marco.audiopro.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.pointer.pointerInput
+import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.bouncyClick
+import com.marco.audiopro.ui.components.glass
 import androidx.compose.animation.core.tween
 import coil3.compose.AsyncImage
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -80,6 +98,7 @@ import com.marco.audiopro.core.LocalApp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.marco.audiopro.player.RepeatMode
@@ -129,13 +148,16 @@ fun NowPlayingScreen(nav: NavController) {
     val pager = rememberPagerState(initialPage = page) { panels.size }
     LaunchedEffect(pager.currentPage) { page = pager.currentPage }
 
-    // Fondo: la portada enorme y difuminada (Android 12+), bajo un velo del color del disco.
-    Box(Modifier.fillMaxSize().background(Hifi.Bg)) {
-        AsyncImage(
-            c.api.coverUrl(song.coverArt, 400), null, contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().blur(90.dp).graphicsLayer { alpha = if (supportsBlur) 0.55f else 0f },
-        )
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = 0.55f), 0.55f to Hifi.Bg.copy(alpha = 0.85f), 1f to Hifi.Bg)))
+    // Fondo vivo estilo Apple Music: colores de la portada en movimiento + la portada difuminada.
+    Box(Modifier.fillMaxSize()) {
+        AmbientBackground(song.coverArt)
+        if (supportsBlur) {
+            AsyncImage(
+                c.api.coverUrl(song.coverArt, 400), null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().blur(120.dp).graphicsLayer { alpha = 0.28f },
+            )
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = 0.25f), 1f to Color.Black.copy(alpha = 0.35f))))
     }
     BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         // En PC/tablet (ventana ancha): panel a la izquierda y controles a la derecha.
@@ -160,12 +182,12 @@ fun NowPlayingScreen(nav: NavController) {
                         when (val p = panels[i]) {
                             CoverPanel -> {
                                 // La portada "respira": se encoge un poco en pausa.
-                                val scale by animateFloatAsState(if (st.isPlaying) 1f else 0.9f, tween(400), label = "cover")
+                                val scale by animateFloatAsState(if (st.isPlaying) 1f else 0.82f, spring(dampingRatio = 0.62f, stiffness = 180f), label = "cover")
                                 CoverArt(
                                     song.coverArt,
                                     Modifier.aspectRatio(1f).graphicsLayer { scaleX = scale; scaleY = scale }
-                                        .shadow(36.dp, RoundedCornerShape(14.dp)),
-                                    size = 800, corner = 14.dp,
+                                        .shadow(40.dp, RoundedCornerShape(18.dp)),
+                                    size = 800, corner = 18.dp,
                                 )
                             }
                             is VizPanel -> DisplayPanel { Visualizer(p.mode, Modifier.fillMaxSize().padding(12.dp)) }
@@ -197,6 +219,7 @@ fun NowPlayingScreen(nav: NavController) {
             TitleBlock(song, nav)
             SeekBar(st.durationMs)
             Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
+            VolumeRow()
             st.error?.let { Text(it, color = Hifi.LedRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 BottomAction(Icons.Default.Equalizer, "DSP") { nav.navigate(DspRoute) }
@@ -228,10 +251,10 @@ fun NowPlayingScreen(nav: NavController) {
     }
 
     if (showQueue) {
-        ModalBottomSheet(onDismissRequest = { showQueue = false }, containerColor = Hifi.Panel) { QueueSheet() }
+        ModalBottomSheet(onDismissRequest = { showQueue = false }, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) { QueueSheet() }
     }
     if (showPath) {
-        ModalBottomSheet(onDismissRequest = { showPath = false }, containerColor = Hifi.Panel) { SignalPathSheet(song, c.engine) }
+        ModalBottomSheet(onDismissRequest = { showPath = false }, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) { SignalPathSheet(song, c.engine) }
     }
 }
 
@@ -240,9 +263,8 @@ private fun DisplayPanel(content: @Composable () -> Unit) {
     Box(
         Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF050506))
-            .border(1.dp, Hifi.Line, RoundedCornerShape(10.dp)),
+            .shadow(30.dp, RoundedCornerShape(18.dp))
+            .glass(RoundedCornerShape(18.dp), Color.Black.copy(alpha = 0.55f)),
     ) { content() }
 }
 
@@ -254,26 +276,29 @@ private fun LcdStrip(song: Song, engine: AudioEngine, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(lerp(Color.Black, Hifi.Accent, 0.06f).copy(alpha = 0.85f))
-            .border(1.dp, Hifi.Accent.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
+            .glass(RoundedCornerShape(12.dp))
+            .bouncyClick(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val lcd = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        val lcd = Mono.copy(color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         val parts = buildList {
             add((song.suffix ?: "?").uppercase())
             song.bitDepth?.takeIf { it > 0 }?.let { add("$it BIT") }
             song.samplingRate?.takeIf { it > 0 }?.let { add("${khz(it)} kHz") }
-            song.bitRate?.takeIf { it > 0 }?.let { add("$it kbps") }
+            // En lossless los kbps no dicen nada; en formatos con pérdida sí importan.
+            if (!song.isLossless) song.bitRate?.takeIf { it > 0 }?.let { add("$it kbps") }
         }
         Text(parts.joinToString("  "), style = lcd, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (signal.replayGainDb != null) {
-            Text("RG %+.1f".format(signal.replayGainDb), style = lcd.copy(color = Hifi.Cream, fontSize = 10.sp))
+            Text("RG %+.1f".format(signal.replayGainDb), style = lcd.copy(color = Hifi.OnArt, fontSize = 10.sp))
             Spacer(Modifier.width(8.dp))
         }
-        Text("EQ", style = lcd.copy(color = if (eq.enabled) Hifi.LedGreen else Hifi.TextFaint, fontSize = 10.sp))
+        if (song.isHiRes) {
+            Text("HI-RES", style = lcd.copy(color = Hifi.HiResGold, fontSize = 10.sp))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text("EQ", style = lcd.copy(color = if (eq.enabled) Hifi.LedGreen else Hifi.OnArt.copy(alpha = 0.4f), fontSize = 10.sp))
     }
 }
 
@@ -281,13 +306,13 @@ private fun LcdStrip(song: Song, engine: AudioEngine, onClick: () -> Unit) {
 private fun TitleBlock(song: Song, nav: NavController) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(song.title, style = Display.copy(fontSize = 24.sp), maxLines = 1, modifier = Modifier.basicMarquee())
+            Text(song.title, style = Display.copy(fontSize = 26.sp, color = Color.White), maxLines = 1, modifier = Modifier.basicMarquee())
             Text(
-                song.artist ?: "", fontSize = 16.sp, color = Hifi.Accent, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                song.artist ?: "", fontSize = 18.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable { song.artistId?.let(nav::openArtist) },
             )
             Text(
-                listOfNotNull(song.album, song.year?.toString()).joinToString(" · "), fontSize = 13.sp, color = Hifi.TextDim,
+                listOfNotNull(song.album, song.year?.toString()).joinToString(" · "), fontSize = 13.sp, color = Hifi.OnArt.copy(alpha = 0.5f),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable { song.albumId?.let(nav::openAlbum) },
             )
@@ -303,53 +328,120 @@ private fun SeekBar(durationMs: Long) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val dur = durationMs.coerceAtLeast(1)
     val value = dragging ?: (pos.toFloat() / dur).coerceIn(0f, 1f)
-    Slider(
-        value = value,
-        onValueChange = { dragging = it },
-        onValueChangeFinished = { dragging?.let { player.seekTo((it * dur).toLong()) }; dragging = null },
-        colors = SliderDefaults.colors(thumbColor = Hifi.Cream, activeTrackColor = Hifi.Accent, inactiveTrackColor = Hifi.Line),
-        modifier = Modifier.height(28.dp),
-    )
-    Row(Modifier.fillMaxWidth()) {
-        Text(formatMs((value * dur).toLong()), style = Mono.copy(color = Hifi.TextDim), modifier = Modifier.weight(1f))
-        Text("-" + formatMs(dur - (value * dur).toLong()), style = Mono.copy(color = Hifi.TextDim))
+    Spacer(Modifier.height(10.dp))
+    AppleBar(value, onChange = { dragging = it }, onCommit = { v -> player.seekTo((v * dur).toLong()); dragging = null })
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Text(formatMs((value * dur).toLong()), style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp), modifier = Modifier.weight(1f))
+        Text("-" + formatMs(dur - (value * dur).toLong()), style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp))
+    }
+}
+
+/**
+ * Barra fina estilo Apple: sin "thumb"; al tocarla o arrastrarla se engrosa con resorte.
+ * Se arrastra desde cualquier punto y salta al tocar.
+ */
+@Composable
+fun AppleBar(value: Float, onChange: (Float) -> Unit, onCommit: (Float) -> Unit, modifier: Modifier = Modifier) {
+    var active by remember { mutableStateOf(false) }
+    var last by remember { mutableStateOf(value) }
+    val thick by animateDpAsState(if (active) 10.dp else 5.dp, spring(dampingRatio = 0.6f, stiffness = 500f), label = "bar")
+    Box(
+        modifier.fillMaxWidth().height(22.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = { o ->
+                    active = true
+                    last = (o.x / size.width).coerceIn(0f, 1f)
+                    onChange(last)
+                    val released = tryAwaitRelease()
+                    active = false
+                    if (released) onCommit(last)
+                })
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { o -> active = true; last = (o.x / size.width).coerceIn(0f, 1f); onChange(last) },
+                    onDragEnd = { active = false; onCommit(last) },
+                    onDragCancel = { active = false },
+                ) { change, _ ->
+                    last = (change.position.x / size.width).coerceIn(0f, 1f)
+                    onChange(last)
+                }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(Modifier.fillMaxWidth().height(thick).clip(CircleShape).background(Color.White.copy(alpha = 0.22f))) {
+            Box(Modifier.fillMaxWidth(value).fillMaxHeight().background(Color.White.copy(alpha = if (active) 1f else 0.85f)))
+        }
     }
 }
 
 @Composable
 private fun Controls(playing: Boolean, buffering: Boolean, shuffle: Boolean, repeat: RepeatMode) {
     val player = LocalApp.current.player
-    val scale by animateFloatAsState(if (playing) 1f else 0.94f, label = "play")
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { player.toggleShuffle() }) {
-            Icon(Icons.Default.Shuffle, null, tint = if (shuffle) Hifi.Accent else Hifi.TextDim)
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        ToggleGlyph(Icons.Default.Shuffle, shuffle, "Aleatorio") { player.toggleShuffle() }
+        Glyph(Icons.Default.SkipPrevious, 46.dp, "Anterior") { player.previous() }
+        Box(Modifier.size(78.dp).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
+            if (buffering) {
+                CircularProgressIndicator(Modifier.size(40.dp), color = Color.White, strokeWidth = 3.dp)
+            } else {
+                AnimatedContent(
+                    playing,
+                    transitionSpec = {
+                        (scaleIn(spring(dampingRatio = 0.5f), 0.6f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.6f) + fadeOut())
+                    },
+                    label = "playpause",
+                ) { p -> Icon(if (p) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", Modifier.size(64.dp), tint = Color.White) }
+            }
         }
-        IconButton(onClick = { player.previous() }, Modifier.size(56.dp)) { Icon(Icons.Default.SkipPrevious, null, Modifier.size(36.dp)) }
-        Box(
-            Modifier.size(76.dp * scale).clip(CircleShape).background(Hifi.Accent).clickable { player.toggle() },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (buffering) CircularProgressIndicator(Modifier.size(30.dp), color = Color.Black, strokeWidth = 2.dp)
-            else Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, Modifier.size(40.dp), tint = Color.Black)
-        }
-        IconButton(onClick = { player.next() }, Modifier.size(56.dp)) { Icon(Icons.Default.SkipNext, null, Modifier.size(36.dp)) }
-        IconButton(onClick = { player.cycleRepeat() }) {
-            Icon(
-                if (repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, null,
-                tint = if (repeat != RepeatMode.OFF) Hifi.Accent else Hifi.TextDim,
-            )
-        }
+        Glyph(Icons.Default.SkipNext, 46.dp, "Siguiente") { player.next() }
+        ToggleGlyph(
+            if (repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
+            repeat != RepeatMode.OFF, "Repetir",
+        ) { player.cycleRepeat() }
+    }
+}
+
+@Composable
+private fun Glyph(icon: ImageVector, size: Dp, desc: String, onClick: () -> Unit) {
+    Box(Modifier.size(size + 16.dp).bouncyClick(onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(icon, desc, Modifier.size(size), tint = Color.White)
+    }
+}
+
+/** Shuffle/repetir: glifo blanco; activo = pastilla de vidrio detrás, como en iOS. */
+@Composable
+private fun ToggleGlyph(icon: ImageVector, on: Boolean, desc: String, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (on) Color.White.copy(alpha = 0.22f) else Color.Transparent, label = "tg")
+    Box(
+        Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(bg).bouncyClick(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, desc, Modifier.size(22.dp), tint = if (on) Color.White else Hifi.OnArt.copy(alpha = 0.6f)) }
+}
+
+/** Volumen (sólo PC): bocinas a los lados de una barra igual a la de avance. */
+@Composable
+private fun VolumeRow() {
+    val player = LocalApp.current.player
+    val flow = player.volume ?: return
+    val vol by flow.collectAsState()
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.AutoMirrored.Filled.VolumeDown, null, tint = Hifi.OnArt, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        AppleBar(vol, onChange = { player.setVolume(it) }, onCommit = { player.setVolume(it) }, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(10.dp))
+        Icon(Icons.AutoMirrored.Filled.VolumeUp, null, tint = Hifi.OnArt, modifier = Modifier.size(18.dp))
     }
 }
 
 @Composable
 private fun BottomAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 6.dp),
+        Modifier.bouncyClick(onClick = onClick).padding(horizontal = 18.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, null, tint = Hifi.TextDim, modifier = Modifier.size(20.dp))
-        Text(label, style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp))
+        Icon(icon, label, tint = Hifi.OnArt, modifier = Modifier.size(22.dp))
+        Text(label, style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.55f), fontSize = 9.sp))
     }
 }
 
@@ -371,23 +463,36 @@ private fun LyricsView(song: Song) {
         else -> {
             val current = if (l.synced) l.line.indexOfLast { (it.start ?: 0) <= pos } else -1
             val list = rememberLazyListState()
-            LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem(current, -200) }
-            LazyColumn(state = list, contentPadding = PaddingValues(vertical = 120.dp, horizontal = 18.dp)) {
+            LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem(current, -260) }
+            LazyColumn(state = list, contentPadding = PaddingValues(vertical = 140.dp, horizontal = 22.dp)) {
                 itemsIndexed(l.line) { i, line ->
-                    val active = i == current
+                    // Estilo Apple Music: la línea actual grande y nítida; las demás tenues y difuminadas.
+                    val active = !l.synced || i == current
+                    val distance = if (current < 0) 0 else kotlin.math.abs(i - current)
+                    val alpha by animateFloatAsState(
+                        if (active) 1f else (0.42f - distance * 0.05f).coerceAtLeast(0.18f), tween(450), label = "la",
+                    )
+                    val scale by animateFloatAsState(
+                        if (active && l.synced) 1f else 0.94f, spring(dampingRatio = 0.7f, stiffness = 300f), label = "ls",
+                    )
+                    val blurR by animateDpAsState(
+                        if (active || !supportsBlur) 0.dp else (1.5f + distance * 0.6f).coerceAtMost(4f).dp, tween(450), label = "lb",
+                    )
                     Text(
                         line.value.ifBlank { "♪" },
-                        fontSize = if (l.synced) 20.sp else 16.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                        color = when {
-                            !l.synced -> Hifi.Text
-                            active -> Hifi.Accent
-                            i < current -> Hifi.TextFaint
-                            else -> Hifi.TextDim
-                        },
-                        modifier = Modifier.padding(vertical = 6.dp).clickable(enabled = l.synced && line.start != null) {
-                            line.start?.let { c.player.seekTo(it) }
-                        },
+                        style = Display.copy(
+                            fontSize = if (l.synced) 28.sp else 18.sp,
+                            lineHeight = if (l.synced) 34.sp else 26.sp,
+                            color = Color.White,
+                        ),
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .graphicsLayer {
+                                this.alpha = alpha; scaleX = scale; scaleY = scale
+                                transformOrigin = TransformOrigin(0f, 0.5f)
+                            }
+                            .blur(blurR)
+                            .clickable(enabled = l.synced && line.start != null) { line.start?.let { c.player.seekTo(it) } },
                     )
                 }
             }

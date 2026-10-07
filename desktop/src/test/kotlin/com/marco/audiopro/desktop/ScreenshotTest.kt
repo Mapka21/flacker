@@ -1,5 +1,6 @@
 package com.marco.audiopro.desktop
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -28,6 +30,7 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.marco.audiopro.core.LocalApp
 import com.marco.audiopro.ui.AlbumRoute
+import com.marco.audiopro.ui.ArtistRoute
 import com.marco.audiopro.ui.DesktopRoot
 import com.marco.audiopro.ui.DspRoute
 import com.marco.audiopro.ui.LikedRoute
@@ -145,7 +148,23 @@ class ScreenshotTest {
         ppump(3000); psave("8-phone-home")
         ui { pnav!!.navigate(AlbumRoute("al1")) }; ppump(3000); psave("9-phone-album")
         ui { pnav!!.navigate(PlayerRoute) }; ppump(3000); psave("10-phone-player")
+        ui { pnav!!.popBackStack(); pnav!!.navigate(ArtistRoute("ar1")) }; ppump(3000); psave("11-phone-artist")
         ui { phone.close() }
+
+        // Miniplayer iPod (sin ventana: sólo el cuerpo, sobre fondo gris para ver la sombra).
+        val ipod = ui { ImageComposeScene(250, 420, Density(1f)) {
+            WithOwners {
+                CompositionLocalProvider(LocalApp provides graph) {
+                    MarcoTheme(background = false) {
+                        Box(Modifier.fillMaxSize().background(Color(0xFF7A7F88))) { IpodBody(graph.player, onExpand = {}) { it() } }
+                    }
+                }
+            }
+        } }
+        val iEnd = System.currentTimeMillis() + 2500
+        while (System.currentTimeMillis() < iEnd) { ui { ipod.render(System.nanoTime()) }; Thread.sleep(30) }
+        File(outDir, "12-ipod.png").writeBytes(ui { ipod.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
+        ui { ipod.close() }
         graph.shutdown()
     }
 }

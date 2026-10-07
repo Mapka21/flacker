@@ -52,6 +52,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -145,8 +149,11 @@ fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, 
     }
 }
 
-/** Colores sacados de la portada: un fondo oscuro y un acento legible sobre negro. */
-data class CoverColors(val background: Color, val accent: Color)
+/**
+ * Colores sacados de la portada: un fondo oscuro, un acento legible sobre negro y hasta
+ * 4 tonos dominantes para el fondo animado ([AmbientBackground]).
+ */
+data class CoverColors(val background: Color, val accent: Color, val swatches: List<Color>)
 
 private val paletteCache = object : LinkedHashMap<String, CoverColors>(64, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CoverColors>?) = size > 64
@@ -182,16 +189,17 @@ private fun extractColors(img: ImageBitmap): CoverColors? {
         val w = sat * (0.4f + max)
         weight[b] += w; sumR[b] += c.red * w; sumG[b] += c.green * w; sumB[b] += c.blue * w
     }
-    val best = weight.indices.maxByOrNull { weight[it] } ?: return null
-    val base = if (weight[best] > 0.5f) {
-        Color(sumR[best] / weight[best], sumG[best] / weight[best], sumB[best] / weight[best])
-    } else if (grayW > 0) {
-        Color(gr / grayW, gg / grayW, gb / grayW)
-    } else return null
+    fun bucketColor(b: Int) = Color(sumR[b] / weight[b], sumG[b] / weight[b], sumB[b] / weight[b])
+    val ranked = weight.indices.filter { weight[it] > 0.5f }.sortedByDescending { weight[it] }
+    val gray = if (grayW > 0) Color(gr / grayW, gg / grayW, gb / grayW) else null
+    val base = ranked.firstOrNull()?.let(::bucketColor) ?: gray ?: return null
     var accent = base
     if (accent.luminance() < 0.3f) accent = lerp(accent, Color.White, 0.45f)
     val background = lerp(Color.Black, base, 0.42f)
-    return CoverColors(background, accent)
+    // Tonos para el fondo vivo: los más fuertes; si la portada es casi gris, variaciones del gris.
+    val tones = (ranked.take(4).map(::bucketColor) + listOfNotNull(gray)).ifEmpty { listOf(base) }
+    val swatches = List(4) { i -> tones[i % tones.size].let { if (i >= tones.size) lerp(it, Color.Black, 0.35f) else it } }
+    return CoverColors(background, accent, swatches)
 }
 
 private fun rgbHue(r: Float, g: Float, b: Float, max: Float, min: Float): Float {
@@ -269,8 +277,8 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Compos
 
 @Composable
 fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(6.dp)) {
-        CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f), size = 400, corner = 10.dp)
+    Column(modifier.bouncyClick(onClick = onClick).padding(6.dp)) {
+        CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(12.dp, RoundedCornerShape(10.dp)), size = 400, corner = 10.dp)
         Spacer(Modifier.height(8.dp))
         Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Text(
@@ -354,6 +362,7 @@ fun TrackRow(
     val liked = song.id in c.likes.ids.collectAsState().value
     val offline = c.downloads?.items?.collectAsState()?.value?.get(song.id)
     var menu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     Row(
         modifier
             .fillMaxWidth()
@@ -387,11 +396,24 @@ fun TrackRow(
         if (liked) Icon(Icons.Default.Favorite, "Me gusta", tint = Hifi.Accent, modifier = Modifier.size(15.dp))
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, null, tint = Hifi.TextFaint) }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Hifi.PanelHi) {
+            DropdownMenu(
+                expanded = menu, onDismissRequest = { menu = false },
+                containerColor = Hifi.PanelHi.copy(alpha = 0.96f), shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+            ) {
                 DropdownMenuItem(
                     text = { Text(if (liked) "Quitar de Me gusta" else "Me gusta") },
                     leadingIcon = { Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Hifi.Accent) },
                     onClick = { c.likes.toggle(song); menu = false },
+                )
+                DropdownMenuItem(
+                    text = { Text("Iniciar radio") },
+                    leadingIcon = { Icon(Icons.Default.Radio, null) },
+                    onClick = {
+                        menu = false
+                        // Como la radio de Spotify: esta canción y luego parecidas.
+                        scope.launch { c.player.play(listOf(song) + c.api.similarSongs(song.id).filter { it.id != song.id }) }
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Reproducir siguiente") },

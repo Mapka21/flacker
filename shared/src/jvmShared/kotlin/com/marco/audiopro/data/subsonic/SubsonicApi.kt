@@ -100,6 +100,16 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
             .sortedByDescending { it.synced }.firstOrNull { it.line.isNotEmpty() }
     }.getOrNull()
 
+    /** Canciones parecidas (Last.fm vía Navidrome): base de la "radio" de una canción. */
+    suspend fun similarSongs(id: String, count: Int = 50): List<Song> = runCatching {
+        get("getSimilarSongs2", "similarSongs2", mapOf("id" to id, "count" to count), RandomSongs()).song
+    }.getOrDefault(emptyList())
+
+    /** Las más escuchadas de un artista (Last.fm vía Navidrome), como "Populares" de Spotify. */
+    suspend fun topSongs(artist: String, count: Int = 10): List<Song> = runCatching {
+        get("getTopSongs", "topSongs", mapOf("artist" to artist, "count" to count), RandomSongs()).song
+    }.getOrDefault(emptyList())
+
     /** Todo lo marcado con "me gusta" (canciones, álbumes y artistas). */
     suspend fun starred(): SearchResult = get("getStarred2", "starred2", default = SearchResult())
 

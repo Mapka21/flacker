@@ -59,7 +59,7 @@ fun LikedScreen(nav: NavController) {
     LaunchedEffect(attempt) { runCatching { c.likes.refresh() }.onFailure { error = it.message } }
 
     LazyColumn(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Hifi.Accent.copy(alpha = 0.28f), 0.35f to Hifi.Bg)),
+        Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Hifi.Accent.copy(alpha = 0.32f), 0.4f to Color.Transparent)),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item {

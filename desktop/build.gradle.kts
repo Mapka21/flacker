@@ -18,6 +18,7 @@ dependencies {
     implementation(compose.runtime)
     implementation(compose.foundation)
     implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
     implementation(compose.components.resources)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
     implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.1")
@@ -41,7 +42,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MarcoAudioPro"
-            packageVersion = "1.2.0"
+            packageVersion = "1.3.0"
             description = "Cliente audiófilo para Navidrome"
             vendor = "Marco"
             includeAllModules = true
@@ -64,6 +65,8 @@ tasks.withType<Test> {
 // ./gradlew :desktop:run -Pmarco.profile=dev → ajustes separados de los reales.
 afterEvaluate {
     tasks.withType<JavaExec>().configureEach {
-        (project.findProperty("marco.profile") as String?)?.let { systemProperty("marco.profile", it) }
+        listOf("marco.profile", "marco.startMini").forEach { k ->
+            (project.findProperty(k) as String?)?.let { systemProperty(k, it) }
+        }
     }
 }

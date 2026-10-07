@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import com.marco.audiopro.data.info.LastFm
 import com.marco.audiopro.ui.components.AlbumCard
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.LoadBox
+import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.SectionHeader
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
@@ -100,19 +102,17 @@ fun ArtistScreen(id: String, nav: NavController) {
                     }
                     Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
                         Text(artist.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp)
-                        Text("${albums.size} álbumes", color = Hifi.TextDim, fontSize = 13.sp)
+                        Text(if (albums.size == 1) "1 álbum" else "${albums.size} álbumes", color = Hifi.TextDim, fontSize = 13.sp)
                     }
                 }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = { playAll(false) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Hifi.Accent, contentColor = Color.Black),
-                    ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("REPRODUCIR TODO", fontWeight = FontWeight.Bold) }
-                    OutlinedButton(onClick = { playAll(true) }) { Icon(Icons.Default.Shuffle, null, tint = Hifi.Cream) }
-                }
+                PlayActions(
+                    onPlay = { playAll(false) }, onShuffle = { playAll(true) },
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
             }
+            item(span = { GridItemSpan(maxLineSpan) }) { PopularSongs(artist.name, nav) }
             val bio = info.biography?.let(LastFm::cleanLastFmText)?.takeIf { it.length > 20 }
             if (bio != null) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -144,6 +144,33 @@ fun ArtistScreen(id: String, nav: NavController) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Populares" del artista (Last.fm vía Navidrome), como en Spotify. */
+@Composable
+private fun PopularSongs(artist: String, nav: NavController) {
+    val c = LocalApp.current
+    val loader = rememberLoad(artist) { c.api.topSongs(artist, 10) }
+    val songs = (loader.state.value as? com.marco.audiopro.ui.components.Load.Ok)?.value.orEmpty()
+    val playback by c.player.state.collectAsState()
+    var expanded by remember(artist) { mutableStateOf(false) }
+    if (songs.isEmpty()) return
+    Column {
+        SectionHeader("Populares")
+        val shown = if (expanded) songs else songs.take(5)
+        shown.forEachIndexed { i, s ->
+            com.marco.audiopro.ui.components.TrackRow(
+                s, (i + 1).toString(), playback.current?.id == s.id, { c.player.play(songs, i) },
+                showCover = true, showArtist = false, showFormat = true, onGoToAlbum = { s.albumId?.let(nav::openAlbum) },
+            )
+        }
+        if (songs.size > 5) {
+            Text(
+                if (expanded) "Ver menos" else "Ver más", color = Hifi.OnArt, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp).clickable { expanded = !expanded },
+            )
         }
     }
 }

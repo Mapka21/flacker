@@ -49,6 +49,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.bouncyClick
+import com.marco.audiopro.ui.components.glass
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -226,13 +233,22 @@ private fun PhoneShell(nav: NavHostController) {
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             if (!dest.isIn(PlayerRoute::class)) {
-                Column(Modifier.background(Brush.verticalGradient(0f to Color.Transparent, 0.25f to Hifi.Bg))) {
+                Column(
+                    Modifier
+                        .background(Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Black.copy(alpha = 0.78f)))
+                        .drawBehind { drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, 0f), Offset(size.width, 0f), 1f) },
+                ) {
                     if (playback.current != null) MiniPlayer { nav.openPlayer() }
                     BottomBar(tabs, dest) { nav.openTab(it) }
                 }
             }
         },
-    ) { pad -> AppNavHost(nav, Modifier.padding(pad)) }
+    ) { pad ->
+        Box(Modifier.fillMaxSize()) {
+            AmbientBackground(playback.current?.coverArt, intensity = 0.4f)
+            AppNavHost(nav, Modifier.padding(pad))
+        }
+    }
 }
 
 @Composable
@@ -246,8 +262,7 @@ private fun BottomBar(tabs: List<NavItem>, dest: NavDestination?, onSelect: (Any
             val sel = dest.isIn(t.route::class)
             val color by animateColorAsState(if (sel) Hifi.Accent else Hifi.TextFaint, label = "tab")
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                    .clickable(remember { MutableInteractionSource() }, null) { onSelect(t.route) }
+                Modifier.weight(1f).bouncyClick { onSelect(t.route) }
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -267,15 +282,14 @@ private fun MiniPlayer(onOpen: () -> Unit) {
     val st by player.state.collectAsState()
     val song = st.current ?: return
     val pos by rememberPlaybackPosition(500)
-    val tint by rememberCoverTint(song.coverArt)
+    val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
     val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
 
     Column(
         Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(tint)
-            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp))
-            .clickable(onClick = onOpen),
+            .shadow(16.dp, RoundedCornerShape(18.dp))
+            .glass(RoundedCornerShape(18.dp), tint.copy(alpha = 0.78f))
+            .bouncyClick(onClick = onOpen),
     ) {
         Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             CoverArt(song.coverArt, Modifier.size(44.dp), size = 120, corner = 8.dp)

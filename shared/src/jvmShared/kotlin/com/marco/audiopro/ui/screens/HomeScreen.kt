@@ -39,6 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import com.marco.audiopro.ui.components.bouncyClick
+import com.marco.audiopro.ui.components.glass
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -161,10 +164,8 @@ private fun Tile(title: String, subtitle: String, icon: ImageVector, modifier: M
     val bg = if (highlight) Brush.linearGradient(listOf(Hifi.AccentDim, Hifi.Panel)) else Brush.linearGradient(listOf(Hifi.PanelHi, Hifi.Panel))
     Row(
         modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bg)
-            .border(1.dp, Hifi.Line, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .bouncyClick(onClick = onClick)
+            .glass(RoundedCornerShape(14.dp), if (highlight) Hifi.Accent.copy(alpha = 0.16f) else Hifi.Glass)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -187,14 +188,13 @@ private fun Hero(album: Album, onClick: () -> Unit) {
     val tint by rememberCoverColor(album.coverArt, Hifi.PanelHi)
     Row(
         Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Brush.horizontalGradient(listOf(tint, Hifi.Panel)))
-            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bouncyClick(onClick = onClick)
+            .shadow(20.dp, RoundedCornerShape(20.dp))
+            .glass(RoundedCornerShape(20.dp), tint.copy(alpha = 0.55f))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CoverArt(album.coverArt, Modifier.size(110.dp), size = 400, corner = 10.dp)
+        CoverArt(album.coverArt, Modifier.size(110.dp).shadow(14.dp, RoundedCornerShape(12.dp)), size = 400, corner = 12.dp)
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text("NUEVO EN TU BIBLIOTECA", style = Mono.copy(color = Hifi.Cream, fontSize = 9.sp))

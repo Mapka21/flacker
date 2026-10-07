@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.marco.audiopro.ui.components.glass
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -91,7 +92,7 @@ fun AlbumScreen(id: String, nav: NavController) {
         val more = rememberLoad(album.artistId) { album.artistId?.let { c.api.artist(it).album.filter { it.id != album.id } } ?: emptyList() }
 
         LazyColumn(
-            Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = 0.7f), 0.5f to Hifi.Bg)),
+            Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = 0.75f), 0.5f to Color.Transparent)),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
             item { AlbumHeader(album, nav) }
@@ -197,9 +198,7 @@ private fun AlbumSummaryCard(album: Album) {
         Modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Hifi.Panel.copy(alpha = 0.85f))
-            .border(1.dp, Hifi.Line, RoundedCornerShape(10.dp))
+            .glass(RoundedCornerShape(16.dp))
             .padding(16.dp)
             .animateContentSize(),
     ) {

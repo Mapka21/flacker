@@ -31,6 +31,7 @@ import org.jetbrains.compose.resources.FontResource
 
 enum class AccentTheme(val label: String, val color: Color?) {
     AMBER("Ámbar VU", Color(0xFFFFB000)),
+    APPLE("Rojo Apple", Color(0xFFFA2D48)),
     CYAN("Cian estudio", Color(0xFF3DD9EB)),
     ROSE("Rosa neón", Color(0xFFFF4D8D)),
     PHOSPHOR("Fósforo", Color(0xFF3CF28E)),
@@ -61,6 +62,14 @@ object Hifi {
     val LedGreen = Color(0xFF3DDC84)
     val LedRed = Color(0xFFFF3B30)
     val Cyan = Color(0xFF4FD1FF)
+
+    // Vidrio (estilo Apple): blanco muy translúcido sobre el fondo vivo de la portada.
+    val Glass = Color.White.copy(alpha = 0.07f)
+    val GlassHi = Color.White.copy(alpha = 0.12f)
+    val GlassStrokeTop = Color.White.copy(alpha = 0.16f)
+    val GlassStrokeBottom = Color.White.copy(alpha = 0.04f)
+    /** Texto secundario sobre fondos de color (como el gris de Apple Music). */
+    val OnArt = Color.White.copy(alpha = 0.72f)
 }
 
 /** Familias tipográficas; se cargan al entrar a [MarcoTheme] (los recursos son @Composable). */
@@ -78,12 +87,12 @@ private fun variable(res: FontResource, vararg weights: Int) = FontFamily(
 /** Texto de "display LCD": monoespaciado, espaciado amplio. */
 val Mono: TextStyle get() = TextStyle(fontFamily = Fonts.mono, fontSize = 11.sp, letterSpacing = 1.2.sp)
 
-/** Titulares. */
-val Display: TextStyle get() = TextStyle(fontFamily = Fonts.grotesk, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+/** Titulares grandes estilo iOS ("Large Title"): Inter pesada y apretada, cercana a SF Pro. */
+val Display: TextStyle get() = TextStyle(fontFamily = Fonts.inter, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.7).sp)
 
 private fun typography() = Typography().run {
     fun TextStyle.inter() = copy(fontFamily = Fonts.inter)
-    fun TextStyle.grotesk() = copy(fontFamily = Fonts.grotesk, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+    fun TextStyle.grotesk() = copy(fontFamily = Fonts.inter, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
     copy(
         displayLarge = displayLarge.grotesk(),
         displayMedium = displayMedium.grotesk(),
@@ -104,9 +113,10 @@ private fun typography() = Typography().run {
 }
 
 @Composable
-fun MarcoTheme(content: @Composable () -> Unit) {
+/** @param background false para ventanas transparentes (miniplayer de PC). */
+fun MarcoTheme(background: Boolean = true, content: @Composable () -> Unit) {
     Fonts.grotesk = variable(Res.font.spacegrotesk, 400, 500, 600, 700)
-    Fonts.inter = variable(Res.font.inter, 400, 500, 600, 700)
+    Fonts.inter = variable(Res.font.inter, 400, 500, 600, 700, 800)
     Fonts.mono = variable(Res.font.jetbrainsmono, 400, 500, 700)
     val typography = remember(Fonts.grotesk, Fonts.inter, Fonts.mono) { typography() }
     val accent = Hifi.Accent
@@ -138,7 +148,7 @@ fun MarcoTheme(content: @Composable () -> Unit) {
         // Fondo explícito: en PC la ventana no trae el fondo oscuro del tema de Android.
         // Color de texto por defecto (fuera de un Scaffold sería negro).
         CompositionLocalProvider(LocalContentColor provides Hifi.Text) {
-            Box(Modifier.fillMaxSize().background(Hifi.Bg)) { content() }
+            if (background) Box(Modifier.fillMaxSize().background(Hifi.Bg)) { content() } else content()
         }
     }
 }
