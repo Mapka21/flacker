@@ -40,8 +40,9 @@ import com.marco.audiopro.ui.SettingsRoute
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.MarcoTheme
 import com.marco.audiopro.ui.theme.Mono
-import com.marco.audiopro.ui.viz.Visualizer
-import com.marco.audiopro.ui.viz.VizMode
+import com.marco.audiopro.ui.LibraryRoute
+import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.viz.VisualPreset
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Assume.assumeTrue
@@ -106,22 +107,21 @@ class ScreenshotTest {
         pump(2500)
         ui { nav!!.navigate(AlbumRoute("al1")) }; pump(4000); save("2-album")
         ui { nav!!.navigate(PlayerRoute) }; pump(3000); save("3-player")
+        pump(4000); save("3a-player-later")
         ui { nav!!.popBackStack() }
+        ui { nav!!.navigate(LibraryRoute(0)) }; pump(3000); save("3b-library")
         ui { nav!!.navigate(DspRoute) }; pump(2500); save("4-dsp")
         ui { nav!!.navigate(LikedRoute) }; pump(2000); save("5-liked")
         ui { nav!!.navigate(SettingsRoute) }; pump(1500); save("6-settings")
         ui { scene.close() }
 
-        // Todos los visualizadores a la vez, con el barrido sonando.
+        // Todos los modos visuales a la vez, con el barrido sonando.
         val viz = ui { ImageComposeScene(1380, 860, Density(1f)) {
             CompositionLocalProvider(LocalApp provides graph) {
                 MarcoTheme {
                     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            for (m in listOf(VizMode.SPECTRUM, VizMode.SPECTROGRAM, VizMode.VU)) Panel(m)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            for (m in listOf(VizMode.GONIO, VizMode.SCOPE)) Panel(m)
+                        VisualPreset.entries.chunked(4).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { for (p in row) PresetPanel(p, graph.player.state.value.current?.coverArt) }
                         }
                     }
                 }
@@ -163,28 +163,39 @@ class ScreenshotTest {
         ui { pnav!!.popBackStack(); pnav!!.navigate(ArtistRoute("ar1")) }; ppump(3000); psave("11-phone-artist")
         ui { phone.close() }
 
-        // Miniplayer iPod (sin ventana: sólo el cuerpo, sobre fondo gris para ver la sombra).
-        val ipod = ui { ImageComposeScene(178, 266, Density(1f)) {
-            WithOwners {
-                CompositionLocalProvider(LocalApp provides graph) {
-                    MarcoTheme(background = false) {
-                        Box(Modifier.fillMaxSize().background(Color(0xFF7A7F88))) { IpodBody(graph.player, onExpand = {}) { it() } }
+        // Miniplayer iPod (sin ventana: sólo el cuerpo, sobre fondo gris para ver la sombra):
+        // los tres tamaños y la pantalla con cada visualizador.
+        fun ipodShot(name: String, size: IpodSize, screen: IpodScreen) {
+            graph.settings.putString("ipod_screen", screen.name)
+            val w = (178 * size.scale).toInt(); val h = (266 * size.scale).toInt()
+            val ipod = ui { ImageComposeScene(w, h, Density(1f)) {
+                WithOwners {
+                    CompositionLocalProvider(LocalApp provides graph) {
+                        MarcoTheme(background = false) {
+                            Box(Modifier.fillMaxSize().background(Color(0xFF7A7F88))) { IpodBody(graph.player, onExpand = {}, size = size) { it() } }
+                        }
                     }
                 }
-            }
-        } }
-        val iEnd = System.currentTimeMillis() + 2500
-        while (System.currentTimeMillis() < iEnd) { ui { ipod.render(System.nanoTime()) }; Thread.sleep(30) }
-        File(outDir, "12-ipod.png").writeBytes(ui { ipod.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
-        ui { ipod.close() }
+            } }
+            val iEnd = System.currentTimeMillis() + 2500
+            while (System.currentTimeMillis() < iEnd) { ui { ipod.render(System.nanoTime()) }; Thread.sleep(30) }
+            File(outDir, "$name.png").writeBytes(ui { ipod.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
+            ui { ipod.close() }
+        }
+        ipodShot("12-ipod", IpodSize.M, IpodScreen.INFO)
+        ipodShot("12b-ipod-s", IpodSize.S, IpodScreen.INFO)
+        ipodShot("12c-ipod-l-neon", IpodSize.L, IpodScreen.NEON)
+        ipodShot("12d-ipod-hiper", IpodSize.M, IpodScreen.HIPER)
+        ipodShot("12e-ipod-halo", IpodSize.M, IpodScreen.HALO)
+        graph.settings.putString("ipod_screen", IpodScreen.INFO.name)
         graph.shutdown()
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun Panel(m: VizMode) {
+private fun PresetPanel(p: VisualPreset, cover: String?) {
     Column {
-        Text(m.label, style = Mono.copy(color = Hifi.TextDim))
-        Box(Modifier.size(430.dp, 360.dp)) { Visualizer(m, Modifier.fillMaxSize()) }
+        Text(p.label, style = Mono.copy(color = Hifi.TextDim))
+        Box(Modifier.size(320.dp, 380.dp)) { AmbientBackground(cover, preset = p) }
     }
 }

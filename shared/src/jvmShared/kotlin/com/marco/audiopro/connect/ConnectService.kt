@@ -52,7 +52,7 @@ private data class Beacon(
     val np: NowPlaying? = null,
 )
 
-/** Otro dispositivo con Marco Audio Pro en la red, con la misma cuenta de Navidrome. */
+/** Otro dispositivo con Flacker en la red, con la misma cuenta de Navidrome. */
 data class RemoteDevice(
     val id: String,
     val name: String,

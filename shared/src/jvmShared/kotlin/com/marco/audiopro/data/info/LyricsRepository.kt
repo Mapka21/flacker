@@ -60,7 +60,7 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
     }
 
     private fun request(url: String) = runCatching {
-        http.newCall(Request.Builder().url(url).header("User-Agent", "MarcoAudioPro (app personal)").build()).execute().use { r ->
+        http.newCall(Request.Builder().url(url).header("User-Agent", "Flacker (app personal)").build()).execute().use { r ->
             if (!r.isSuccessful) null else SubsonicJson.parseToJsonElement(r.body!!.string())
         }
     }.getOrNull()

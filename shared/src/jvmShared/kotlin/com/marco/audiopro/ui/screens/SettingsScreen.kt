@@ -26,8 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -59,7 +57,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.marco.audiopro.data.ReplayGainMode
 import com.marco.audiopro.data.StreamQuality
+import com.marco.audiopro.ui.components.GlassChip
 import com.marco.audiopro.ui.components.SectionHeader
+import com.marco.audiopro.ui.components.glassCard
+import com.marco.audiopro.ui.theme.Display
+import com.marco.audiopro.ui.viz.VisualPreset
 import com.marco.audiopro.ui.theme.AccentTheme
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
@@ -75,9 +77,9 @@ fun SettingsScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            Text("Ajustes", fontSize = 22.sp)
+            Text("Ajustes", style = Display.copy(fontSize = 30.sp))
         }
 
         SectionHeader("Servidor")
@@ -138,11 +140,7 @@ fun SettingsScreen(nav: NavController) {
         Card {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReplayGainMode.entries.forEach { m ->
-                    FilterChip(
-                        selected = prefs.replayGain == m, onClick = { c.settings.updatePrefs { it.copy(replayGain = m) } },
-                        label = { Text(m.label) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
-                    )
+                    GlassChip(m.label, prefs.replayGain == m) { c.settings.updatePrefs { it.copy(replayGain = m) } }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -157,8 +155,25 @@ fun SettingsScreen(nav: NavController) {
             Hint("Usa los tags de ReplayGain de tus archivos para nivelar el volumen. Nunca sube por encima del pico real (sin clipping).")
         }
 
-        SectionHeader("Visualizadores")
+        SectionHeader("Modo visual")
         Card {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Fondo que baila con la música", fontSize = 15.sp)
+                    Text(if (prefs.visualMode) "Preset: ${prefs.visualPreset.label}" else "Apagado", fontSize = 12.sp, color = Hifi.TextDim)
+                }
+                Switch(
+                    prefs.visualMode, { on -> c.settings.updatePrefs { it.copy(visualMode = on) } },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VisualPreset.entries.forEach { p ->
+                    GlassChip(p.label, prefs.visualMode && prefs.visualPreset == p) { c.settings.updatePrefs { it.copy(visualMode = true, visualPreset = p) } }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Sync", fontSize = 14.sp, modifier = Modifier.width(80.dp))
                 Slider(
@@ -168,7 +183,7 @@ fun SettingsScreen(nav: NavController) {
                 )
                 Text("${prefs.visualOffsetMs} ms", style = Mono.copy(color = Hifi.Cream), modifier = Modifier.width(70.dp).padding(start = 8.dp))
             }
-            Hint(if (c.isDesktop) "En PC el sync se calcula solo con la posición real de la salida; ajústalo sólo si lo notas desfasado." else "Si los visualizadores van adelantados al sonido (pasa con audífonos Bluetooth), súbelo a ~200 ms.")
+            Hint(if (c.isDesktop) "En PC el sync se calcula solo con la posición real de la salida; ajústalo sólo si lo notas desfasado." else "Si el fondo va adelantado al sonido (pasa con audífonos Bluetooth), súbelo a ~200 ms.")
         }
 
         SectionHeader("Reseñas de álbum")
@@ -201,7 +216,7 @@ fun SettingsScreen(nav: NavController) {
         }
 
         Text(
-            "MARCO AUDIO PRO · v${c.versionName}", style = Mono.copy(color = Hifi.TextFaint),
+            "FLACKER · v${c.versionName}", style = Mono.copy(color = Hifi.TextFaint),
             modifier = Modifier.fillMaxWidth().padding(28.dp),
         )
     }
@@ -210,7 +225,7 @@ fun SettingsScreen(nav: NavController) {
 @Composable
 private fun Card(content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Hifi.Panel).padding(16.dp),
+        Modifier.padding(horizontal = 12.dp).fillMaxWidth().glassCard().padding(16.dp),
         content = content,
     )
 }

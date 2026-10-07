@@ -1,21 +1,24 @@
-# Marco Audio Pro
+# Flacker
 
-Cliente personal y audiófilo para Navidrome, en **Android** y **Windows** (el mismo código para las dos).
+*FLAC + hacker.* (Antes "Marco Audio Pro".) Cliente personal y audiófilo para Navidrome, en **Android** y **Windows** (el mismo código para las dos).
 
 ## Instalar
 
 ### Android
-1. Pasa `MarcoAudioPro.apk` al teléfono (cable, Drive, Telegram…) y ábrelo.
-   Android te va a pedir permiso para "instalar apps de origen desconocido".
+1. Pasa `Flacker.apk` al teléfono (cable, Drive, Telegram…) y ábrelo.
+   Android te va a pedir permiso para "instalar apps de origen desconocido". Se instala
+   encima de Marco Audio Pro: conserva tu sesión, descargas y EQ.
 2. Pon la URL de tu Navidrome, tu usuario y tu contraseña.
    - Para escucharlo fuera de casa, el servidor tiene que ser accesible desde internet:
      un dominio con HTTPS, un reverse proxy o una VPN tipo Tailscale (la más fácil).
 
 ### Windows
-1. Descomprime `MarcoAudioPro-Windows.zip` donde quieras (por ejemplo en `C:\Programas`).
-2. Abre `MarcoAudioPro\MarcoAudioPro.exe`. No necesita instalar Java ni ffmpeg: ya vienen dentro.
+1. Descomprime `Flacker-Windows.zip` donde quieras (por ejemplo en `C:\Programas`).
+2. Abre `Flacker\Flacker.exe`. No necesita instalar Java ni ffmpeg: ya vienen dentro.
 3. **Miniplayer iPod nano**: botón ⧉ arriba a la derecha. iPod nano del color de la portada,
-   siempre encima; se arrastra desde cualquier parte menos la rueda. Gira la rueda para el
+   siempre encima; se arrastra desde cualquier parte menos la rueda. Tres tamaños (botón
+   S/M/L arriba a la izquierda). Un clic en la pantalla cambia entre la canción y los
+   visualizadores (Neón 360 estilo Xbox 360, Hiperespacio, Halo). Gira la rueda para el
    volumen; MENU, doble clic en la pantalla o la ✕ regresan a la app completa.
 4. Atajos: **Ctrl+Espacio** play/pausa · **Ctrl+→ / Ctrl+←** siguiente/anterior ·
    **Ctrl+↑ / Ctrl+↓** volumen · también las teclas multimedia del teclado.
@@ -25,7 +28,13 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
-- **Marco Connect** (como Spotify Connect, sin nube): el celular y la PC se ven en la misma red
+- **Modo visual**: el fondo de la app es el visualizador y baila con la música (bajo, medios,
+  agudos y golpes). Presets: Aurora, Pulso, Halo, Olas, Hiperespacio, Synthwave y Neón 360.
+  Botón ✨ para encenderlo/apagarlo y elegir preset viéndolos en vivo.
+- **Letra en su propio módulo** (como Apple Music): en la PC, el reproductor completo pone la
+  letra a la derecha y la barra derecha tiene la pestaña "Letra"; en el celular, el botón de
+  letra la pone en grande con la portada chiquita arriba.
+- **Connect** (como Spotify Connect, sin nube): el celular y la PC se ven en la misma red
   Wi-Fi. Botón de dispositivos → tocas tu PC y la canción sigue ahí en el mismo segundo;
   "Traer aquí" la regresa. Si algo suena en otro dispositivo aparece la barra verde
   "Reproduciendo en …" con control remoto. Sólo se ven dispositivos con tu misma cuenta de
@@ -44,9 +53,9 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **EQ paramétrico de 10 bandas**: peaking, shelves, low/high pass. Procesa en double,
   con pre-amp automático anti-clipping, dither TPDF, presets propios y A/B (mantener presionado).
   La curva se edita arrastrando los nodos, con el espectro en vivo detrás.
-- **Visualizadores** que leen el audio real después del EQ: espectro LED, espectrograma,
-  VU analógicos (balística VU auténtica, 0 VU = -18 dBFS), goniómetro con medidor de
-  correlación y osciloscopio.
+- **Medidores de estudio** (en "Señal") que leen el audio real después del EQ: VU analógicos
+  (balística VU auténtica, 0 VU = -18 dBFS), espectro LED, espectrograma, goniómetro con
+  medidor de correlación y osciloscopio.
 - **Ruta de señal** (estilo Roon): fuente → transporte → decodificador → ReplayGain → EQ → salida.
 - **ReplayGain** por pista/álbum, sin pasarse nunca del pico real.
 - **Me gusta** sincronizado con Navidrome, "Radio Me gusta", letras sincronizadas, scrobbling.
@@ -73,7 +82,7 @@ Requiere JDK 17 y el Android SDK (o Android Studio).
 ```
 gradlew :app:assembleRelease           # APK → <build>/app/outputs/apk/release/
 gradlew :desktop:run                   # abre la app de PC
-gradlew :desktop:createDistributable   # carpeta con MarcoAudioPro.exe
+gradlew :desktop:createDistributable   # carpeta con Flacker.exe
 gradlew :shared:desktopTest :app:testDebugUnitTest   # pruebas del DSP
 ```
 

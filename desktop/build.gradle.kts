@@ -41,15 +41,15 @@ compose.desktop {
         jvmArgs += listOf("-Xmx768m", "-Dsun.java2d.d3d=true")
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "MarcoAudioPro"
-            packageVersion = "1.4.0"
+            packageName = "Flacker"
+            packageVersion = "1.5.0"
             description = "Cliente audiófilo para Navidrome"
             vendor = "Marco"
             includeAllModules = true
             windows {
                 menu = true
                 shortcut = true
-                menuGroup = "Marco Audio Pro"
+                menuGroup = "Flacker"
                 upgradeUuid = "6d0e2a9c-6c0f-4d6b-9b8e-2f5a1c7e9a31"
                 iconFile.set(project.file("icon.ico"))
             }

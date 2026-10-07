@@ -70,6 +70,8 @@ class DesktopPlayer(
     @Volatile private var wantPlay = false
     @Volatile private var buffering = false
     @Volatile private var error: String? = null
+    /** Posición pedida por la UI que el hilo de audio todavía no aplica (la barra no "rebota"). */
+    @Volatile private var seekTarget: Long? = null
 
     // ---------------------------------------------------------------- tap para visualizadores
 
@@ -137,7 +139,9 @@ class DesktopPlayer(
         while (true) {
             try {
                 val c = cur
-                val cmd = if (c == null || !wantPlay) cmds.take() else cmds.poll()
+                var cmd = if (c == null || !wantPlay) cmds.take() else cmds.poll()
+                // Al arrastrar la barra pueden llegar varias búsquedas seguidas: sólo cuenta la última.
+                while (cmd is Cmd.Seek && cmds.peek() is Cmd.Seek) cmd = cmds.poll()
                 if (cmd != null) { handle(cmd); publish(); continue }
                 pump(c!!)
             } catch (e: InterruptedException) {
@@ -157,7 +161,7 @@ class DesktopPlayer(
                 val song = synchronized(lock) { queue.getOrNull(cmd.index) } ?: return
                 buffering = true; error = null; publish()
                 val t = try { open(cmd.index, song) } catch (e: Exception) {
-                    buffering = false; error = "No se pudo abrir “${song.title}”: ${e.message}"; wantPlay = false
+                    buffering = false; error = "No se pudo abrir “${song.title}”: ${e.message}"; wantPlay = false; seekTarget = null
                     return
                 }
                 if (cmd.startMs > 0) t.grabber.timestamp = cmd.startMs * 1000
@@ -165,18 +169,25 @@ class DesktopPlayer(
                 cur = t
                 eq.reset(t.rate, 2)
                 segments = listOf(Segment(t, cmd.startMs, ring.writePos))
+                seekTarget = null
                 buffering = false
                 wantPlay = cmd.play
                 if (wantPlay) line?.start()
                 announce(t)
             }
             is Cmd.Seek -> {
-                val t = cur ?: return
-                t.grabber.timestamp = cmd.ms * 1000
+                val t = cur ?: run { seekTarget = null; return }
+                val ok = runCatching { t.grabber.timestamp = cmd.ms * 1000 }.isSuccess
+                if (!ok) {
+                    // Algunos streams no aguantan buscar en caliente: se reabre en ese punto.
+                    handle(Cmd.Load(t.index, cmd.ms, wantPlay))
+                    return
+                }
                 line?.flush()
                 eq.reset(t.rate, 2)
                 segments = listOf(Segment(t, cmd.ms, ring.writePos))
                 cancelPrefetch()
+                seekTarget = null
             }
             Cmd.Pause -> { wantPlay = false; line?.stop() }
             Cmd.Resume -> { if (cur != null) { wantPlay = true; line?.start() } }
@@ -342,7 +353,7 @@ class DesktopPlayer(
         return seg to ms
     }
 
-    override fun positionMs(): Long = audibleSegment()?.second ?: 0L
+    override fun positionMs(): Long = seekTarget ?: audibleSegment()?.second ?: 0L
 
     private fun publish() {
         val seg = audibleSegment()?.first
@@ -453,6 +464,7 @@ class DesktopPlayer(
 
     override fun seekTo(ms: Long) {
         val playing = audibleSegment()?.first?.track?.index
+        seekTarget = ms.coerceAtLeast(0)
         if (playing != null && playing != cur?.index) {
             // Ya se precargó la siguiente (gapless): recarga la que realmente está sonando.
             cmds.put(Cmd.Load(playing, ms, wantPlay))

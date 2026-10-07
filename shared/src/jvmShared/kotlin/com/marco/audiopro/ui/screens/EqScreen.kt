@@ -28,8 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -71,7 +69,11 @@ import com.marco.audiopro.audio.EqConfig
 import com.marco.audiopro.audio.EqMath
 import com.marco.audiopro.audio.EqPresets
 import com.marco.audiopro.audio.FilterType
+import com.marco.audiopro.ui.components.GlassChip
 import com.marco.audiopro.ui.components.SectionHeader
+import com.marco.audiopro.ui.components.bouncyClick
+import com.marco.audiopro.ui.components.glassCard
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 import com.marco.audiopro.ui.viz.Analyzer
@@ -97,7 +99,7 @@ fun EqScreen() {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("DSP", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 4.sp))
-                Text("Ecualizador paramétrico", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Ecualizador", style = Display.copy(fontSize = 30.sp))
             }
             Switch(
                 cfg.enabled, { on -> engine.update { it.copy(enabled = on) } },
@@ -113,10 +115,10 @@ fun EqScreen() {
                 val b = cfg.bands[i]
                 val sel = i == selected
                 Column(
-                    Modifier.clip(RoundedCornerShape(6.dp))
-                        .background(if (sel) Hifi.AccentDim else Hifi.Panel)
-                        .border(1.dp, if (sel) Hifi.Accent else Hifi.Line, RoundedCornerShape(6.dp))
-                        .clickable { selected = i }
+                    Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(if (sel) Hifi.Accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.06f))
+                        .border(1.dp, if (sel) Hifi.Accent else Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .bouncyClick { selected = i }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -190,9 +192,9 @@ private fun EqGraph(cfg: EqConfig, engine: AudioEngine, selected: Int, onSelect:
 
     Canvas(
         modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF050506))
-            .border(1.dp, Hifi.Line, RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectTapGestures { onSelect(nearestBand(currentCfg.bands, it, size.width.toFloat(), size.height.toFloat())) }
             }
@@ -290,15 +292,12 @@ private fun Float.roundFreq(): Float = when {
 @Composable
 private fun BandEditor(b: EqBand, onChange: ((EqBand) -> EqBand) -> Unit) {
     Column(
-        Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Hifi.Panel).padding(14.dp),
+        Modifier.padding(horizontal = 12.dp).fillMaxWidth().glassCard().padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(FilterType.entries) { t ->
-                    FilterChip(
-                        selected = b.type == t, onClick = { onChange { it.copy(type = t) } }, label = { Text(t.label, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
-                    )
+                    GlassChip(t.label, b.type == t) { onChange { it.copy(type = t) } }
                 }
             }
             Switch(
@@ -339,7 +338,7 @@ private fun LabeledSlider(name: String, value: String, v: Float, range: ClosedFl
 
 @Composable
 private fun PreampEditor(cfg: EqConfig, engine: AudioEngine) {
-    Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Hifi.Panel).padding(14.dp)) {
+    Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().glassCard().padding(14.dp)) {
         SwitchRow("Pre-amp automático (anti-clipping)", cfg.autoPreamp) { on -> engine.update { it.copy(autoPreamp = on) } }
         if (!cfg.autoPreamp) {
             LabeledSlider("PRE", "%+.1f dB".format(cfg.preampDb), cfg.preampDb, -20f..6f) { v ->
@@ -372,13 +371,13 @@ private fun PresetRow(cfg: EqConfig, engine: AudioEngine) {
             val sel = cfg.presetName == p.name
             val isUser = user.any { it.name == p.name }
             Box(
-                Modifier.clip(RoundedCornerShape(16.dp))
-                    .background(if (sel) Hifi.AccentDim else Hifi.Panel)
-                    .border(1.dp, if (sel) Hifi.Accent else Hifi.Line, RoundedCornerShape(16.dp))
+                Modifier.clip(RoundedCornerShape(50))
+                    .background(if (sel) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, Color.White.copy(alpha = if (sel) 0f else 0.10f), RoundedCornerShape(50))
                     .combinedClickable(onClick = { engine.applyPreset(p) }, onLongClick = { if (isUser) confirmDelete = p.name })
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
-                Text((if (isUser) "★ " else "") + p.name, fontSize = 13.sp, color = if (sel) Hifi.Cream else Hifi.Text)
+                Text((if (isUser) "★ " else "") + p.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.Black else Hifi.TextDim)
             }
         }
     }
@@ -404,9 +403,9 @@ private fun AbButton(cfg: EqConfig, engine: AudioEngine) {
     val currentCfg by rememberUpdatedState(cfg)
     Box(
         Modifier.padding(horizontal = 12.dp).fillMaxWidth().height(64.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (pressed) Hifi.PanelHi else Hifi.Panel)
-            .border(1.dp, if (pressed) Hifi.Cream else Hifi.Line, RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (pressed) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.22f))
+            .border(1.dp, if (pressed) Hifi.Cream else Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     pressed = true

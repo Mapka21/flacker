@@ -5,6 +5,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -165,10 +168,11 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         composable<AlbumRoute> { AlbumScreen(it.toRoute<AlbumRoute>().id, nav) }
         composable<ArtistRoute> { ArtistScreen(it.toRoute<ArtistRoute>().id, nav) }
         composable<PlaylistRoute> { PlaylistScreen(it.toRoute<PlaylistRoute>().id, nav) }
+        // El fondo es compartido: el reproductor entra creciendo y desvaneciéndose, sin tapar nada.
         composable<PlayerRoute>(
-            enterTransition = { slideInVertically(tween(320)) { it } },
-            exitTransition = { fadeOut(tween(1)) },
-            popExitTransition = { slideOutVertically(tween(320)) { it } },
+            enterTransition = { fadeIn(tween(280)) + scaleIn(tween(320), initialScale = 0.94f) + slideInVertically(tween(320)) { it / 10 } },
+            exitTransition = { fadeOut(tween(160)) },
+            popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(260), targetScale = 0.94f) + slideOutVertically(tween(260)) { it / 10 } },
         ) { NowPlayingScreen(nav) }
     }
 }
@@ -224,6 +228,8 @@ private fun PhoneShell(nav: NavHostController) {
     val entry by nav.currentBackStackEntryAsState()
     val dest = entry?.destination
     val playback by c.player.state.collectAsState()
+    val onPlayer = dest.isIn(PlayerRoute::class)
+    val intensity by animateFloatAsState(if (onPlayer) 1f else 0.45f, tween(500), label = "bg")
     val tabs = buildList {
         add(NavItem(HomeRoute, "Inicio", Icons.Default.Home))
         add(NavItem(LibraryRoute(), "Biblioteca", Icons.Default.LibraryMusic))
@@ -236,7 +242,7 @@ private fun PhoneShell(nav: NavHostController) {
         containerColor = Hifi.Bg,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            if (!dest.isIn(PlayerRoute::class)) {
+            if (!onPlayer) {
                 Column(
                     Modifier
                         .background(Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Black.copy(alpha = 0.78f)))
@@ -250,7 +256,7 @@ private fun PhoneShell(nav: NavHostController) {
         },
     ) { pad ->
         Box(Modifier.fillMaxSize()) {
-            AmbientBackground(playback.current?.coverArt, intensity = 0.4f)
+            AmbientBackground(playback.current?.coverArt, intensity = intensity)
             AppNavHost(nav, Modifier.padding(pad))
             ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
         }

@@ -71,6 +71,7 @@ private class PrefsStore(private val p: Preferences) : KeyValueStore {
 private val profileSuffix = System.getProperty("marco.profile")?.takeIf { it.isNotBlank() }?.let { "-$it" } ?: ""
 
 class DesktopGraph : AppGraph {
+    // Carpeta y nodo de ajustes conservan el nombre viejo para no perder sesión, EQ ni caché.
     val dataDir = File(System.getenv("APPDATA") ?: System.getProperty("user.home"), "MarcoAudioPro$profileSuffix").apply { mkdirs() }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -95,7 +96,7 @@ class DesktopGraph : AppGraph {
     )
     override val downloads = null
     override val cache = null
-    override val versionName = "1.4.0"
+    override val versionName = "1.5.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -127,7 +128,7 @@ fun main() {
             state = windowState,
             // La ventana grande se oculta (no se cierra) mientras el miniplayer está activo.
             visible = !mini,
-            title = "Marco Audio Pro",
+            title = "Flacker",
             icon = painterResource(Res.drawable.app_icon),
             onPreviewKeyEvent = { e -> handleShortcut(e, player) },
         ) {

@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.sp
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
-import com.marco.audiopro.ui.viz.Visualizer
-import com.marco.audiopro.ui.viz.VizMode
+import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.FlackerLogo
 import kotlinx.coroutines.launch
 
 @Composable
@@ -52,15 +52,13 @@ fun LoginScreen() {
     var error by remember { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AmbientBackground(null, intensity = 0.8f)
         Column(
             Modifier.widthIn(max = 480.dp).fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(28.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            Visualizer(VizMode.SPECTRUM, Modifier.fillMaxWidth().height(70.dp))
-            Spacer(Modifier.height(20.dp))
-            Text("MARCO", style = Mono.copy(color = Hifi.Accent, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 10.sp))
-            Text("AUDIO PRO", style = Mono.copy(color = Hifi.Cream, fontSize = 14.sp, letterSpacing = 8.sp))
-            Spacer(Modifier.height(8.dp))
+            FlackerLogo(size = 36.sp)
+            Spacer(Modifier.height(14.dp))
             Text("Conecta tu servidor Navidrome", color = Hifi.TextDim, fontSize = 14.sp)
             Spacer(Modifier.height(28.dp))
             OutlinedTextField(

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -26,13 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,7 +57,10 @@ import com.marco.audiopro.ui.LikedRoute
 import com.marco.audiopro.ui.components.AlbumCard
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.ErrorBox
+import com.marco.audiopro.ui.components.GlassChip
+import com.marco.audiopro.ui.components.SegmentedControl
 import com.marco.audiopro.ui.components.LoadBox
+import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
@@ -72,21 +71,17 @@ import com.marco.audiopro.ui.components.songsLabel
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
     var tab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Biblioteca", style = Display.copy(fontSize = 30.sp), modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 8.dp))
-        SecondaryTabRow(
-            selectedTabIndex = tab, containerColor = Hifi.Bg, contentColor = Hifi.Accent,
-            indicator = { TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(tab), color = Hifi.Accent) },
-            divider = {},
-        ) {
-            listOf("Álbumes", "Artistas", "Playlists").forEachIndexed { i, t ->
-                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }, unselectedContentColor = Hifi.TextDim)
-            }
-        }
+        Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 12.dp))
+        // Control segmentado de vidrio (en lugar de la barra de pestañas de Material).
+        SegmentedControl(
+            listOf("Álbumes", "Artistas", "Playlists"), tab, { tab = it },
+            Modifier.padding(horizontal = 16.dp).widthIn(max = 460.dp).fillMaxWidth(),
+        )
+        Spacer(Modifier.height(4.dp))
         when (tab) {
             0 -> AlbumsGrid(nav)
             1 -> ArtistsList(nav)
@@ -132,10 +127,7 @@ private fun AlbumsGrid(nav: NavController) {
     Column {
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(sorts) { (key, label) ->
-                FilterChip(
-                    selected = sort == key, onClick = { sort = key }, label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Hifi.AccentDim, selectedLabelColor = Hifi.Cream),
-                )
+                GlassChip(label, sort == key) { sort = key }
             }
         }
         if (error != null && albums.isEmpty()) {
@@ -167,7 +159,7 @@ private fun ArtistsList(nav: NavController) {
 
 @Composable
 fun ArtistRow(a: Artist, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().bouncyClick(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         CoverArt(a.coverArt, Modifier.size(48.dp), size = 150, corner = 24.dp)
         Spacer(Modifier.width(14.dp))
         Column {

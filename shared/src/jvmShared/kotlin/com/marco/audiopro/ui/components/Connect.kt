@@ -112,7 +112,7 @@ fun DevicesDialog(onDismiss: () -> Unit) {
 
             if (devices.isEmpty()) {
                 Text(
-                    "No veo otros dispositivos. Abre Marco Audio Pro en tu celular o PC conectados a la misma red." +
+                    "No veo otros dispositivos. Abre Flacker en tu celular o PC conectados a la misma red." +
                         if (c.isDesktop) " Si Windows preguntó por el firewall, permite el acceso en redes privadas." else "",
                     color = Hifi.TextDim, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp),
                 )

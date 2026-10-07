@@ -1,6 +1,12 @@
 package com.marco.audiopro.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -91,6 +97,11 @@ import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.ConnectToast
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.DevicesButton
+import com.marco.audiopro.ui.components.FlackerLogo
+import com.marco.audiopro.ui.components.LyricsPane
+import com.marco.audiopro.ui.components.SegmentedControl
+import com.marco.audiopro.ui.components.VisualModeButton
+import com.marco.audiopro.ui.screens.SeekBar
 import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.Load
 import com.marco.audiopro.ui.components.RemotePlaybackBanner
@@ -125,22 +136,32 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     val dest = entry?.destination
     val playback by c.player.state.collectAsState()
     val onPlayer = dest.isIn(PlayerRoute::class)
+    // El reproductor completo ocupa toda la ventana: sin barra lateral ni columna derecha,
+    // para no repetir la misma información dos veces.
+    val pad by animateDpAsState(if (onPlayer) 0.dp else 14.dp, spring(dampingRatio = 0.85f, stiffness = 260f), label = "pad")
+    val intensity by animateFloatAsState(if (onPlayer) 1f else 0.75f, tween(500), label = "bg")
+    var rightTab by remember { mutableStateOf(0) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
-        AmbientBackground(playback.current?.coverArt, intensity = 0.75f)
-        Row(Modifier.fillMaxSize().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Sidebar(nav, entry, dest)
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                TopBar(nav, onMiniPlayer)
-                Spacer(Modifier.height(12.dp))
-                Box(Modifier.weight(1f).fillMaxWidth().panel()) { AppNavHost(nav, Modifier.fillMaxSize()) }
-            }
+        AmbientBackground(playback.current?.coverArt, intensity = intensity)
+        Row(Modifier.fillMaxSize().padding(pad)) {
             AnimatedVisibility(
-                wide && playback.current != null,
+                !onPlayer,
                 enter = expandHorizontally(spring(dampingRatio = 0.85f, stiffness = 260f)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
-            ) { RightColumn(nav) }
+            ) { Row { Sidebar(nav, entry, dest); Spacer(Modifier.width(14.dp)) } }
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                AnimatedVisibility(!onPlayer, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column { TopBar(nav, onMiniPlayer); Spacer(Modifier.height(12.dp)) }
+                }
+                Box(Modifier.weight(1f).fillMaxWidth().then(if (onPlayer) Modifier else Modifier.panel())) { AppNavHost(nav, Modifier.fillMaxSize()) }
+            }
+            AnimatedVisibility(
+                wide && playback.current != null && !onPlayer,
+                enter = expandHorizontally(spring(dampingRatio = 0.85f, stiffness = 260f)) + fadeIn(),
+                exit = shrinkHorizontally() + fadeOut(),
+            ) { Row { Spacer(Modifier.width(14.dp)); RightColumn(nav, rightTab) { rightTab = it } } }
         }
         AnimatedVisibility(
             !wide && playback.current != null && !onPlayer,
@@ -166,10 +187,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
     val playlists = rememberLoad(Unit) { c.api.playlists() }
 
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
-        Column(Modifier.padding(horizontal = 22.dp)) {
-            Text("MARCO", style = Mono.copy(color = Hifi.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 6.sp))
-            Text("AUDIO PRO", style = Mono.copy(color = Hifi.Cream, fontSize = 10.sp, letterSpacing = 5.sp))
-        }
+        FlackerLogo(Modifier.padding(horizontal = 22.dp))
         SectionLabel("MENÚ")
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Search, "Buscar", dest.isIn(SearchRoute::class)) { nav.openTab(SearchRoute) }
@@ -244,6 +262,8 @@ private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             Text("Busca artistas, álbumes o canciones", color = Hifi.TextFaint, fontSize = 13.sp)
         }
         Spacer(Modifier.weight(1f))
+        Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }
+        Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { DevicesButton() }
         if (onMiniPlayer != null && playing) {
             Spacer(Modifier.width(10.dp))
@@ -265,24 +285,28 @@ private fun RoundGlass(icon: ImageVector, desc: String, onClick: () -> Unit) {
 // ------------------------------------------------------------------ columna derecha
 
 @Composable
-private fun RightColumn(nav: NavHostController) {
+private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) {
+    val song = LocalApp.current.player.state.collectAsState().value.current
     Column(Modifier.width(340.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         RemotePlaybackBanner()
-        NowPlayingCard(nav)
-        UpNextCard(Modifier.weight(1f))
+        NowPlayingCard(nav, lyricsOn = tab == 1) { onTab(if (tab == 1) 0 else 1) }
+        // Abajo: la cola o la letra (como la barra lateral de Apple Music en Mac).
+        Column(Modifier.weight(1f).fillMaxWidth().panel().padding(top = 12.dp)) {
+            SegmentedControl(listOf("A continuación", "Letra"), tab, onTab, Modifier.padding(horizontal = 12.dp).fillMaxWidth())
+            AnimatedContent(tab, Modifier.weight(1f), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "right") { t ->
+                if (t == 1 && song != null) LyricsPane(song, Modifier.fillMaxSize(), fontSize = 20.sp, horizontalPadding = 18)
+                else UpNextList()
+            }
+        }
     }
 }
 
 @Composable
-private fun NowPlayingCard(nav: NavHostController) {
+private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onLyrics: () -> Unit) {
     val c = LocalApp.current
     val player = c.player
     val st by player.state.collectAsState()
     val song = st.current ?: return
-    val pos by rememberPlaybackPosition(200)
-    var dragging by remember { mutableStateOf<Float?>(null) }
-    val dur = st.durationMs.coerceAtLeast(1)
-    val value = dragging ?: (pos.toFloat() / dur).coerceIn(0f, 1f)
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
 
     Column(Modifier.fillMaxWidth().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(18.dp)) {
@@ -308,11 +332,7 @@ private fun NowPlayingCard(nav: NavHostController) {
             LikeButton(song, size = 22.dp)
         }
         Spacer(Modifier.height(8.dp))
-        AppleBar(value, onChange = { dragging = it }, onCommit = { v -> player.seekTo((v * dur).toLong()); dragging = null })
-        Row(Modifier.fillMaxWidth()) {
-            Text(formatMs((value * dur).toLong()), style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp), modifier = Modifier.weight(1f))
-            Text("-" + formatMs(dur - (value * dur).toLong()), style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp))
-        }
+        SeekBar(st.durationMs, compact = true)
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             SmallToggle(Icons.Default.Shuffle, st.shuffle) { player.toggleShuffle() }
             Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(34.dp).bouncyClick { player.previous() })
@@ -334,7 +354,11 @@ private fun NowPlayingCard(nav: NavHostController) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { nav.openPlayer() }) { Icon(Icons.Default.Lyrics, "Letra y visualizadores", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
+            Box(
+                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (lyricsOn) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+                    .bouncyClick(onClick = onLyrics),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Default.Lyrics, "Letra", tint = if (lyricsOn) Color.White else Hifi.OnArt, modifier = Modifier.size(20.dp)) }
             IconButton(onClick = { nav.openTab(DspRoute) }) { Icon(Icons.Default.Equalizer, "Ecualizador", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
             DevicesButton(size = 20)
         }
@@ -350,17 +374,11 @@ private fun SmallToggle(icon: ImageVector, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun UpNextCard(modifier: Modifier) {
+private fun UpNextList() {
     val player = LocalApp.current.player
     val st by player.state.collectAsState()
     val next = st.queue.withIndex().drop(st.currentIndex + 1).take(40)
-    Column(modifier.fillMaxWidth().panel().padding(top = 16.dp)) {
-        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = Hifi.Accent, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("A continuación", style = Display.copy(fontSize = 17.sp), modifier = Modifier.weight(1f))
-            Text("${next.size}", style = Mono.copy(color = Hifi.TextFaint))
-        }
+    Column(Modifier.fillMaxSize()) {
         if (next.isEmpty()) {
             Text("Es la última de la cola. Prueba \"Iniciar radio\" en cualquier canción.", color = Hifi.TextFaint, fontSize = 12.sp, modifier = Modifier.padding(18.dp))
         }

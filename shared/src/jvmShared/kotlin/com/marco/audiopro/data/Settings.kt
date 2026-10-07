@@ -1,6 +1,7 @@
 package com.marco.audiopro.data
 
 import com.marco.audiopro.ui.theme.AccentTheme
+import com.marco.audiopro.ui.viz.VisualPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,9 @@ data class AppPrefs(
     val accent: AccentTheme = AccentTheme.AMBER,
     val downloadQuality: StreamQuality = StreamQuality.ORIGINAL,
     val downloadWifiOnly: Boolean = true,
+    /** Modo visual: el fondo reacciona a la música con el preset elegido. */
+    val visualMode: Boolean = true,
+    val visualPreset: VisualPreset = VisualPreset.AURORA,
 )
 
 /** Almacenamiento clave-valor de cada plataforma (SharedPreferences en Android, Preferences en PC). */
@@ -75,6 +79,8 @@ class Settings(private val sp: KeyValueStore) {
         accent = enumOr(sp.getString("accent"), AccentTheme.AMBER),
         downloadQuality = enumOr(sp.getString("q_download"), StreamQuality.ORIGINAL),
         downloadWifiOnly = sp.getBoolean("dl_wifi", true),
+        visualMode = sp.getBoolean("vis_mode", true),
+        visualPreset = enumOr(sp.getString("vis_preset"), VisualPreset.AURORA),
     )
 
     fun updatePrefs(f: (AppPrefs) -> AppPrefs) {
@@ -91,6 +97,8 @@ class Settings(private val sp: KeyValueStore) {
                 "accent" to p.accent.name,
                 "q_download" to p.downloadQuality.name,
                 "dl_wifi" to p.downloadWifiOnly,
+                "vis_mode" to p.visualMode,
+                "vis_preset" to p.visualPreset.name,
             ),
         )
         _prefs.value = p

@@ -46,6 +46,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import com.marco.audiopro.ui.viz.DuskPalette
+import com.marco.audiopro.ui.viz.LiveAudio
+import com.marco.audiopro.ui.viz.VisualPreset
+import com.marco.audiopro.ui.viz.VisualScene
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,17 +94,26 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.hypot
 
+/** Tamaños del iPod: todo el cuerpo se escala junto (texto, rueda y pantalla). */
+enum class IpodSize(val label: String, val scale: Float) { S("S", 0.8f), M("M", 1f), L("L", 1.45f) }
+
+/** Lo que muestra la pantalla: la canción o un visualizador (tocar la pantalla cambia). */
+enum class IpodScreen(val preset: VisualPreset?) { INFO(null), NEON(VisualPreset.NEON), HIPER(VisualPreset.HIPER), HALO(VisualPreset.HALO) }
+
+private val BaseSize = DpSize(178.dp, 266.dp)
+
 /**
- * Miniplayer de PC: un iPod nano (3ª gen, el "gordito") del color de la portada, chiquito,
- * siempre encima y arrastrable desde cualquier parte menos la rueda.
+ * Miniplayer de PC: un iPod nano (3ª gen, el "gordito") del color de la portada, en tres
+ * tamaños, siempre encima y arrastrable desde cualquier parte menos la rueda.
  */
 @Composable
 fun IpodWindow(graph: DesktopGraph, onExpand: () -> Unit, onKey: (KeyEvent) -> Boolean) {
-    val state = rememberWindowState(size = DpSize(178.dp, 266.dp), position = WindowPosition(Alignment.BottomEnd))
+    var ipodSize by remember { mutableStateOf(enumValueOrNull<IpodSize>(graph.settings.getString("ipod_size")) ?: IpodSize.M) }
+    val state = rememberWindowState(size = BaseSize * ipodSize.scale, position = WindowPosition(Alignment.BottomEnd))
     Window(
         onCloseRequest = onExpand,
         state = state,
-        title = "Marco Audio Pro · mini",
+        title = "Flacker · nano",
         icon = painterResource(Res.drawable.app_icon),
         undecorated = true,
         transparent = true,
@@ -105,10 +122,29 @@ fun IpodWindow(graph: DesktopGraph, onExpand: () -> Unit, onKey: (KeyEvent) -> B
         onPreviewKeyEvent = onKey,
     ) {
         CompositionLocalProvider(LocalApp provides graph) {
-            MarcoTheme(background = false) { IpodBody(graph.player, onExpand) { content -> WindowDraggableArea { content() } } }
+            MarcoTheme(background = false) {
+                IpodBody(
+                    graph.player, onExpand, ipodSize,
+                    onResize = {
+                        val next = IpodSize.entries[(ipodSize.ordinal + 1) % IpodSize.entries.size]
+                        // Crece hacia arriba y a la izquierda: la esquina de abajo a la derecha no se mueve.
+                        val old = state.size
+                        val new = BaseSize * next.scale
+                        (state.position as? WindowPosition.Absolute)?.let { p ->
+                            state.position = WindowPosition(p.x + old.width - new.width, p.y + old.height - new.height)
+                        }
+                        state.size = new
+                        ipodSize = next
+                        graph.settings.putString("ipod_size", next.name)
+                    },
+                ) { content -> WindowDraggableArea { content() } }
+            }
         }
     }
 }
+
+private inline fun <reified E : Enum<E>> enumValueOrNull(name: String?): E? =
+    name?.let { runCatching { enumValueOf<E>(it) }.getOrNull() }
 
 private val ScreenText = Color(0xFF111111)
 private val ScreenDim = Color(0xFF5A5F68)
@@ -119,10 +155,33 @@ private val Silver = Color(0xFFB9BEC6)
  *   La rueda consume sus propios toques, así que arrastrar sobre ella no mueve la ventana.
  */
 @Composable
-internal fun IpodBody(player: DesktopPlayer, onExpand: () -> Unit, dragArea: @Composable (@Composable () -> Unit) -> Unit) {
+internal fun IpodBody(
+    player: DesktopPlayer,
+    onExpand: () -> Unit,
+    size: IpodSize = IpodSize.M,
+    onResize: () -> Unit = {},
+    dragArea: @Composable (@Composable () -> Unit) -> Unit,
+) {
+    // Se dibuja siempre en las medidas del modelo M y se escala con la densidad.
+    val d = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(d.density * size.scale, d.fontScale)) {
+        IpodBodyContent(player, onExpand, size, onResize, dragArea)
+    }
+}
+
+@Composable
+private fun IpodBodyContent(
+    player: DesktopPlayer,
+    onExpand: () -> Unit,
+    size: IpodSize,
+    onResize: () -> Unit,
+    dragArea: @Composable (@Composable () -> Unit) -> Unit,
+) {
     val ctx = LocalPlatformContext.current
-    val api = LocalApp.current.api
+    val app = LocalApp.current
+    val api = app.api
     val st by player.state.collectAsState()
+    var screen by remember { mutableStateOf(enumValueOrNull<IpodScreen>(app.settings.getString("ipod_screen")) ?: IpodScreen.INFO) }
 
     // Aluminio anodizado del color de la portada (como los nano de colores); plata si no hay.
     var bodyTarget by remember { mutableStateOf(Silver) }
@@ -150,7 +209,10 @@ internal fun IpodBody(player: DesktopPlayer, onExpand: () -> Unit, dragArea: @Co
                     .padding(horizontal = 11.dp, vertical = 11.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Screen(player, showVolume, onExpand)
+                Screen(player, showVolume, screen, onExpand) {
+                    screen = IpodScreen.entries[(screen.ordinal + 1) % IpodScreen.entries.size]
+                    app.settings.putString("ipod_screen", screen.name)
+                }
                 Spacer(Modifier.weight(1f))
                 ClickWheel(
                     player,
@@ -170,18 +232,30 @@ internal fun IpodBody(player: DesktopPlayer, onExpand: () -> Unit, dragArea: @Co
                 .pointerInput(Unit) { detectTapGestures { onExpand() } },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Default.Close, "Volver a la app", tint = Color.White, modifier = Modifier.size(10.dp)) }
+        // Tamaño: S → M → L.
+        Box(
+            Modifier.align(Alignment.TopStart).size(16.dp).clip(CircleShape)
+                .background(if (onBodyDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.45f))
+                .pointerInput(Unit) { detectTapGestures { onResize() } },
+            contentAlignment = Alignment.Center,
+        ) { Text(size.label, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
     }
     }
 }
 
 @Composable
-private fun Screen(player: DesktopPlayer, showVolume: Boolean, onExpand: () -> Unit) {
+private fun Screen(player: DesktopPlayer, showVolume: Boolean, screen: IpodScreen, onExpand: () -> Unit, onCycle: () -> Unit) {
     val st by player.state.collectAsState()
     val song = st.current
     Box(
         Modifier.fillMaxWidth().height(116.dp).clip(RoundedCornerShape(5.dp)).background(Color.Black).padding(3.dp)
-            .pointerInput(Unit) { detectTapGestures(onDoubleTap = { onExpand() }) },
+            .pointerInput(Unit) { detectTapGestures(onTap = { onCycle() }, onDoubleTap = { onExpand() }) },
     ) {
+        val preset = screen.preset
+        if (preset != null) {
+            VizScreen(player, preset, showVolume)
+            return@Box
+        }
         Column(
             Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp))
                 .background(Brush.verticalGradient(listOf(Color(0xFFFDFDFE), Color(0xFFE3E7EE)))),
@@ -216,6 +290,58 @@ private fun Screen(player: DesktopPlayer, showVolume: Boolean, onExpand: () -> U
                 if (vol) VolumeBar(player) else ProgressBar(st.durationMs)
             }
         }
+    }
+}
+
+/**
+ * Pantalla en modo visualizador (como los del Xbox 360): el visual a pantalla completa y,
+ * abajo, el título corriendo para saber qué suena.
+ */
+@Composable
+private fun VizScreen(player: DesktopPlayer, preset: VisualPreset, showVolume: Boolean) {
+    val app = LocalApp.current
+    val st by player.state.collectAsState()
+    val playing by rememberUpdatedState(st.isPlaying)
+    val scene = remember { VisualScene() }
+    val tick = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        var last = 0L
+        while (true) withFrameNanos { t ->
+            val dt = if (last == 0L) 0.016f else ((t - last) / 1e9f).coerceIn(0f, 0.1f)
+            last = t
+            LiveAudio.update(app.engine.tap, t, playing, 0)
+            scene.step(dt, LiveAudio.features)
+            tick.longValue = t
+        }
+    }
+    var cols by remember { mutableStateOf(DuskPalette) }
+    val ctx = LocalPlatformContext.current
+    LaunchedEffect(st.current?.coverArt) { coverColors(ctx, app.api, st.current?.coverArt)?.let { cols = it.swatches } }
+    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp))) {
+        Canvas(Modifier.fillMaxSize()) {
+            tick.longValue
+            scene.draw(this, preset, cols, LiveAudio.features, 1f)
+        }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 5.dp, vertical = 3.dp)) {
+            if (showVolume) {
+                VolumeBar(player)
+            } else {
+                Text(
+                    listOfNotNull(st.current?.title, st.current?.artist).joinToString("  ·  "),
+                    color = Color.White, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    modifier = Modifier.basicMarquee(),
+                )
+                val pos by rememberPlaybackPosition(250)
+                val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
+                Box(Modifier.padding(top = 2.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))) {
+                    Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color.White.copy(alpha = 0.85f)))
+                }
+            }
+        }
+        Text(
+            preset.label.uppercase(), color = Color.White.copy(alpha = 0.55f), fontSize = 6.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.TopEnd).padding(3.dp),
+        )
     }
 }
 

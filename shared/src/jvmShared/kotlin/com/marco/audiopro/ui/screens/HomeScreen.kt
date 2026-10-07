@@ -59,6 +59,7 @@ import com.marco.audiopro.ui.LikedRoute
 import com.marco.audiopro.ui.SettingsRoute
 import com.marco.audiopro.ui.components.AlbumCard
 import com.marco.audiopro.ui.components.CoverArt
+import com.marco.audiopro.ui.components.FlackerLogo
 import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.RemotePlaybackBanner
 import com.marco.audiopro.ui.components.SectionHeader
@@ -71,8 +72,6 @@ import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
-import com.marco.audiopro.ui.viz.Visualizer
-import com.marco.audiopro.ui.viz.VizMode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -117,12 +116,12 @@ fun HomeScreen(nav: NavController) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("MARCO AUDIO PRO", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 4.sp))
+                        FlackerLogo(size = 12.sp, tagline = null)
                         Text(greeting, style = Display.copy(fontSize = 34.sp))
                     }
                     if (!c.isDesktop) IconButton(onClick = { nav.navigate(SettingsRoute) }) { Icon(Icons.Default.Settings, "Ajustes", tint = Hifi.TextDim) }
                 }
-                Visualizer(VizMode.SPECTRUM, Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 22.dp))
+                Spacer(Modifier.height(6.dp))
                 if (!c.isDesktop) RemotePlaybackBanner(Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             }
             item {

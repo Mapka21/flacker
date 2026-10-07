@@ -42,7 +42,7 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
             .addQueryParameter("t", acc.token)
             .addQueryParameter("s", acc.salt)
             .addQueryParameter("v", "1.16.1")
-            .addQueryParameter("c", "MarcoAudioPro")
+            .addQueryParameter("c", "Flacker")
             .addQueryParameter("f", "json")
         params.forEach { (k, v) -> if (v != null) b.addQueryParameter(k, v.toString()) }
         return b.build()
