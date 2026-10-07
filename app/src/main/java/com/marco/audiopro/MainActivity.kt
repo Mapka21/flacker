@@ -8,6 +8,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.CompositionLocalProvider
+import com.marco.audiopro.core.LocalApp
 import com.marco.audiopro.ui.MarcoRoot
 import com.marco.audiopro.ui.theme.MarcoTheme
 
@@ -22,6 +24,10 @@ class MainActivity : ComponentActivity() {
         )
         if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         container.player.connect()
-        setContent { MarcoTheme { MarcoRoot() } }
+        setContent {
+            CompositionLocalProvider(LocalApp provides container) {
+                MarcoTheme { MarcoRoot() }
+            }
+        }
     }
 }

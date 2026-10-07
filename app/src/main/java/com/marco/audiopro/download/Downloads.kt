@@ -2,6 +2,7 @@ package com.marco.audiopro.download
 
 import android.content.Context
 import android.net.Uri
+import android.os.StatFs
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
@@ -21,13 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 
-/** Una canción descargada (o descargándose), con su metadata guardada para usarla sin conexión. */
-data class OfflineSong(val song: Song, val state: Int, val percent: Float, val bytes: Long) {
-    val done get() = state == Download.STATE_COMPLETED
-    val active get() = state == Download.STATE_DOWNLOADING || state == Download.STATE_QUEUED || state == Download.STATE_RESTARTING
-    val failed get() = state == Download.STATE_FAILED
-}
-
 /**
  * Descargas offline. Cada request lleva el Song completo en `data`, así la pantalla de
  * descargas y la reproducción funcionan aunque el servidor no esté accesible.
@@ -39,9 +33,9 @@ class Downloads(
     private val api: SubsonicApi,
     private val settings: Settings,
     private val scope: CoroutineScope,
-) {
+) : OfflineStore {
     private val _items = MutableStateFlow<Map<String, OfflineSong>>(emptyMap())
-    val items: StateFlow<Map<String, OfflineSong>> = _items.asStateFlow()
+    override val items: StateFlow<Map<String, OfflineSong>> = _items.asStateFlow()
 
     init {
         val map = LinkedHashMap<String, OfflineSong>()
@@ -71,14 +65,20 @@ class Downloads(
         val song = request.data.takeIf { it.isNotEmpty() }
             ?.let { runCatching { SubsonicJson.decodeFromString<Song>(Util.fromUtf8Bytes(it)) }.getOrNull() }
             ?: return null
-        return OfflineSong(song, state, percentDownloaded.coerceAtLeast(0f), bytesDownloaded)
+        val status = when (state) {
+            Download.STATE_COMPLETED -> OfflineStatus.DONE
+            Download.STATE_DOWNLOADING -> OfflineStatus.DOWNLOADING
+            Download.STATE_FAILED -> OfflineStatus.FAILED
+            else -> OfflineStatus.QUEUED
+        }
+        return OfflineSong(song, status, percentDownloaded.coerceAtLeast(0f), bytesDownloaded)
     }
 
     /** Completado → (uri, cacheKey) para que el reproductor lea la copia local. */
     fun completed(songId: String): DownloadRequest? =
         manager.downloadIndex.getDownload(songId)?.takeIf { it.state == Download.STATE_COMPLETED }?.request
 
-    fun download(songs: List<Song>) {
+    override fun download(songs: List<Song>) {
         val q = settings.prefs.value.downloadQuality
         val current = _items.value
         songs.filter { current[it.id]?.let { o -> o.done || o.active } != true }.forEach { s ->
@@ -91,7 +91,7 @@ class Downloads(
         prefetchCovers(songs)
     }
 
-    fun remove(songs: List<Song>) = songs.forEach {
+    override fun remove(songs: List<Song>) = songs.forEach {
         DownloadService.sendRemoveDownload(context, MarcoDownloadService::class.java, it.id, false)
     }
 
@@ -106,10 +106,12 @@ class Downloads(
     }
 
     /** Progreso fino de lo que se está bajando ahora mismo (el listener sólo avisa cambios de estado). */
-    fun pollProgress() {
+    override fun pollProgress() {
         val active = manager.currentDownloads.mapNotNull { it.toOffline() }
         if (active.isNotEmpty()) _items.value = _items.value + active.associateBy { it.song.id }
     }
+
+    override fun freeBytes(): Long = runCatching { StatFs(context.filesDir.path).availableBytes }.getOrDefault(0L)
 
     companion object {
         /** Tamaños de portada que usa la UI: filas, tarjetas y vista grande. */

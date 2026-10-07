@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "MarcoAudioPro"
-include(":app")
+include(":shared", ":app", ":desktop")

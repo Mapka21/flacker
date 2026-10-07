@@ -25,16 +25,15 @@ import com.marco.audiopro.MainActivity
 import com.marco.audiopro.R
 import com.marco.audiopro.audio.AnalyzerTap
 import com.marco.audiopro.audio.SignalInfo
+import com.marco.audiopro.audio.dbToLinear
+import com.marco.audiopro.audio.replayGainFor
 import com.marco.audiopro.container
-import com.marco.audiopro.data.ReplayGainMode
 import com.marco.audiopro.data.StreamQuality
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.log10
 import kotlin.math.min
-import kotlin.math.pow
 
 class PlaybackService : MediaSessionService() {
 
@@ -46,7 +45,6 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val c = container
-        val engine = c.engine
 
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -54,7 +52,7 @@ class PlaybackService : MediaSessionService() {
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
             ): AudioSink = DefaultAudioSink.Builder(context)
-                .setAudioProcessors(arrayOf(engine.eq, engine.tap))
+                .setAudioProcessors(arrayOf(c.eqProcessor, c.tap))
                 .setAudioTrackBufferSizeProvider(
                     // Buffer fijo => latencia conocida => visualizadores en sync.
                     DefaultAudioTrackBufferSizeProvider.Builder()
@@ -149,27 +147,11 @@ class PlaybackService : MediaSessionService() {
 
     private fun applyReplayGain(player: Player) {
         val item = player.currentMediaItem
-        val song = item?.toSong()
-        val prefs = container.settings.prefs.value
-        val rg = song?.replayGain
         val transport = item?.let { resolvedTransport[it.mediaId] } ?: ""
-
-        val (gain, peak, label) = when (prefs.replayGain) {
-            ReplayGainMode.OFF -> Triple(null, null, null)
-            ReplayGainMode.TRACK -> Triple(rg?.trackGain ?: rg?.albumGain, rg?.trackPeak, "pista")
-            ReplayGainMode.ALBUM -> Triple(rg?.albumGain ?: rg?.trackGain, rg?.albumPeak ?: rg?.trackPeak, "álbum")
-        }
-        if (gain == null) {
-            player.volume = 1f
-            container.engine.signal.value = SignalInfo(null, null, transport)
-            return
-        }
-        var db = gain + prefs.replayGainPreampDb
-        // Nunca subir por encima del pico real (evita clipping) y el volumen de ExoPlayer no amplifica.
-        if (peak != null && peak > 0f) db = min(db, -20f * log10(peak))
-        db = min(db, 0f)
-        player.volume = 10f.pow(db / 20f)
-        container.engine.signal.value = SignalInfo(db, label, transport)
+        // El volumen de ExoPlayer no amplifica: replayGainFor ya devuelve siempre ≤ 0 dB.
+        val rg = replayGainFor(item?.toSong(), container.settings.prefs.value)
+        player.volume = rg?.let { dbToLinear(it.first) } ?: 1f
+        container.engine.signal.value = SignalInfo(rg?.first, rg?.second, transport, OUTPUT_LABEL)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -177,6 +159,10 @@ class PlaybackService : MediaSessionService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         val p = session?.player
         if (p == null || !p.playWhenReady || p.mediaItemCount == 0) stopSelf()
+    }
+
+    private companion object {
+        const val OUTPUT_LABEL = "AudioTrack de Android → DAC del teléfono / Bluetooth / USB"
     }
 
     override fun onDestroy() {

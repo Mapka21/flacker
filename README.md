@@ -1,50 +1,67 @@
 # Marco Audio Pro
 
-Cliente Android personal para Navidrome, con enfoque audiófilo.
+Cliente personal y audiófilo para Navidrome, en **Android** y **Windows** (el mismo código para las dos).
 
 ## Instalar
 
+### Android
 1. Pasa `MarcoAudioPro.apk` al teléfono (cable, Drive, Telegram…) y ábrelo.
    Android te va a pedir permiso para "instalar apps de origen desconocido".
-2. Abre la app y pon la URL de tu Navidrome, tu usuario y tu contraseña.
+2. Pon la URL de tu Navidrome, tu usuario y tu contraseña.
    - Para escucharlo fuera de casa, el servidor tiene que ser accesible desde internet:
      un dominio con HTTPS, un reverse proxy o una VPN tipo Tailscale (la más fácil).
-3. Opcional (Ajustes → Reseñas de álbum):
-   - API key de Last.fm (gratis): reseñas en español, tags y estadísticas.
-   - API key de Anthropic: si Last.fm no tiene nada del álbum, Claude escribe la reseña.
+
+### Windows
+1. Descomprime `MarcoAudioPro-Windows.zip` donde quieras (por ejemplo en `C:\Programas`).
+2. Abre `MarcoAudioPro\MarcoAudioPro.exe`. No necesita instalar Java ni ffmpeg: ya vienen dentro.
+3. Atajos: **Ctrl+Espacio** play/pausa · **Ctrl+→ / Ctrl+←** siguiente/anterior ·
+   **Ctrl+↑ / Ctrl+↓** volumen · también las teclas multimedia del teclado.
+
+Opcional (Ajustes → Reseñas de álbum): API key de Last.fm (gratis) para reseñas en español,
+y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tiene nada.
 
 ## Qué trae
-
-- **Descargas offline**: botón ⬇ en álbumes, playlists, Me gusta, el reproductor y el menú de
-  cada canción. Se guardan en el teléfono y suenan sin conexión aunque el servidor esté apagado.
-  Calidad de descarga y "sólo con Wi-Fi" configurables.
-- **Me gusta**: canciones con ♥ sincronizadas con Navidrome (starred), con su propia pantalla,
-  "Radio Me gusta" y descarga de todo de un toque.
-- **Temas de color**: Ámbar VU, Cian estudio, Rosa neón, Fósforo, Violeta o "Portada"
-  (toma el color del disco que suena). Tipografías Space Grotesk, Inter y JetBrains Mono.
 
 - **EQ paramétrico de 10 bandas**: peaking, shelves, low/high pass. Procesa en double,
   con pre-amp automático anti-clipping, dither TPDF, presets propios y A/B (mantener presionado).
   La curva se edita arrastrando los nodos, con el espectro en vivo detrás.
 - **Visualizadores** que leen el audio real después del EQ: espectro LED, espectrograma,
   VU analógicos (balística VU auténtica, 0 VU = -18 dBFS), goniómetro con medidor de
-  correlación y osciloscopio. Si con Bluetooth se ven adelantados, ajústalo en Ajustes → Sync.
+  correlación y osciloscopio.
 - **Ruta de señal** (estilo Roon): fuente → transporte → decodificador → ReplayGain → EQ → salida.
 - **ReplayGain** por pista/álbum, sin pasarse nunca del pico real.
-- Calidad de streaming separada para Wi-Fi y datos (original lossless u Opus/MP3 transcodificado).
-- Caché de 3 GB: lo que ya escuchaste no vuelve a gastar datos.
+- **Me gusta** sincronizado con Navidrome, "Radio Me gusta", letras sincronizadas, scrobbling.
 - Reseña del álbum: Last.fm → notas de Navidrome → Claude. Se guarda una vez por álbum.
-- Letras sincronizadas (si Navidrome las tiene), scrobbling y favoritos sincronizados con el servidor.
-- Controles en la notificación, la pantalla de bloqueo y los audífonos Bluetooth.
+- **Temas de color**: Ámbar VU, Cian estudio, Rosa neón, Fósforo, Violeta o "Portada".
+- Sólo Android: **descargas offline**, caché de 3 GB, calidad separada Wi-Fi/datos, controles
+  en notificación, pantalla de bloqueo y audífonos.
+- Sólo Windows: motor propio con ffmpeg (FLAC, ALAC, Opus, MP3, AAC, DSD…), salida de 24 bits
+  si tu tarjeta la acepta, **gapless** real (precarga la siguiente pista) y visualizadores
+  sincronizados con la posición exacta de la salida.
+
+## Estructura
+
+| Módulo | Qué tiene |
+|---|---|
+| `shared/` | Todo lo común: API de Navidrome, EQ, visualizadores, tema y **todas las pantallas** (Compose Multiplatform). El código vive en `src/jvmShared` y se compila para Android y para PC. |
+| `app/` | Lo propio de Android: Media3/ExoPlayer, servicio de reproducción, descargas. |
+| `desktop/` | Lo propio de Windows: motor de audio (JavaCV/ffmpeg + Java Sound) y la ventana. |
 
 ## Compilar
 
-Requiere JDK 17 y el Android SDK (o Android Studio: abre esta carpeta y dale Run).
+Requiere JDK 17 y el Android SDK (o Android Studio).
 
 ```
-gradlew assembleRelease      # → app/build/outputs/apk/release/app-release.apk
-gradlew testDebugUnitTest    # pruebas del DSP
+gradlew :app:assembleRelease           # APK → <build>/app/outputs/apk/release/
+gradlew :desktop:run                   # abre la app de PC
+gradlew :desktop:createDistributable   # carpeta con MarcoAudioPro.exe
+gradlew :shared:desktopTest :app:testDebugUnitTest   # pruebas del DSP
 ```
+
+Pruebas de integración de PC (motor de audio y capturas de pantalla) contra un servidor
+Subsonic de prueba: define `MARCO_TEST_SERVER` (y `MARCO_SHOTS_DIR` para las capturas) y
+corre `gradlew :desktop:test`. `gradlew :desktop:run -Pmarco.profile=dev` usa ajustes
+separados de los reales.
 
 Si el proyecto está en un disco de red (NAS) y Gradle falla con "Permission denied" al
 escribir `.class`, agrega a `local.properties` una carpeta local para compilar:
