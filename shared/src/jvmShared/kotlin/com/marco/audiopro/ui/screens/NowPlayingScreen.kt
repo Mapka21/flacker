@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -108,6 +109,7 @@ import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.formatMs
 import com.marco.audiopro.ui.components.glass
+import com.marco.audiopro.ui.components.volumeWheel
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
 import com.marco.audiopro.ui.rememberPlaybackPosition
@@ -169,7 +171,7 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
         }
         Row(Modifier.weight(1f).fillMaxWidth().padding(start = 48.dp, end = 32.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.weight(1f).fillMaxWidth().volumeWheel().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                     BreathingCover(song, st.isPlaying, Modifier.widthIn(max = 560.dp))
                 }
                 Column(Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
@@ -187,7 +189,7 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
             }
             AnimatedVisibility(
                 side != Stage.COVER,
-                enter = expandHorizontally(spring(dampingRatio = 0.85f, stiffness = 260f)) + fadeIn(),
+                enter = expandHorizontally(tween(280)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
             ) {
                 Box(Modifier.padding(start = 40.dp).width(width * 0.44f).fillMaxHeight()) {
@@ -472,7 +474,7 @@ private fun VolumeRow() {
     val player = LocalApp.current.player
     val flow = player.volume ?: return
     val vol by flow.collectAsState()
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().volumeWheel().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.AutoMirrored.Filled.VolumeDown, null, tint = Hifi.OnArt, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         AppleBar(vol, onChange = { player.setVolume(it) }, onCommit = { player.setVolume(it) }, modifier = Modifier.weight(1f))

@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -198,7 +199,22 @@ private fun IpodBodyContent(
 
     // Textos de 7–10 sp con interlineado compacto (el del tema es de 24 sp).
     CompositionLocalProvider(LocalTextStyle provides LocalTextStyle.current.copy(lineHeight = 1.18.em)) {
-    Box(Modifier.fillMaxSize().padding(5.dp)) {
+    // La rueda del mouse en cualquier parte del iPod = volumen (como girar la click wheel).
+    Box(Modifier.fillMaxSize().padding(5.dp).pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val e = awaitPointerEvent()
+                if (e.type == PointerEventType.Scroll) {
+                    val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                    if (dy != 0f) {
+                        player.setVolume(player.volume.value - dy * 0.04f)
+                        volumeShownAt = System.currentTimeMillis()
+                        e.changes.forEach { it.consume() }
+                    }
+                }
+            }
+        }
+    }) {
         dragArea {
             Column(
                 Modifier.fillMaxSize()

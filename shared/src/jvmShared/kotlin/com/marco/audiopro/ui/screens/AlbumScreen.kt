@@ -62,7 +62,10 @@ import androidx.navigation.NavController
 import com.marco.audiopro.data.info.AlbumSummary
 import com.marco.audiopro.data.info.InfoSource
 import com.marco.audiopro.data.subsonic.Album
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import com.marco.audiopro.ui.components.AddToPlaylistDialog
 import com.marco.audiopro.ui.components.CoverArt
+import com.marco.audiopro.ui.components.ScreenBackButton
 import com.marco.audiopro.ui.components.DownloadButton
 import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.FormatBadge
@@ -108,6 +111,7 @@ fun AlbumScreen(id: String, nav: NavController) {
                     s, leading = s.track?.toString(), isCurrent = playback.current?.id == s.id,
                     onClick = { c.player.play(songs, i) },
                     showArtist = s.artist != album.artist,
+                    onGoToAlbum = null,
                     showFormat = s.formatLabel != songs.first().formatLabel,
                 )
             }
@@ -123,7 +127,7 @@ fun AlbumScreen(id: String, nav: NavController) {
             if (others.isNotEmpty()) {
                 item {
                     SectionHeader("Más de ${album.artist}")
-                    AlbumRow(others) { nav.openAlbum(it.id) }
+                    AlbumRow(others, nav = nav) { nav.openAlbum(it.id) }
                 }
             }
         }
@@ -135,11 +139,12 @@ private fun AlbumHeader(album: Album, nav: NavController) {
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     var starred by remember(album.id) { mutableStateOf(album.starred != null) }
+    var addTo by remember { mutableStateOf(false) }
     val songs = album.song
+    if (addTo) AddToPlaylistDialog(songs) { addTo = false }
     Column(Modifier.fillMaxWidth().statusBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(Modifier.fillMaxWidth()) {
-            IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-        }
+        Row(Modifier.fillMaxWidth()) { ScreenBackButton(nav) }
+        Spacer(Modifier.height(16.dp))
         CoverArt(
             album.coverArt,
             Modifier.size(256.dp).shadow(32.dp, RoundedCornerShape(12.dp)),
@@ -175,7 +180,8 @@ private fun AlbumHeader(album: Album, nav: NavController) {
                 Icon(if (starred) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Álbum favorito", tint = if (starred) Hifi.Accent else Hifi.TextDim)
             }
             DownloadButton(songs)
-            IconButton(onClick = { c.player.enqueue(songs) }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Agregar a la cola", tint = Hifi.TextDim) }
+            IconButton(onClick = { addTo = true }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Agregar a playlist", tint = Hifi.TextDim) }
+            IconButton(onClick = { c.player.enqueue(songs) }) { Icon(Icons.AutoMirrored.Filled.QueueMusic, "Agregar a la cola", tint = Hifi.TextDim) }
         }
         Spacer(Modifier.height(12.dp))
     }

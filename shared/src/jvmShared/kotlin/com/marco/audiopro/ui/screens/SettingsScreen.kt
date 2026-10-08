@@ -78,8 +78,8 @@ fun SettingsScreen(nav: NavController) {
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            Text("Ajustes", style = Display.copy(fontSize = 30.sp))
+            com.marco.audiopro.ui.components.ScreenBackButton(nav)
+            Text("Ajustes", style = Display.copy(fontSize = 30.sp), modifier = Modifier.padding(start = if (c.isDesktop) 20.dp else 0.dp))
         }
 
         SectionHeader("Servidor")

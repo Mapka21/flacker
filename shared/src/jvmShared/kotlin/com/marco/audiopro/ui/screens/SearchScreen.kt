@@ -37,6 +37,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.marco.audiopro.data.subsonic.SearchResult
+import androidx.compose.ui.unit.sp
+import com.marco.audiopro.ui.LocalSearchQuery
 import com.marco.audiopro.ui.components.SectionHeader
 import com.marco.audiopro.ui.components.TrackRow
 import com.marco.audiopro.ui.openAlbum
@@ -47,7 +49,10 @@ import kotlinx.coroutines.delay
 @Composable
 fun SearchScreen(nav: NavController) {
     val c = LocalApp.current
-    var query by rememberSaveable { mutableStateOf("") }
+    // En la PC el texto viene de la barra de arriba; en el celular, del campo de esta pantalla.
+    val shared = LocalSearchQuery.current
+    var localQuery by rememberSaveable { mutableStateOf("") }
+    val query = shared?.value ?: localQuery
     var result by remember { mutableStateOf<SearchResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val playback by c.player.state.collectAsState()
@@ -61,14 +66,20 @@ fun SearchScreen(nav: NavController) {
             .onSuccess { result = it; error = null }
             .onFailure { error = it.message }
     }
-    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+    LaunchedEffect(Unit) { if (shared == null && query.isEmpty()) runCatching { focus.requestFocus() } }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        OutlinedTextField(
-            query, { query = it },
+        if (shared != null) {
+            Text(
+                if (query.isBlank()) "Buscar" else "Resultados para “$query”",
+                style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 30.sp),
+                modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp),
+            )
+        } else OutlinedTextField(
+            query, { localQuery = it },
             placeholder = { Text("Artistas, álbumes, canciones") },
             leadingIcon = { Icon(Icons.Default.Search, null) },
-            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, null) } },
+            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { localQuery = "" }) { Icon(Icons.Default.Close, null) } },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -78,7 +89,7 @@ fun SearchScreen(nav: NavController) {
         when {
             error != null -> Text(error!!, color = Hifi.LedRed, modifier = Modifier.padding(20.dp))
             r == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Busca en tu biblioteca", color = Hifi.TextFaint)
+                Text(if (shared != null) "Escribe arriba para buscar en tu biblioteca" else "Busca en tu biblioteca", color = Hifi.TextFaint)
             }
             r.artist.isEmpty() && r.album.isEmpty() && r.song.isEmpty() ->
                 Text("Sin resultados para “$query”", color = Hifi.TextDim, modifier = Modifier.padding(20.dp))
@@ -90,7 +101,7 @@ fun SearchScreen(nav: NavController) {
                 if (r.album.isNotEmpty()) {
                     item {
                         SectionHeader("Álbumes")
-                        AlbumRow(r.album) { nav.openAlbum(it.id) }
+                        AlbumRow(r.album, nav = nav) { nav.openAlbum(it.id) }
                     }
                 }
                 if (r.song.isNotEmpty()) {

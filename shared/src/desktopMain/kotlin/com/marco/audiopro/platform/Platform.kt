@@ -7,7 +7,13 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import coil3.Image
+import java.awt.FileDialog
+import java.awt.Frame
 import coil3.toBitmap
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -47,3 +53,17 @@ fun DrawScope.drawPointCloud(points: FloatArray, count: Int, color: Color, strok
 }
 
 val supportsBlur: Boolean = true
+
+/** Selector de imagen (portadas propias): el diálogo de archivos de Windows. */
+@Composable
+fun rememberImagePicker(onPicked: (ByteArray) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            val d = FileDialog(null as Frame?, "Elige una imagen", FileDialog.LOAD)
+            d.file = "*.jpg;*.jpeg;*.png;*.webp;*.gif;*.bmp" // en Windows así se filtra
+            d.isVisible = true
+            d.files.firstOrNull()?.takeIf { it.isFile }?.let { callback(it.readBytes()) }
+        }
+    }
+}

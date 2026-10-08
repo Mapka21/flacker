@@ -49,8 +49,12 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     }
 
     private suspend fun call(endpoint: String, params: Map<String, Any?> = emptyMap(), acc: ServerAccount = account): JsonObject =
+        callUrl(url(endpoint, params, acc))
+
+    /** Para endpoints con parámetros repetidos (songId=…&songId=…). */
+    private suspend fun callUrl(u: HttpUrl): JsonObject =
         withContext(Dispatchers.IO) {
-            val req = Request.Builder().url(url(endpoint, params, acc)).build()
+            val req = Request.Builder().url(u).build()
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) throw SubsonicException("HTTP ${resp.code}")
                 val body = resp.body?.string() ?: throw SubsonicException("Respuesta vacía")
@@ -92,6 +96,32 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     suspend fun playlists(): List<Playlist> = get("getPlaylists", "playlists", default = Playlists()).playlist
 
     suspend fun playlist(id: String): Playlist = get("getPlaylist", "playlist", mapOf("id" to id), Playlist(id))
+
+    /** Crea una playlist (opcionalmente ya con canciones) y la regresa. */
+    suspend fun createPlaylist(name: String, songIds: List<String> = emptyList()): Playlist {
+        val b = url("createPlaylist", mapOf("name" to name)).newBuilder()
+        songIds.forEach { b.addQueryParameter("songId", it) }
+        val root = callUrl(b.build())
+        return root["playlist"]?.let { SubsonicJson.decodeFromJsonElement<Playlist>(it) } ?: Playlist("", name)
+    }
+
+    /** Renombra, agrega canciones al final y/o quita por posición. */
+    suspend fun updatePlaylist(id: String, name: String? = null, add: List<String> = emptyList(), removeIndexes: List<Int> = emptyList()) {
+        val b = url("updatePlaylist", mapOf("playlistId" to id, "name" to name)).newBuilder()
+        add.forEach { b.addQueryParameter("songIdToAdd", it) }
+        removeIndexes.forEach { b.addQueryParameter("songIndexToRemove", it.toString()) }
+        callUrl(b.build())
+    }
+
+    suspend fun deletePlaylist(id: String) { call("deletePlaylist", mapOf("id" to id)) }
+
+    /** Todas las canciones de la biblioteca, por páginas (Navidrome acepta búsqueda vacía). */
+    suspend fun allSongs(offset: Int, count: Int = 200): List<Song> =
+        get<SearchResult>(
+            "search3", "searchResult3",
+            mapOf("query" to "", "artistCount" to 0, "albumCount" to 0, "songCount" to count, "songOffset" to offset),
+            SearchResult(),
+        ).song
 
     suspend fun randomSongs(size: Int = 50): List<Song> = get("getRandomSongs", "randomSongs", mapOf("size" to size), RandomSongs()).song
 

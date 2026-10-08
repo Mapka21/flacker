@@ -75,7 +75,7 @@ class AudioFeatures {
             a.logBands(raw, 30f, 16000f)
             for (i in raw.indices) {
                 // Compensa la caída natural de energía hacia los agudos (~1.2 dB por banda).
-                val v = ((raw[i] + 68f + i * 1.2f) / 58f).coerceIn(0f, 1f)
+                val v = ((raw[i] + 72f + i * 1.3f) / 54f).coerceIn(0f, 1f)
                 bands[i] += (v - bands[i]) * if (v > bands[i]) 0.6f else min(1f, dt * 6f)
             }
             val span = min(a.n, 1024)
@@ -97,10 +97,10 @@ class AudioFeatures {
         // Golpe: el bajo brinca por encima de su promedio reciente.
         bassAvg += (rawBass - bassAvg) * min(1f, dt * 2f)
         sinceBeat += dt
-        if (live && rawBass > bassAvg * 1.18f + 0.04f && rawBass > 0.25f && sinceBeat > 0.24f) {
+        if (live && rawBass > bassAvg * 1.10f + 0.02f && rawBass > 0.18f && sinceBeat > 0.22f) {
             beat = 1f; beats++; sinceBeat = 0f
         }
-        beat = max(0f, beat - dt * 3f)
+        beat = max(0f, beat - dt * 2.4f)
     }
 
     fun band(u: Float): Float {
@@ -117,12 +117,12 @@ class AudioFeatures {
 
     /** Ganancia automática: una rola bajita también mueve el fondo. */
     private fun agc(i: Int, v: Float, dt: Float): Float {
-        peaks[i] = max(v, peaks[i] - dt * 0.04f).coerceAtLeast(0.25f)
-        return (v / peaks[i]).coerceIn(0f, 1f).pow(2)
+        peaks[i] = max(v, peaks[i] - dt * 0.08f).coerceAtLeast(0.2f)
+        return (v / peaks[i]).coerceIn(0f, 1f).pow(1.3f)
     }
 
     private fun follow(cur: Float, target: Float, dt: Float) =
-        cur + (target - cur) * if (target > cur) min(1f, dt * 18f) else min(1f, dt * 4f)
+        cur + (target - cur) * if (target > cur) min(1f, dt * 25f) else min(1f, dt * 6f)
 }
 
 /** Un solo análisis por frame, compartido por el fondo, las vistas previas y el iPod. */
@@ -186,8 +186,8 @@ class VisualScene {
     fun step(dt: Float, f: AudioFeatures) {
         dtLast = dt
         time += dt
-        phase += dt * (TAU / 28f) * (1f + 2.2f * f.level)
-        rot += dt * (0.15f + 0.6f * f.mid)
+        phase += dt * (TAU / 28f) * (1f + 5f * f.level + 4f * f.beat)
+        rot += dt * (0.15f + 1.4f * f.mid + 1.5f * f.beat)
         grid = (grid + dt * (0.10f + 0.45f * f.level + 0.6f * f.beat)) % 1f
 
         sinceRing += dt
@@ -197,7 +197,7 @@ class VisualScene {
             if (rings.size < 12) rings.add(Ring(0.05f, 1f, f.beats % 4, if (hit) 1f else 0.45f))
             sinceRing = 0f
         }
-        for (r in rings) { r.r += dt * (0.45f + 0.5f * f.level); r.a -= dt * 0.45f }
+        for (r in rings) { r.r += dt * (0.55f + 0.9f * f.level); r.a -= dt * 0.5f }
         rings.removeAll { it.a <= 0f }
 
         val speed = 0.06f + 0.5f * f.treble + 0.9f * f.beat + 0.25f * f.level
@@ -216,6 +216,8 @@ class VisualScene {
         dpScale = density
         drawRect(Hifi.Bg)
         val v = List(4) { cols[it].vivid(DuskPalette[it]) }
+        val punch = 1f + 0.06f * f.beat + 0.03f * f.bass
+        drawContext.transform.scale(punch, punch, center)
         when (preset) {
             VisualPreset.AURORA -> blobs(cols, v, f, 1f)
             VisualPreset.PULSO -> { blobs(cols, v, f, 0.6f); pulse(v, f) }
@@ -225,6 +227,7 @@ class VisualScene {
             VisualPreset.SYNTH -> synthwave(v, f)
             VisualPreset.NEON -> neon.frame(this, f, time, dtLast)
         }
+        drawContext.transform.scale(1f / punch, 1f / punch, center)
         // Velo: más oscuro abajo, donde van los controles y el texto.
         drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.50f))))
         if (intensity < 1f) drawRect(Hifi.Bg.copy(alpha = ((1f - intensity) * 0.8f).coerceIn(0f, 1f)))
@@ -234,16 +237,20 @@ class VisualScene {
 
     private fun DrawScope.blobs(cols: List<Color>, v: List<Color>, f: AudioFeatures, k: Float) {
         val w = size.width; val h = size.height
-        val r = max(w, h) * 0.72f * (1f + 0.22f * f.bass)
-        val alpha = (0.8f * k * (0.85f + 0.35f * f.level)).coerceAtMost(0.95f)
+        val r = max(w, h) * 0.72f * (1f + 0.45f * f.bass)
+        val alpha = (0.8f * k * (0.75f + 0.6f * f.level)).coerceAtMost(1f)
+        val reach = 0.38f + 0.12f * f.mid
         for (i in 0..3) {
             val a = phase * BLOB_SPEED[i] + BLOB_OFFSET[i]
-            val c = Offset(w * (0.5f + 0.38f * cos(a)), h * (0.5f + 0.34f * sin(a * 1.3f)))
-            drawCircle(Brush.radialGradient(listOf(cols[i].copy(alpha = alpha), Color.Transparent), c, r), r, c)
+            // Cada mancha late con su propio rango: graves, medios y agudos.
+            val band = when (i) { 0 -> f.bass; 1 -> f.mid; 2 -> f.treble; else -> f.level }
+            val ri = r * (0.85f + 0.35f * band)
+            val c = Offset(w * (0.5f + reach * cos(a)), h * (0.5f + reach * 0.9f * sin(a * 1.3f)))
+            drawCircle(Brush.radialGradient(listOf(lerp(cols[i], v[i], 0.35f * band).copy(alpha = alpha), Color.Transparent), c, ri), ri, c)
         }
         if (f.beat > 0f) {
-            val rr = max(w, h) * 0.6f
-            drawCircle(Brush.radialGradient(listOf(v[0].copy(alpha = 0.16f * f.beat * k), Color.Transparent), center, rr), rr, center)
+            val rr = max(w, h) * (0.5f + 0.3f * f.beat)
+            drawCircle(Brush.radialGradient(listOf(v[0].copy(alpha = 0.35f * f.beat * k), Color.Transparent), center, rr), rr, center)
         }
     }
 
@@ -251,7 +258,7 @@ class VisualScene {
 
     private fun DrawScope.pulse(v: List<Color>, f: AudioFeatures) {
         val s = min(size.width, size.height)
-        val core = s * (0.10f + 0.10f * f.bass) * 2.2f
+        val core = s * (0.10f + 0.22f * f.bass + 0.1f * f.beat) * 2.2f
         drawCircle(Brush.radialGradient(listOf(v[1].copy(alpha = 0.55f), Color.Transparent), center, core), core, center)
         for (ring in rings) {
             val col = v[ring.color]
@@ -266,13 +273,13 @@ class VisualScene {
 
     private fun DrawScope.halo(v: List<Color>, f: AudioFeatures) {
         val s = min(size.width, size.height)
-        val r0 = s * 0.2f * (1f + 0.12f * f.bass)
-        haloPath(r0, rot, f, 1f)
+        val r0 = s * 0.2f * (1f + 0.3f * f.bass + 0.15f * f.beat)
+        haloPath(r0, rot, f, 1.7f)
         drawPath(path, Brush.radialGradient(listOf(v[1].copy(alpha = 0.5f), v[0].copy(alpha = 0.12f)), center, r0 * 1.7f))
         drawPath(path, v[2].copy(alpha = 0.12f), style = Stroke(s * 0.035f))
         drawPath(path, v[2].copy(alpha = 0.35f), style = Stroke(s * 0.012f))
         drawPath(path, Color.White.copy(alpha = 0.85f), style = Stroke(1.5f.dp()))
-        haloPath(r0 * 0.62f, -rot * 1.4f, f, 0.6f)
+        haloPath(r0 * 0.62f, -rot * 1.4f, f, 1.1f)
         drawPath(path, v[3].copy(alpha = 0.7f), style = Stroke(1.5f.dp()))
     }
 
@@ -304,7 +311,7 @@ class VisualScene {
         for (l in 0..3) {
             val e = when (l) { 0 -> f.bass; 1 -> (f.bass + f.mid) / 2; 2 -> f.mid; else -> f.treble }
             val base = h * (0.50f + l * 0.11f)
-            val amp = h * (0.025f + 0.11f * e)
+            val amp = h * (0.03f + 0.22f * e + 0.05f * f.beat)
             path.reset()
             path.moveTo(0f, h)
             var x = 0f
@@ -352,7 +359,7 @@ class VisualScene {
             val tw = 0.35f + 0.3f * sin(time * 2f + i)
             drawCircle(Color.White.copy(alpha = tw), 1f.dp(), Offset(sky[i * 2] * w, sky[i * 2 + 1] * hz * 0.85f))
         }
-        val sunR = min(w, h) * 0.24f * (1f + 0.06f * f.bass + 0.06f * f.beat)
+        val sunR = min(w, h) * 0.24f * (1f + 0.15f * f.bass + 0.12f * f.beat)
         val sc = Offset(w / 2, hz - sunR * 0.38f)
         drawCircle(Brush.radialGradient(listOf(v[3].copy(alpha = 0.45f), Color.Transparent), sc, sunR * 2.1f), sunR * 2.1f, sc)
         // Sol con rayas recortadas (capa aparte para que el recorte deje ver el cielo).
@@ -371,7 +378,7 @@ class VisualScene {
         // Piso y rejilla en perspectiva.
         drawRect(Brush.verticalGradient(listOf(Color(0xFF0A0418), Color(0xFF020006)), startY = hz, endY = h), Offset(0f, hz), Size(w, h - hz))
         val gridCol = lerp(v[2], Color(0xFFFF2BD6), 0.35f)
-        val glow = 0.6f + 0.4f * f.bass
+        val glow = 0.45f + 0.55f * f.bass + 0.3f * f.beat
         for (i in 0 until 16) {
             val t = (i + grid) / 16f
             val y = hz + (h - hz) * t * t
@@ -425,7 +432,7 @@ class NeonFeedback(private val maxPx: Int = 420) {
         hue = (hue + dt * (30f + 140f * f.level)) % 360f
         cds.draw(Density(1f), LayoutDirection.Ltr, cb!!, Size(bw.toFloat(), bh.toFloat())) {
             drawRect(Color.Black)
-            val z = 1.03f + 0.05f * f.bass
+            val z = 1.03f + 0.08f * f.bass + 0.05f * f.beat
             withTransform({ rotate(0.9f + 3f * f.mid, center); scale(z, z, center) }) {
                 drawImage(src, alpha = 0.86f + 0.08f * f.level)
             }
@@ -452,7 +459,7 @@ class NeonFeedback(private val maxPx: Int = 420) {
         for (j in 0..n) {
             val k = j % n
             val th = j.toFloat() / n * TAU + time * 0.4f
-            val r = s * (0.16f + 0.10f * f.bass) * (1f + f.wave[k] * 1.6f)
+            val r = s * (0.16f + 0.16f * f.bass) * (1f + f.wave[k] * 2.4f)
             val p = Offset(center.x + cos(th) * r, center.y + sin(th) * r)
             if (j == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
         }

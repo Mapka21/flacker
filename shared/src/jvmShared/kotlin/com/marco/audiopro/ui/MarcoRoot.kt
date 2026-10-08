@@ -107,7 +107,7 @@ import kotlin.reflect.KClass
 // ------------------------------------------------------------------ rutas
 
 @Serializable data object HomeRoute
-/** @param tab 0 = álbumes, 1 = artistas, 2 = playlists. */
+/** @param tab 0 = álbumes, 1 = artistas, 2 = canciones, 3 = playlists. */
 @Serializable data class LibraryRoute(val tab: Int = 0)
 @Serializable data object SearchRoute
 @Serializable data object DownloadsRoute
@@ -124,11 +124,40 @@ fun NavController.openArtist(id: String) = navigate(ArtistRoute(id))
 fun NavController.openPlaylist(id: String) = navigate(PlaylistRoute(id))
 fun NavController.openPlayer() = navigate(PlayerRoute) { launchSingleTop = true }
 
-/** Cambia de sección principal conservando el estado de cada una. */
+/**
+ * Cambia de sección principal y la abre desde su raíz (como Spotify): "Inicio" siempre lleva
+ * a Inicio aunque antes hayas entrado a un álbum desde ahí.
+ */
 fun NavController.openTab(route: Any) = navigate(route) {
-    popUpTo(graph.findStartDestination().id) { saveState = true }
+    popUpTo(graph.findStartDestination().id)
     launchSingleTop = true
-    restoreState = true
+}
+
+/**
+ * Texto de la barra de búsqueda de arriba (PC). Si existe, la pantalla de búsqueda no
+ * muestra su propio campo: sólo hay una barra.
+ */
+val LocalSearchQuery = androidx.compose.runtime.compositionLocalOf<androidx.compose.runtime.MutableState<String>?> { null }
+
+/** La ruta tipada de una entrada del historial (para poder volver a navegar a ella). */
+fun androidx.navigation.NavBackStackEntry.routeObject(): Any? {
+    val d = destination
+    return runCatching {
+        when {
+            d.hasRoute(AlbumRoute::class) -> toRoute<AlbumRoute>()
+            d.hasRoute(ArtistRoute::class) -> toRoute<ArtistRoute>()
+            d.hasRoute(PlaylistRoute::class) -> toRoute<PlaylistRoute>()
+            d.hasRoute(LibraryRoute::class) -> toRoute<LibraryRoute>()
+            d.hasRoute(HomeRoute::class) -> HomeRoute
+            d.hasRoute(SearchRoute::class) -> SearchRoute
+            d.hasRoute(DownloadsRoute::class) -> DownloadsRoute
+            d.hasRoute(DspRoute::class) -> DspRoute
+            d.hasRoute(LikedRoute::class) -> LikedRoute
+            d.hasRoute(SettingsRoute::class) -> SettingsRoute
+            d.hasRoute(PlayerRoute::class) -> PlayerRoute
+            else -> null
+        }
+    }.getOrNull()
 }
 
 fun NavDestination?.isIn(route: KClass<*>): Boolean =

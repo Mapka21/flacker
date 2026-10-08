@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -34,7 +35,11 @@ import com.marco.audiopro.connect.ConnectService
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.resources.Res
 import com.marco.audiopro.resources.app_icon
+import com.marco.audiopro.ui.DesktopHistory
 import com.marco.audiopro.ui.DesktopRoot
+import java.awt.AWTEvent
+import java.awt.Toolkit
+import java.awt.event.MouseEvent
 import com.marco.audiopro.ui.theme.MarcoTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,13 +95,15 @@ class DesktopGraph : AppGraph {
     }
     override val albumInfo = AlbumInfoRepository(dataDir, api, LastFm(http), ClaudeReviewer(), settings)
     override val likes = Likes(api, scope)
+    override val playlists = com.marco.audiopro.data.PlaylistStore(api)
+    override val covers = com.marco.audiopro.data.CustomCovers(dataDir)
     override val lyrics = LyricsRepository(http, api, dataDir)
     override val connect = ConnectService(
         System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
     )
     override val downloads = null
     override val cache = null
-    override val versionName = "1.5.0"
+    override val versionName = "1.6.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -105,6 +112,13 @@ class DesktopGraph : AppGraph {
 fun main() {
     val graph = DesktopGraph()
     graph.connect.start()
+    // Botones laterales del mouse (atrás / adelante), como en el navegador o Spotify.
+    Toolkit.getDefaultToolkit().addAWTEventListener({ e ->
+        if (e is MouseEvent && e.id == MouseEvent.MOUSE_PRESSED) when (e.button) {
+            4 -> DesktopHistory.events.tryEmit(false)
+            5 -> DesktopHistory.events.tryEmit(true)
+        }
+    }, AWTEvent.MOUSE_EVENT_MASK)
     SingletonImageLoader.setSafe { ctx ->
         ImageLoader.Builder(ctx)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
@@ -143,7 +157,7 @@ fun main() {
     }
 }
 
-/** Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen, teclas multimedia. */
+/** Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen, Alt+←/→ = atrás/adelante, teclas multimedia. */
 fun handleShortcut(e: KeyEvent, player: DesktopPlayer): Boolean {
     if (e.type != KeyEventType.KeyDown) return false
     return when {
@@ -152,6 +166,8 @@ fun handleShortcut(e: KeyEvent, player: DesktopPlayer): Boolean {
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
         e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(player.volume.value + 0.05f); true }
         e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume(player.volume.value - 0.05f); true }
+        e.isAltPressed && e.key == Key.DirectionLeft -> { DesktopHistory.events.tryEmit(false); true }
+        e.isAltPressed && e.key == Key.DirectionRight -> { DesktopHistory.events.tryEmit(true); true }
         e.key == Key.MediaPlayPause -> { player.toggle(); true }
         e.key == Key.MediaNext -> { player.next(); true }
         e.key == Key.MediaPrevious -> { player.previous(); true }

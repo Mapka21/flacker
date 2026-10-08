@@ -54,7 +54,10 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.marco.audiopro.data.info.LastFm
+import com.marco.audiopro.data.CustomCovers
 import com.marco.audiopro.ui.components.AlbumCard
+import com.marco.audiopro.ui.components.CoverEditButton
+import com.marco.audiopro.ui.components.ScreenBackButton
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.PlayActions
@@ -91,15 +94,18 @@ fun ArtistScreen(id: String, nav: NavController) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().aspectRatio(1.25f)) {
                     val img = info.largeImageUrl?.takeIf { it.isNotBlank() }
-                    if (img != null) {
+                    c.covers.map.collectAsState().value
+                    val custom = c.covers.get(CustomCovers.artist(artist.id))
+                    if (custom != null) {
+                        AsyncImage(custom, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    } else if (img != null) {
                         AsyncImage(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     } else {
                         CoverArt(artist.coverArt, Modifier.fillMaxSize(), size = 800, corner = 0.dp)
                     }
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Hifi.Bg)))
-                    IconButton(onClick = { nav.popBackStack() }, Modifier.statusBarsPadding()) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-                    }
+                    ScreenBackButton(nav, Modifier.statusBarsPadding())
+                    CoverEditButton(CustomCovers.artist(artist.id), Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(14.dp))
                     Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
                         Text(artist.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp)
                         Text(if (albums.size == 1) "1 álbum" else "${albums.size} álbumes", color = Hifi.TextDim, fontSize = 13.sp)
@@ -126,7 +132,7 @@ fun ArtistScreen(id: String, nav: NavController) {
                 }
             }
             item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("Discografía") }
-            items(albums, key = { it.id }) { a -> AlbumCard(a, { nav.openAlbum(a.id) }, Modifier.padding(horizontal = 4.dp)) }
+            items(albums, key = { it.id }) { a -> AlbumCard(a, { nav.openAlbum(a.id) }, Modifier.padding(horizontal = 4.dp), nav = nav) }
             val similar = info.similarArtist.filter { it.id.isNotBlank() }
             if (similar.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -135,7 +141,7 @@ fun ArtistScreen(id: String, nav: NavController) {
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             rowItems(similar, key = { it.id }) { s ->
                                 Column(Modifier.width(96.dp).clickable { nav.openArtist(s.id) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CoverArt(s.coverArt, Modifier.size(88.dp), size = 200, corner = 44.dp)
+                                    CoverArt(s.coverArt, Modifier.size(88.dp), size = 200, corner = 44.dp, customKey = CustomCovers.artist(s.id))
                                     Spacer(Modifier.height(6.dp))
                                     Text(s.name, fontSize = 12.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
                                 }

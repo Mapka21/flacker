@@ -40,6 +40,9 @@ alb_short = {k: v for k, v in album.items() if k != "song"}
 lyrics = {"synced": True, "line": [{"start": i * 1500, "value": v} for i, v in enumerate(
     ["Este es un barrido", "de veinte hercios", "hasta veinte mil", "para probar", "las letras sincronizadas", "estilo Apple Music"])]}
 
+playlist = {"id": "pl1", "name": "Para probar", "songCount": 2, "duration": 24, "coverArt": "al1", "entry": songs}
+playlist_short = {k: v for k, v in playlist.items() if k != "entry"}
+
 files = {
     "ping": resp(),
     "getAlbumList2": resp("albumList2", {"album": [alb_short]}),
@@ -52,7 +55,10 @@ files = {
     "getRandomSongs": resp("randomSongs", {"song": songs}),
     "getSimilarSongs2": resp("similarSongs2", {"song": songs[::-1]}),
     "getTopSongs": resp("topSongs", {"song": songs}),
-    "getPlaylists": resp("playlists", {"playlist": []}),
+    "getPlaylists": resp("playlists", {"playlist": [playlist_short]}),
+    "getPlaylist": resp("playlist", playlist),
+    "createPlaylist": resp("playlist", playlist),
+    "updatePlaylist": resp(), "deletePlaylist": resp(),
     "search3": resp("searchResult3", {"artist": [], "album": [alb_short], "song": songs}),
     "getLyricsBySongId": resp("lyricsList", {"structuredLyrics": [lyrics]}),
     "scrobble": resp(), "star": resp(), "unstar": resp(),

@@ -1,6 +1,30 @@
 package com.marco.audiopro.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
+import com.marco.audiopro.data.CustomCovers
+import com.marco.audiopro.ui.components.NewPlaylistFlow
+import com.marco.audiopro.ui.components.volumeWheel
+import com.marco.audiopro.ui.theme.Fonts
+import kotlinx.coroutines.flow.MutableSharedFlow
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -129,6 +153,14 @@ private fun Modifier.panel() = this.glass(PanelShape, Color.Black.copy(alpha = 0
 fun DesktopRoot(nav: NavHostController = rememberNavController(), onMiniPlayer: (() -> Unit)? = null) =
     MarcoGate { DesktopShell(nav, onMiniPlayer) }
 
+/**
+ * Atrás/adelante que llegan de fuera de Compose: los botones laterales del mouse (los lee la
+ * ventana con AWT) y Alt+←/→. `true` = adelante.
+ */
+object DesktopHistory {
+    val events = MutableSharedFlow<Boolean>(extraBufferCapacity = 8)
+}
+
 @Composable
 private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     val c = LocalApp.current
@@ -138,28 +170,50 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     val onPlayer = dest.isIn(PlayerRoute::class)
     // El reproductor completo ocupa toda la ventana: sin barra lateral ni columna derecha,
     // para no repetir la misma información dos veces.
-    val pad by animateDpAsState(if (onPlayer) 0.dp else 14.dp, spring(dampingRatio = 0.85f, stiffness = 260f), label = "pad")
+    // Sin resorte: un resorte se pasa de 0 y un padding negativo tumba la app.
+    val pad by animateDpAsState(if (onPlayer) 0.dp else 14.dp, tween(260), label = "pad")
     val intensity by animateFloatAsState(if (onPlayer) 1f else 0.75f, tween(500), label = "bg")
     var rightTab by remember { mutableStateOf(0) }
+    val search = remember { mutableStateOf("") }
 
+    // Historial tipo navegador: atrás guarda la página para poder ir "adelante" otra vez.
+    val forward = remember { mutableStateListOf<Any>() }
+    var historyNav by remember { mutableStateOf(false) }
+    LaunchedEffect(entry?.id) { if (!historyNav) forward.clear(); historyNav = false }
+    val goBack: () -> Unit = {
+        val current = entry
+        if (nav.previousBackStackEntry != null && current != null) {
+            historyNav = true
+            current.routeObject()?.let { forward.add(it) }
+            nav.popBackStack()
+        }
+    }
+    val goForward: () -> Unit = {
+        forward.removeLastOrNull()?.let { historyNav = true; nav.navigate(it) }
+    }
+    val back by rememberUpdatedState(goBack)
+    val fwd by rememberUpdatedState(goForward)
+    LaunchedEffect(Unit) { DesktopHistory.events.collect { if (it) fwd() else back() } }
+
+    CompositionLocalProvider(LocalSearchQuery provides search) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
         AmbientBackground(playback.current?.coverArt, intensity = intensity)
-        Row(Modifier.fillMaxSize().padding(pad)) {
+        Row(Modifier.fillMaxSize().padding(pad.coerceAtLeast(0.dp))) {
             AnimatedVisibility(
                 !onPlayer,
-                enter = expandHorizontally(spring(dampingRatio = 0.85f, stiffness = 260f)) + fadeIn(),
+                enter = expandHorizontally(tween(280)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
             ) { Row { Sidebar(nav, entry, dest); Spacer(Modifier.width(14.dp)) } }
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedVisibility(!onPlayer, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    Column { TopBar(nav, onMiniPlayer); Spacer(Modifier.height(12.dp)) }
+                    Column { TopBar(nav, onMiniPlayer, search, dest.isIn(SearchRoute::class), goBack); Spacer(Modifier.height(12.dp)) }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().then(if (onPlayer) Modifier else Modifier.panel())) { AppNavHost(nav, Modifier.fillMaxSize()) }
             }
             AnimatedVisibility(
                 wide && playback.current != null && !onPlayer,
-                enter = expandHorizontally(spring(dampingRatio = 0.85f, stiffness = 260f)) + fadeIn(),
+                enter = expandHorizontally(tween(280)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
             ) { Row { Spacer(Modifier.width(14.dp)); RightColumn(nav, rightTab) { rightTab = it } } }
         }
@@ -170,6 +224,7 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp),
         ) { PillPlayer(nav) }
         ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp))
+    }
     }
 }
 
@@ -184,21 +239,30 @@ private fun NavHostController.openLibrary(tab: Int) = navigate(LibraryRoute(tab)
 private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: NavDestination?) {
     val c = LocalApp.current
     val libTab = if (dest.isIn(LibraryRoute::class)) runCatching { entry?.toRoute<LibraryRoute>()?.tab }.getOrNull() else null
-    val playlists = rememberLoad(Unit) { c.api.playlists() }
+    val lists by c.playlists.lists.collectAsState()
+    LaunchedEffect(Unit) { runCatching { c.playlists.refresh() } }
+    var creating by remember { mutableStateOf(false) }
+    if (creating) NewPlaylistFlow(nav) { creating = false }
 
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
         FlackerLogo(Modifier.padding(horizontal = 22.dp))
         SectionLabel("MENÚ")
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
-        SidebarItem(Icons.Default.Search, "Buscar", dest.isIn(SearchRoute::class)) { nav.openTab(SearchRoute) }
         SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
         SectionLabel("MI BIBLIOTECA")
         SidebarItem(Icons.Default.Album, "Álbumes", libTab == 0) { nav.openLibrary(0) }
         SidebarItem(Icons.Default.Person, "Artistas", libTab == 1) { nav.openLibrary(1) }
+        SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
-        SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 2) { nav.openLibrary(2) }
-        SectionLabel("TUS PLAYLISTS")
-        val lists = (playlists.state.value as? Load.Ok)?.value.orEmpty()
+        SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { SectionLabel("TUS PLAYLISTS") }
+            Box(
+                Modifier.padding(end = 18.dp, top = 14.dp).size(26.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
+                    .bouncyClick { creating = true },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Default.Add, "Nueva playlist", tint = Hifi.TextDim, modifier = Modifier.size(16.dp)) }
+        }
         LazyColumn(Modifier.weight(1f)) {
             items(lists, key = { it.id }) { p ->
                 val sel = dest.isIn(PlaylistRoute::class) && runCatching { entry?.toRoute<PlaylistRoute>()?.id }.getOrNull() == p.id
@@ -208,7 +272,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
                         .bouncyClick { nav.openPlaylist(p.id) }.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CoverArt(p.coverArt, Modifier.size(28.dp), size = 120, corner = 6.dp)
+                    CoverArt(p.coverArt, Modifier.size(28.dp), size = 120, corner = 6.dp, customKey = CustomCovers.playlist(p.id))
                     Spacer(Modifier.width(10.dp))
                     Text(p.name, fontSize = 13.sp, color = if (sel) Hifi.Text else Hifi.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -246,21 +310,13 @@ private fun SidebarItem(icon: ImageVector, label: String, selected: Boolean, onC
 // ------------------------------------------------------------------ barra superior
 
 @Composable
-private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
+private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: MutableState<String>, onSearch: Boolean, onBack: () -> Unit) {
     val c = LocalApp.current
     val playing = c.player.state.collectAsState().value.current != null
     Row(Modifier.fillMaxWidth().height(50.dp), verticalAlignment = Alignment.CenterVertically) {
-        RoundGlass(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") { nav.popBackStack() }
+        RoundGlass(Icons.AutoMirrored.Filled.ArrowBack, "Atrás", onClick = onBack)
         Spacer(Modifier.width(12.dp))
-        Row(
-            Modifier.width(420.dp).height(44.dp).glass(RoundedCornerShape(50), Color.Black.copy(alpha = 0.28f))
-                .bouncyClick { nav.openTab(SearchRoute) }.padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Default.Search, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Text("Busca artistas, álbumes o canciones", color = Hifi.TextFaint, fontSize = 13.sp)
-        }
+        SearchField(nav, query, onSearch)
         Spacer(Modifier.weight(1f))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }
         Spacer(Modifier.width(10.dp))
@@ -269,8 +325,48 @@ private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             Spacer(Modifier.width(10.dp))
             RoundGlass(Icons.Default.PictureInPictureAlt, "Miniplayer iPod", onClick = onMiniPlayer)
         }
+    }
+}
+
+/** La única barra de búsqueda (como Spotify): escribir aquí muestra los resultados al centro. */
+@Composable
+private fun SearchField(nav: NavHostController, query: MutableState<String>, onSearch: Boolean) {
+    val focus = LocalFocusManager.current
+    var focused by remember { mutableStateOf(false) }
+    val border by animateColorAsState(if (focused) Color.White.copy(alpha = 0.35f) else Color.Transparent, label = "sf")
+    Row(
+        Modifier.width(440.dp).height(44.dp).glass(RoundedCornerShape(50), Color.Black.copy(alpha = if (focused) 0.42f else 0.28f))
+            .border(1.dp, border, RoundedCornerShape(50)).padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Search, null, tint = if (focused) Hifi.Text else Hifi.TextDim, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
-        RoundGlass(Icons.Default.Settings, "Ajustes") { nav.openTab(SettingsRoute) }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (query.value.isEmpty()) Text("¿Qué quieres escuchar?", color = Hifi.TextFaint, fontSize = 14.sp)
+            BasicTextField(
+                query.value,
+                { q ->
+                    query.value = q
+                    if (q.isNotBlank() && !onSearch) nav.navigate(SearchRoute) { launchSingleTop = true }
+                },
+                singleLine = true,
+                textStyle = TextStyle(color = Hifi.Text, fontSize = 14.sp, fontFamily = Fonts.inter),
+                cursorBrush = SolidColor(Hifi.Accent),
+                modifier = Modifier.fillMaxWidth()
+                    .onFocusChanged {
+                        focused = it.isFocused
+                        if (it.isFocused && !onSearch) nav.navigate(SearchRoute) { launchSingleTop = true }
+                    }
+                    .onPreviewKeyEvent {
+                        if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { query.value = ""; focus.clearFocus(); true } else false
+                    },
+            )
+        }
+        if (query.value.isNotEmpty()) {
+            Box(Modifier.size(30.dp).clip(CircleShape).bouncyClick { query.value = "" }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Close, "Borrar", tint = Hifi.TextDim, modifier = Modifier.size(16.dp))
+            }
+        }
     }
 }
 
@@ -309,7 +405,7 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onLyrics: 
     val song = st.current ?: return
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
 
-    Column(Modifier.fillMaxWidth().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(18.dp)) {
+    Column(Modifier.fillMaxWidth().volumeWheel().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 2.sp), modifier = Modifier.weight(1f))
             Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() })
@@ -416,7 +512,7 @@ private fun PillPlayer(nav: NavHostController) {
     val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(12_000, easing = LinearEasing)), label = "a")
 
     Column(
-        Modifier.width(400.dp).shadow(26.dp, RoundedCornerShape(50)).glass(RoundedCornerShape(50), tint.copy(alpha = 0.75f))
+        Modifier.width(400.dp).volumeWheel().shadow(26.dp, RoundedCornerShape(50)).glass(RoundedCornerShape(50), tint.copy(alpha = 0.75f))
             .bouncyClick { nav.openPlayer() },
     ) {
         Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 9.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {

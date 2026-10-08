@@ -41,6 +41,9 @@ import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.MarcoTheme
 import com.marco.audiopro.ui.theme.Mono
 import com.marco.audiopro.ui.LibraryRoute
+import com.marco.audiopro.ui.PlaylistRoute
+import com.marco.audiopro.ui.SearchRoute
+import com.marco.audiopro.ui.openTab
 import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.viz.VisualPreset
 import kotlinx.coroutines.runBlocking
@@ -110,9 +113,20 @@ class ScreenshotTest {
         pump(4000); save("3a-player-later")
         ui { nav!!.popBackStack() }
         ui { nav!!.navigate(LibraryRoute(0)) }; pump(3000); save("3b-library")
+        ui { nav!!.navigate(LibraryRoute(2)) }; pump(3000); save("3c-songs")
+        ui { nav!!.navigate(LibraryRoute(3)) }; pump(2500); save("3d-playlists")
+        ui { nav!!.navigate(PlaylistRoute("pl1")) }; pump(2500); save("3e-playlist")
+        ui { nav!!.navigate(SearchRoute) }; pump(1500); save("3f-search")
+        // Portada propia de "Me gusta" (la del servidor de prueba sirve de imagen).
+        val img = java.net.URI(graph.api.coverUrl("al1", 300)!!).toURL().readBytes()
+        runBlocking { graph.covers.set(com.marco.audiopro.data.CustomCovers.LIKED, img) }
         ui { nav!!.navigate(DspRoute) }; pump(2500); save("4-dsp")
         ui { nav!!.navigate(LikedRoute) }; pump(2000); save("5-liked")
         ui { nav!!.navigate(SettingsRoute) }; pump(1500); save("6-settings")
+        // "Inicio" desde un álbum regresa a Inicio (antes restauraba el álbum).
+        ui { nav!!.navigate(AlbumRoute("al1")) }; pump(1500)
+        ui { nav!!.openTab(com.marco.audiopro.ui.HomeRoute) }; pump(3000); save("6b-home-again")
+        runBlocking { graph.covers.clear(com.marco.audiopro.data.CustomCovers.LIKED) }
         ui { scene.close() }
 
         // Todos los modos visuales a la vez, con el barrido sonando.

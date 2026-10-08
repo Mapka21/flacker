@@ -43,7 +43,7 @@ fun PlayPill(onClick: () -> Unit, label: String = "Reproducir") {
 @Composable
 fun ShufflePill(onClick: () -> Unit) {
     Box(
-        Modifier.size(46.dp).clip(CircleShape).border(1.dp, Hifi.Line, CircleShape).background(Hifi.Panel).clickable(onClick = onClick),
+        Modifier.size(46.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(Icons.Default.Shuffle, "Aleatorio", tint = Hifi.Cream) }
 }

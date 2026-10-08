@@ -95,6 +95,8 @@ class AppContainer(private val context: Context) : AppGraph {
         }
     }
     override val likes = Likes(api, appScope)
+    override val playlists = com.marco.audiopro.data.PlaylistStore(api)
+    override val covers = com.marco.audiopro.data.CustomCovers(context.filesDir)
     override val versionName: String = BuildConfig.VERSION_NAME
     override val isDesktop = false
 

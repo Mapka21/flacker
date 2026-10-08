@@ -10,6 +10,12 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalContext
 import coil3.Image
 import coil3.toBitmap
 
@@ -45,3 +51,14 @@ fun DrawScope.drawPointCloud(points: FloatArray, count: Int, color: Color, strok
 
 /** Modifier.blur sólo funciona en Android 12+. */
 val supportsBlur: Boolean = Build.VERSION.SDK_INT >= 31
+
+/** Selector de imagen (portadas propias): el selector de fotos del sistema. */
+@Composable
+fun rememberImagePicker(onPicked: (ByteArray) -> Unit): () -> Unit {
+    val ctx = LocalContext.current
+    val callback by rememberUpdatedState(onPicked)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) ctx.contentResolver.openInputStream(uri)?.use { callback(it.readBytes()) }
+    }
+    return { launcher.launch("image/*") }
+}

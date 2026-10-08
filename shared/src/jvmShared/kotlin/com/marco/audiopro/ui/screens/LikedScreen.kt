@@ -39,7 +39,11 @@ import com.marco.audiopro.core.LocalApp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.marco.audiopro.data.CustomCovers
+import com.marco.audiopro.ui.components.CoverEditButton
 import com.marco.audiopro.ui.components.DownloadButton
+import com.marco.audiopro.ui.components.LikedCover
+import com.marco.audiopro.ui.components.ScreenBackButton
 import com.marco.audiopro.ui.components.ErrorBox
 import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.TrackRow
@@ -64,13 +68,13 @@ fun LikedScreen(nav: NavController) {
     ) {
         item {
             Column(Modifier.statusBarsPadding()) {
-                IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+                ScreenBackButton(nav)
+                Spacer(Modifier.height(12.dp))
                 Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(112.dp).clip(RoundedCornerShape(12.dp))
-                            .background(Brush.linearGradient(listOf(Hifi.Accent, Hifi.AccentDim, Hifi.Panel))),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Default.Favorite, null, tint = Color.White, modifier = Modifier.size(48.dp)) }
+                    Box {
+                        LikedCover(Modifier.size(150.dp), corner = 14.dp)
+                        CoverEditButton(CustomCovers.LIKED, Modifier.align(Alignment.BottomEnd).padding(8.dp))
+                    }
                     Spacer(Modifier.width(18.dp))
                     Column {
                         Text("Me gusta", style = Display.copy(fontSize = 30.sp))

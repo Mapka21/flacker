@@ -134,17 +134,20 @@ fun ErrorBox(message: String, retry: () -> Unit, modifier: Modifier = Modifier) 
 
 // ------------------------------------------------------------------ portadas
 
+/** @param customKey si hay una portada propia guardada con esa clave, se usa en lugar de la del servidor. */
 @Composable
-fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, corner: Dp = 8.dp) {
-    val api = LocalApp.current.api
-    val url = remember(coverArt, size) { api.coverUrl(coverArt, size) }
+fun CoverArt(coverArt: String?, modifier: Modifier = Modifier, size: Int = 400, corner: Dp = 8.dp, customKey: String? = null) {
+    val c = LocalApp.current
+    val url = remember(coverArt, size) { c.api.coverUrl(coverArt, size) }
+    val custom = if (customKey != null) { c.covers.map.collectAsState().value; c.covers.get(customKey) } else null
     Box(
         modifier.clip(RoundedCornerShape(corner)).background(Hifi.PanelHi),
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Default.Album, null, tint = Hifi.TextFaint, modifier = Modifier.fillMaxSize(0.4f))
-        if (url != null) {
-            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        val model: Any? = custom ?: url
+        if (model != null) {
+            AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
     }
 }
@@ -275,16 +278,21 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Compos
 
 // ------------------------------------------------------------------ tarjetas y filas
 
+/** @param nav si se da, el menú (clic derecho) incluye "Ir al artista". */
 @Composable
-fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.bouncyClick(onClick = onClick).padding(6.dp)) {
-        CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(12.dp, RoundedCornerShape(10.dp)), size = 400, corner = 10.dp)
-        Spacer(Modifier.height(8.dp))
-        Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Text(
-            listOfNotNull(album.artist, album.year?.toString()).joinToString(" · "),
-            maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, color = Hifi.TextDim,
-        )
+fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier, nav: androidx.navigation.NavController? = null) {
+    var menu by remember { mutableStateOf(false) }
+    Box(modifier.onRightClick { menu = true }.bouncyClick(onClick = onClick).padding(6.dp)) {
+        Column {
+            CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(12.dp, RoundedCornerShape(10.dp)), size = 400, corner = 10.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                listOfNotNull(album.artist, album.year?.toString()).joinToString(" · "),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, color = Hifi.TextDim,
+            )
+        }
+        AlbumMenu(album, menu, { menu = false }, nav)
     }
 }
 
@@ -357,16 +365,21 @@ fun TrackRow(
     showArtist: Boolean = true,
     showFormat: Boolean = false,
     onGoToAlbum: (() -> Unit)? = null,
+    /** En una playlist: quitar esta canción de ella. */
+    onRemove: (() -> Unit)? = null,
 ) {
     val c = LocalApp.current
     val liked = song.id in c.likes.ids.collectAsState().value
     val offline = c.downloads?.items?.collectAsState()?.value?.get(song.id)
     var menu by remember { mutableStateOf(false) }
+    var addTo by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
     Row(
         modifier
             .fillMaxWidth()
             .background(if (isCurrent) Hifi.Accent.copy(alpha = 0.07f) else Color.Transparent)
+            .onRightClick { menu = true }
             .combinedClickable(onClick = onClick, onLongClick = { menu = true })
             .padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -422,9 +435,21 @@ fun TrackRow(
                 )
                 DropdownMenuItem(
                     text = { Text("Agregar a la cola") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) },
                     onClick = { c.player.enqueue(listOf(song)); menu = false },
                 )
+                DropdownMenuItem(
+                    text = { Text("Agregar a playlist…") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) },
+                    onClick = { menu = false; addTo = true },
+                )
+                if (onRemove != null) {
+                    DropdownMenuItem(
+                        text = { Text("Quitar de esta playlist") },
+                        leadingIcon = { Icon(Icons.Default.Delete, null) },
+                        onClick = { menu = false; onRemove() },
+                    )
+                }
                 val store = c.downloads
                 if (store != null && (offline?.done == true || offline?.active == true)) {
                     DropdownMenuItem(
@@ -442,7 +467,7 @@ fun TrackRow(
                 if (onGoToAlbum != null && song.albumId != null) {
                     DropdownMenuItem(
                         text = { Text("Ir al álbum") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) },
+                        leadingIcon = { Icon(Icons.Default.Album, null) },
                         onClick = { onGoToAlbum(); menu = false },
                     )
                 }

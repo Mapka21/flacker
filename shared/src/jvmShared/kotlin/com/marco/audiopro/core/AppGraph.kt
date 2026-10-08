@@ -2,7 +2,9 @@ package com.marco.audiopro.core
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.marco.audiopro.audio.AudioEngine
+import com.marco.audiopro.data.CustomCovers
 import com.marco.audiopro.data.Likes
+import com.marco.audiopro.data.PlaylistStore
 import com.marco.audiopro.data.Settings
 import com.marco.audiopro.data.info.AlbumInfoRepository
 import com.marco.audiopro.data.info.LyricsRepository
@@ -29,6 +31,10 @@ interface AppGraph {
     val connect: ConnectService
     val player: PlayerController
     val likes: Likes
+    /** Playlists del servidor (crear, agregar, quitar). */
+    val playlists: PlaylistStore
+    /** Portadas propias de playlists, "Me gusta" y artistas. */
+    val covers: CustomCovers
     /** Descargas offline; `null` donde no aplican (PC). */
     val downloads: OfflineStore?
     val cache: CacheControl?

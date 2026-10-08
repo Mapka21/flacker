@@ -21,13 +21,25 @@
    visualizadores (Neón 360 estilo Xbox 360, Hiperespacio, Halo). Gira la rueda para el
    volumen; MENU, doble clic en la pantalla o la ✕ regresan a la app completa.
 4. Atajos: **Ctrl+Espacio** play/pausa · **Ctrl+→ / Ctrl+←** siguiente/anterior ·
-   **Ctrl+↑ / Ctrl+↓** volumen · también las teclas multimedia del teclado.
+   **Ctrl+↑ / Ctrl+↓** volumen · **Alt+← / Alt+→** atrás/adelante · teclas multimedia.
+5. Mouse: **clic derecho** en canciones y álbumes abre su menú; **rueda** sobre el reproductor,
+   la barra de volumen o el iPod cambia el volumen; los **botones laterales** van atrás/adelante.
 
 Opcional (Ajustes → Reseñas de álbum): API key de Last.fm (gratis) para reseñas en español,
 y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tiene nada.
 
 ## Qué trae
 
+- **Inicio con recomendaciones de tu propio servidor** (nada de catálogos externos):
+  "Hecho para ti" (mixes por artista que más escuchas + parecidos de tu biblioteca, joyas que
+  nunca has puesto, mezcla de todo, radio de Me gusta), "Volver a escuchar", "Porque escuchas …",
+  álbumes que nunca has escuchado, "Redescubre", agregados recientemente y favoritos.
+- **Playlists**: crear, renombrar, borrar, agregar canciones o álbumes enteros ("Agregar a
+  playlist…" en el menú) y quitar canciones. Todo se guarda en Navidrome.
+- **Portadas propias** para playlists, "Me gusta" y artistas (botón ✎ sobre la portada).
+  Se guardan en cada dispositivo.
+- **Biblioteca → Canciones**: todas tus rolas, cargando por páginas.
+- **Una sola barra de búsqueda** (la de arriba en la PC), como en Spotify.
 - **Modo visual**: el fondo de la app es el visualizador y baila con la música (bajo, medios,
   agudos y golpes). Presets: Aurora, Pulso, Halo, Olas, Hiperespacio, Synthwave y Neón 360.
   Botón ✨ para encenderlo/apagarlo y elegir preset viéndolos en vivo.
