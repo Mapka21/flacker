@@ -95,6 +95,7 @@ class DesktopGraph : AppGraph {
     }
     override val albumInfo = AlbumInfoRepository(dataDir, api, LastFm(http), ClaudeReviewer(), settings)
     override val likes = Likes(api, scope)
+    override val discover = com.marco.audiopro.data.discover.DiscoverRepository(http, api, dataDir)
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(dataDir)
     override val lyrics = LyricsRepository(http, api, dataDir)
@@ -103,7 +104,7 @@ class DesktopGraph : AppGraph {
     )
     override val downloads = null
     override val cache = null
-    override val versionName = "1.6.0"
+    override val versionName = "1.7.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()

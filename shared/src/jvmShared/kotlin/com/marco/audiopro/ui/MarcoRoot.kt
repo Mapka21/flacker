@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
@@ -88,7 +89,10 @@ import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.coverColors
 import com.marco.audiopro.ui.screens.AlbumScreen
 import com.marco.audiopro.ui.screens.ArtistScreen
+import com.marco.audiopro.ui.screens.DiscoverScreen
 import com.marco.audiopro.ui.screens.DownloadsScreen
+import com.marco.audiopro.ui.screens.ExternalAlbumScreen
+import com.marco.audiopro.ui.screens.ExternalArtistScreen
 import com.marco.audiopro.ui.screens.EqScreen
 import com.marco.audiopro.ui.screens.HomeScreen
 import com.marco.audiopro.ui.screens.LibraryScreen
@@ -118,10 +122,16 @@ import kotlin.reflect.KClass
 @Serializable data class AlbumRoute(val id: String)
 @Serializable data class ArtistRoute(val id: String)
 @Serializable data class PlaylistRoute(val id: String)
+@Serializable data object DiscoverRoute
+/** Artista / álbum del catálogo (Deezer), aunque no esté en tu biblioteca. */
+@Serializable data class ExternalArtistRoute(val id: Long)
+@Serializable data class ExternalAlbumRoute(val id: Long)
 
 fun NavController.openAlbum(id: String) = navigate(AlbumRoute(id))
 fun NavController.openArtist(id: String) = navigate(ArtistRoute(id))
 fun NavController.openPlaylist(id: String) = navigate(PlaylistRoute(id))
+fun NavController.openExternalArtist(id: Long) = navigate(ExternalArtistRoute(id))
+fun NavController.openExternalAlbum(id: Long) = navigate(ExternalAlbumRoute(id))
 fun NavController.openPlayer() = navigate(PlayerRoute) { launchSingleTop = true }
 
 /**
@@ -147,6 +157,9 @@ fun androidx.navigation.NavBackStackEntry.routeObject(): Any? {
             d.hasRoute(AlbumRoute::class) -> toRoute<AlbumRoute>()
             d.hasRoute(ArtistRoute::class) -> toRoute<ArtistRoute>()
             d.hasRoute(PlaylistRoute::class) -> toRoute<PlaylistRoute>()
+            d.hasRoute(ExternalArtistRoute::class) -> toRoute<ExternalArtistRoute>()
+            d.hasRoute(ExternalAlbumRoute::class) -> toRoute<ExternalAlbumRoute>()
+            d.hasRoute(DiscoverRoute::class) -> DiscoverRoute
             d.hasRoute(LibraryRoute::class) -> toRoute<LibraryRoute>()
             d.hasRoute(HomeRoute::class) -> HomeRoute
             d.hasRoute(SearchRoute::class) -> SearchRoute
@@ -197,6 +210,9 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         composable<AlbumRoute> { AlbumScreen(it.toRoute<AlbumRoute>().id, nav) }
         composable<ArtistRoute> { ArtistScreen(it.toRoute<ArtistRoute>().id, nav) }
         composable<PlaylistRoute> { PlaylistScreen(it.toRoute<PlaylistRoute>().id, nav) }
+        composable<DiscoverRoute> { DiscoverScreen(nav) }
+        composable<ExternalArtistRoute> { ExternalArtistScreen(it.toRoute<ExternalArtistRoute>().id, nav) }
+        composable<ExternalAlbumRoute> { ExternalAlbumScreen(it.toRoute<ExternalAlbumRoute>().id, nav) }
         // El fondo es compartido: el reproductor entra creciendo y desvaneciéndose, sin tapar nada.
         composable<PlayerRoute>(
             enterTransition = { fadeIn(tween(280)) + scaleIn(tween(320), initialScale = 0.94f) + slideInVertically(tween(320)) { it / 10 } },
@@ -264,7 +280,7 @@ private fun PhoneShell(nav: NavHostController) {
         add(NavItem(LibraryRoute(), "Biblioteca", Icons.Default.LibraryMusic))
         add(NavItem(SearchRoute, "Buscar", Icons.Default.Search))
         if (c.downloads != null) add(NavItem(DownloadsRoute, "Descargas", Icons.Outlined.DownloadForOffline))
-        add(NavItem(DspRoute, "DSP", Icons.Default.Equalizer))
+        add(NavItem(DiscoverRoute, "Descubrir", Icons.Default.Explore))
     }
 
     Scaffold(

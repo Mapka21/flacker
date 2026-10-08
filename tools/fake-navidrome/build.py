@@ -47,7 +47,8 @@ files = {
     "ping": resp(),
     "getAlbumList2": resp("albumList2", {"album": [alb_short]}),
     "getAlbum": resp("album", album),
-    "getStarred2": resp("starred2", {"song": [songs[0]]}),
+    # Un artista favorito real para que "Descubrir" tenga de dónde partir (catálogo de Deezer).
+    "getStarred2": resp("starred2", {"song": [songs[0]], "artist": [{"id": "ar9", "name": "Asking Alexandria"}]}),
     "getArtists": resp("artists", {"index": [{"name": "M", "artist": [{"id": "ar1", "name": "Marco Test", "albumCount": 1, "coverArt": "al1"}]}]}),
     "getArtist": resp("artist", {"id": "ar1", "name": "Marco Test", "albumCount": 1, "album": [alb_short]}),
     "getArtistInfo2": resp("artistInfo2", {"biography": "Artista de prueba para el motor de audio de escritorio."}),

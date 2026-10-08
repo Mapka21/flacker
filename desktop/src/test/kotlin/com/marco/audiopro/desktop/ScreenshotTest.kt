@@ -117,6 +117,13 @@ class ScreenshotTest {
         ui { nav!!.navigate(LibraryRoute(3)) }; pump(2500); save("3d-playlists")
         ui { nav!!.navigate(PlaylistRoute("pl1")) }; pump(2500); save("3e-playlist")
         ui { nav!!.navigate(SearchRoute) }; pump(1500); save("3f-search")
+        // Descubrir (catálogo real de Deezer: necesita internet).
+        ui { nav!!.navigate(com.marco.audiopro.ui.DiscoverRoute) }; pump(20000); save("3g-discover")
+        ui { nav!!.navigate(com.marco.audiopro.ui.ExternalArtistRoute(288567)) }; pump(6000); save("3h-ext-artist")
+        // Sin internet no hay catálogo: se omite esa captura.
+        runCatching { runBlocking { graph.discover.discography(288567).first { it.record_type == "album" }.id } }.getOrNull()?.let { extAlbum ->
+            ui { nav!!.navigate(com.marco.audiopro.ui.ExternalAlbumRoute(extAlbum)) }; pump(5000); save("3i-ext-album")
+        }
         // Portada propia de "Me gusta" (la del servidor de prueba sirve de imagen).
         val img = java.net.URI(graph.api.coverUrl("al1", 300)!!).toURL().readBytes()
         runBlocking { graph.covers.set(com.marco.audiopro.data.CustomCovers.LIKED, img) }

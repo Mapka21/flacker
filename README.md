@@ -30,10 +30,13 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
-- **Inicio con recomendaciones de tu propio servidor** (nada de catálogos externos):
-  "Hecho para ti" (mixes por artista que más escuchas + parecidos de tu biblioteca, joyas que
-  nunca has puesto, mezcla de todo, radio de Me gusta), "Volver a escuchar", "Porque escuchas …",
-  álbumes que nunca has escuchado, "Redescubre", agregados recientemente y favoritos.
+- **Descubrir** (y arriba en Inicio): artistas, álbumes y canciones que **no tienes**,
+  parecidos a lo que más escuchas y a tus favoritos, más "Te faltan de …" (discos de tus
+  artistas que no están en tu biblioteca). Catálogo de la API pública de Deezer, se refresca
+  cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
+- **Consíguelo en alta calidad**: cada artista/álbum de fuera tiene botones a tiendas legales
+  con FLAC/Hi-Res (Qobuz, Bandcamp, 7digital, Presto) y a Archive.org (FLAC gratis y legal).
+  Lo compras, lo pones en la carpeta de Navidrome y aparece en tu biblioteca.
 - **Playlists**: crear, renombrar, borrar, agregar canciones o álbumes enteros ("Agregar a
   playlist…" en el menú) y quitar canciones. Todo se guarda en Navidrome.
 - **Portadas propias** para playlists, "Me gusta" y artistas (botón ✎ sobre la portada).

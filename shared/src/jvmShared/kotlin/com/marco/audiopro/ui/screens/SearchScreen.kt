@@ -91,9 +91,10 @@ fun SearchScreen(nav: NavController) {
             r == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(if (shared != null) "Escribe arriba para buscar en tu biblioteca" else "Busca en tu biblioteca", color = Hifi.TextFaint)
             }
-            r.artist.isEmpty() && r.album.isEmpty() && r.song.isEmpty() ->
-                Text("Sin resultados para “$query”", color = Hifi.TextDim, modifier = Modifier.padding(20.dp))
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                if (r.artist.isEmpty() && r.album.isEmpty() && r.song.isEmpty()) {
+                    item { Text("No está en tu biblioteca: “$query”", color = Hifi.TextDim, modifier = Modifier.padding(20.dp)) }
+                }
                 if (r.artist.isNotEmpty()) {
                     item { SectionHeader("Artistas") }
                     items(r.artist, key = { "ar" + it.id }) { a -> ArtistRow(a) { nav.openArtist(a.id) } }
@@ -113,6 +114,8 @@ fun SearchScreen(nav: NavController) {
                         )
                     }
                 }
+                // Lo que no tienes: catálogo para descubrir y conseguir en hi-res.
+                item(key = "outside") { Column { OutsideLibraryResults(query.trim(), nav) } }
             }
         }
     }

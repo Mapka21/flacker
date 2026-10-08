@@ -7,6 +7,7 @@ import com.marco.audiopro.data.Likes
 import com.marco.audiopro.data.PlaylistStore
 import com.marco.audiopro.data.Settings
 import com.marco.audiopro.data.info.AlbumInfoRepository
+import com.marco.audiopro.data.discover.DiscoverRepository
 import com.marco.audiopro.data.info.LyricsRepository
 import com.marco.audiopro.connect.ConnectService
 import com.marco.audiopro.data.subsonic.SubsonicApi
@@ -27,6 +28,8 @@ interface AppGraph {
     val engine: AudioEngine
     val albumInfo: AlbumInfoRepository
     val lyrics: LyricsRepository
+    /** Música que no tienes: recomendaciones y catálogo para explorar. */
+    val discover: DiscoverRepository
     /** Marco Connect: otros dispositivos con la app en la red. */
     val connect: ConnectService
     val player: PlayerController

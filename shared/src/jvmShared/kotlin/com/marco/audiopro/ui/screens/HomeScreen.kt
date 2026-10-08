@@ -64,7 +64,10 @@ import com.marco.audiopro.data.subsonic.Song
 import com.marco.audiopro.ui.DownloadsRoute
 import com.marco.audiopro.ui.LikedRoute
 import com.marco.audiopro.ui.SettingsRoute
+import androidx.compose.runtime.LaunchedEffect
+import com.marco.audiopro.ui.DiscoverRoute
 import com.marco.audiopro.ui.components.AlbumCard
+import com.marco.audiopro.ui.openTab
 import com.marco.audiopro.ui.components.AlbumMenu
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.FlackerLogo
@@ -137,7 +140,11 @@ fun HomeScreen(nav: NavController) {
     val store = c.downloads
     val offlineCount = store?.items?.collectAsState()?.value?.values?.count { it.done } ?: 0
     val loader = rememberLoad(Unit) { loadHome(c.api) }
-    var mixing by remember { mutableStateOf<String?>(null) }
+    var discoveries by remember { mutableStateOf(c.discover.cached()) }
+    var discoverError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { c.discover.recommendations() }.onSuccess { discoveries = it }.onFailure { discoverError = it.message }
+    }
     val greeting = remember {
         when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
             in 5..11 -> "Buenos días"
@@ -145,16 +152,6 @@ fun HomeScreen(nav: NavController) {
             else -> "Buenas noches"
         }
     }
-    /** Arma una mezcla en el momento y la pone; `key` muestra el indicador en su tarjeta. */
-    fun startMix(key: String, build: suspend () -> List<Song>) {
-        if (mixing != null) return
-        mixing = key
-        scope.launch {
-            runCatching { build() }.onSuccess { if (it.isNotEmpty()) c.player.play(it) else c.connect.notice.value = "No encontré canciones para esa mezcla" }
-            mixing = null
-        }
-    }
-
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth > 700.dp
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
@@ -187,49 +184,26 @@ fun HomeScreen(nav: NavController) {
             item {
                 LoadBox(loader, Modifier.height(240.dp)) { home ->
                     Column {
-                        SectionHeader("Hecho para ti")
-                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(home.topArtists, key = { it.id }) { a ->
-                                MixCard("Mix de ${a.name}", "${a.name} y parecidos de tu biblioteca", a.covers, mixing == a.id) {
-                                    startMix(a.id) {
-                                        coroutineScope {
-                                            val similar = async { c.api.similarSongs(a.id, 40) }
-                                            val top = async { c.api.topSongs(a.name, 10) }
-                                            (top.await() + similar.await()).distinctBy { it.id }.shuffled()
-                                        }
-                                    }
-                                }
-                            }
-                            item(key = "gems") {
-                                MixCard("Joyas sin escuchar", "Canciones tuyas que nunca has puesto", home.unplayed.map { it.coverArt }.take(4), mixing == "gems", Icons.Default.AutoAwesome) {
-                                    startMix("gems") { c.api.randomSongs(300).filter { (it.playCount ?: 0) == 0L }.take(60) }
-                                }
-                            }
-                            item(key = "all") {
-                                MixCard("Mezcla de todo", "Tu biblioteca completa al azar", home.recent.map { it.coverArt }.shuffled().take(4), mixing == "all", Icons.Default.Shuffle) {
-                                    startMix("all") { c.api.randomSongs(100) }
-                                }
-                            }
-                            item(key = "likes") {
-                                MixCard("Radio Me gusta", "Tus favoritas y parecidas", liked.map { it.coverArt }.distinct().take(4), mixing == "likes", Icons.Default.Radio) {
-                                    startMix("likes") {
-                                        val seeds = liked.shuffled().take(3)
-                                        val similar = coroutineScope { seeds.map { s -> async { c.api.similarSongs(s.id, 20) } }.map { it.await() }.flatten() }
-                                        (liked.shuffled().take(30) + similar).distinctBy { it.id }.shuffled()
-                                    }
-                                }
+                        // Lo primero: música que no tienes, según lo que escuchas.
+                        val d = discoveries
+                        if (d != null) {
+                            DiscoverySections(d, nav, wide, compact = true)
+                            Text(
+                                "Ver más en Descubrir →", color = Hifi.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(start = 20.dp, top = 12.dp).bouncyClick { nav.openTab(DiscoverRoute) },
+                            )
+                        } else if (discoverError == null) {
+                            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(Modifier.size(18.dp), color = Hifi.Accent, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Buscando música nueva para ti…", color = Hifi.TextDim, fontSize = 13.sp)
                             }
                         }
                         if (home.recent.isNotEmpty()) {
                             SectionHeader("Volver a escuchar")
                             MostPlayedGrid(home.recent.take(if (wide) 9 else 6), columns = if (wide) 3 else 2, nav) { nav.openAlbum(it.id) }
                         }
-                        home.topArtists.firstOrNull()?.let { BecauseYouListen(it, nav) }
-                        Shelf("Álbumes que nunca has escuchado", home.unplayed, nav)
-                        Shelf("Redescubre", home.rediscover, nav, subtitle = "Los ponías mucho y hace rato que no")
-                        Shelf("Agregados recientemente", home.newest, nav, big = true)
-                        home.topArtists.getOrNull(1)?.let { BecauseYouListen(it, nav) }
-                        Shelf("Tus favoritos", home.starred, nav)
+                        Shelf("Agregados recientemente a tu biblioteca", home.newest, nav, big = true)
                     }
                 }
             }
@@ -243,59 +217,6 @@ private fun Shelf(title: String, albums: List<Album>, nav: NavController, big: B
     SectionHeader(title)
     if (subtitle != null) Text(subtitle, fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.padding(start = 20.dp, bottom = 6.dp).offset(y = (-6).dp))
     AlbumRow(albums, big = big, nav = nav) { nav.openAlbum(it.id) }
-}
-
-/** "Porque escuchas X": artistas parecidos que SÍ están en tu biblioteca (Navidrome filtra). */
-@Composable
-private fun BecauseYouListen(seed: TopArtist, nav: NavController) {
-    val c = LocalApp.current
-    val loader = rememberLoad(seed.id) { c.api.artistInfo(seed.id).similarArtist.filter { it.id.isNotBlank() } }
-    val similar = (loader.state.value as? Load.Ok)?.value.orEmpty()
-    if (similar.isEmpty()) return
-    SectionHeader("Porque escuchas ${seed.name}")
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        items(similar, key = { it.id }) { a -> ArtistBubble(a) { nav.openArtist(a.id) } }
-    }
-}
-
-@Composable
-private fun ArtistBubble(a: Artist, onClick: () -> Unit) {
-    Column(Modifier.width(120.dp).bouncyClick(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverArt(a.coverArt, Modifier.size(112.dp).shadow(14.dp, CircleShape), size = 300, corner = 56.dp, customKey = CustomCovers.artist(a.id))
-        Spacer(Modifier.height(8.dp))
-        Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
-        Text("Artista", fontSize = 11.sp, color = Hifi.TextDim)
-    }
-}
-
-/** Tarjeta de mezcla (como los "Daily Mix"): mosaico de 4 portadas con un velo de color. */
-@Composable
-private fun MixCard(title: String, subtitle: String, covers: List<String?>, loading: Boolean, icon: ImageVector? = null, onClick: () -> Unit) {
-    val accent = Hifi.Accent
-    Column(Modifier.width(176.dp).bouncyClick(onClick = onClick)) {
-        Box(Modifier.size(176.dp).shadow(16.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Hifi.PanelHi)) {
-            val cells = (covers + List(4) { covers.firstOrNull() }).take(4)
-            Column {
-                for (row in 0..1) Row {
-                    for (col in 0..1) CoverArt(cells[row * 2 + col], Modifier.size(88.dp), size = 200, corner = 0.dp)
-                }
-            }
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, lerp(accent, Color.Black, 0.45f).copy(alpha = 0.85f)))))
-            Row(Modifier.align(Alignment.BottomStart).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)) }
-                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Box(
-                Modifier.align(Alignment.TopEnd).padding(8.dp).size(34.dp).shadow(8.dp, CircleShape).clip(CircleShape).background(Color.White),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (loading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
-                else Icon(Icons.Default.PlayArrow, "Reproducir", tint = Color.Black, modifier = Modifier.size(20.dp))
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(subtitle, fontSize = 12.sp, color = Hifi.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
 }
 
 /** Banner "Tus Me gusta": degradado del acento con las portadas en abanico (o tu imagen). */
