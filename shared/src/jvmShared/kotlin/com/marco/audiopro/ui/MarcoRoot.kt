@@ -89,6 +89,7 @@ import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.coverColors
 import com.marco.audiopro.ui.screens.AlbumScreen
 import com.marco.audiopro.ui.screens.ArtistScreen
+import com.marco.audiopro.ui.screens.BrowseScreen
 import com.marco.audiopro.ui.screens.DiscoverScreen
 import com.marco.audiopro.ui.screens.DownloadsScreen
 import com.marco.audiopro.ui.screens.ExternalAlbumScreen
@@ -123,6 +124,8 @@ import kotlin.reflect.KClass
 @Serializable data class ArtistRoute(val id: String)
 @Serializable data class PlaylistRoute(val id: String)
 @Serializable data object DiscoverRoute
+/** Álbumes de tu biblioteca por género o por década. */
+@Serializable data class BrowseRoute(val title: String, val genre: String? = null, val fromYear: Int? = null, val toYear: Int? = null)
 /** Artista / álbum del catálogo (Deezer), aunque no esté en tu biblioteca. */
 @Serializable data class ExternalArtistRoute(val id: Long)
 @Serializable data class ExternalAlbumRoute(val id: Long)
@@ -160,6 +163,7 @@ fun androidx.navigation.NavBackStackEntry.routeObject(): Any? {
             d.hasRoute(ExternalArtistRoute::class) -> toRoute<ExternalArtistRoute>()
             d.hasRoute(ExternalAlbumRoute::class) -> toRoute<ExternalAlbumRoute>()
             d.hasRoute(DiscoverRoute::class) -> DiscoverRoute
+            d.hasRoute(BrowseRoute::class) -> toRoute<BrowseRoute>()
             d.hasRoute(LibraryRoute::class) -> toRoute<LibraryRoute>()
             d.hasRoute(HomeRoute::class) -> HomeRoute
             d.hasRoute(SearchRoute::class) -> SearchRoute
@@ -211,6 +215,7 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         composable<ArtistRoute> { ArtistScreen(it.toRoute<ArtistRoute>().id, nav) }
         composable<PlaylistRoute> { PlaylistScreen(it.toRoute<PlaylistRoute>().id, nav) }
         composable<DiscoverRoute> { DiscoverScreen(nav) }
+        composable<BrowseRoute> { BrowseScreen(it.toRoute<BrowseRoute>(), nav) }
         composable<ExternalArtistRoute> { ExternalArtistScreen(it.toRoute<ExternalArtistRoute>().id, nav) }
         composable<ExternalAlbumRoute> { ExternalAlbumScreen(it.toRoute<ExternalAlbumRoute>().id, nav) }
         // El fondo es compartido: el reproductor entra creciendo y desvaneciéndose, sin tapar nada.

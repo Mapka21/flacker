@@ -78,6 +78,8 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     suspend fun albumList(type: String, size: Int = 40, offset: Int = 0, extra: Map<String, Any?> = emptyMap()): List<Album> =
         get<AlbumList>("getAlbumList2", "albumList2", mapOf("type" to type, "size" to size, "offset" to offset) + extra, AlbumList()).album
 
+    suspend fun genres(): List<Genre> = get("getGenres", "genres", default = Genres()).genre
+
     suspend fun album(id: String): Album = get("getAlbum", "album", mapOf("id" to id), Album(id))
 
     suspend fun artists(): List<Artist> = get("getArtists", "artists", default = ArtistsID3()).index.flatMap { it.artist }

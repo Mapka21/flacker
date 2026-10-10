@@ -34,6 +34,12 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
   que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
   Toca cualquier canción para oír una **muestra de 30 s** (o "Escuchar todas"). Catálogo de la
   API pública de Deezer; se refresca cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
+- **Álbum "dentro de la portada"**: el álbum muestra sólo el tracklist y lo básico; al tocar la
+  portada (o ⓘ) se abre en grande con una tarjeta: reseña completa, lanzamiento, géneros, sello,
+  formato y calidad, duración, tamaño, ReplayGain, créditos (producción, mezcla, composición…
+  si tus archivos los traen) y cuántas veces lo has puesto.
+- **Inicio**: destacados grandes, volver a escuchar, tus artistas, "Explora por género" y
+  "Por década" (todo de tu biblioteca).
 - **Playlists**: crear, renombrar, borrar, agregar canciones o álbumes enteros ("Agregar a
   playlist…" en el menú) y quitar canciones. Todo se guarda en Navidrome.
 - **Portadas propias** para playlists, "Me gusta" y artistas (botón ✎ sobre la portada).

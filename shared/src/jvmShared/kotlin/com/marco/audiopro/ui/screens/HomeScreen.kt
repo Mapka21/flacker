@@ -53,6 +53,7 @@ import com.marco.audiopro.data.CustomCovers
 import com.marco.audiopro.data.subsonic.Album
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.platform.supportsBlur
+import com.marco.audiopro.ui.BrowseRoute
 import com.marco.audiopro.ui.DownloadsRoute
 import com.marco.audiopro.ui.LikedRoute
 import com.marco.audiopro.ui.SettingsRoute
@@ -94,6 +95,10 @@ private data class HomeData(
     val rediscover: List<Album>,
     val random: List<Album>,
     val topArtists: List<TopArtist>,
+    /** Tus géneros con más álbumes, con una portada de cada uno. */
+    val genres: List<Pair<String, String?>>,
+    /** Décadas que hay en tu biblioteca (1990, 2000…). */
+    val decades: List<Int>,
 )
 
 private suspend fun loadHome(api: SubsonicApi): HomeData = coroutineScope {
@@ -108,7 +113,13 @@ private suspend fun loadHome(api: SubsonicApi): HomeData = coroutineScope {
     val top = f.filter { it.artistId != null }.groupBy { it.artistId!! }
         .entries.sortedByDescending { (_, al) -> al.sumOf { it.playCount ?: 0 } }
         .take(12).map { (id, al) -> TopArtist(id, al.first().artist ?: "", al.first().coverArt) }
-    HomeData(r, f, newest.await(), starred.await(), f.filter { it.id !in recentIds }.take(20), random.await(), top)
+    val g = runCatching { api.genres() }.getOrDefault(emptyList()).filter { it.albumCount > 0 }.sortedByDescending { it.albumCount }.take(8)
+    val genres = g.map { genre ->
+        async { genre.value to runCatching { api.albumList("byGenre", 1, 0, mapOf("genre" to genre.value)).firstOrNull()?.coverArt }.getOrNull() }
+    }.map { it.await() }
+    val all = f + r + newest.await() + starred.await() + random.await()
+    val decades = all.mapNotNull { it.year?.takeIf { y -> y > 1900 } }.map { it / 10 * 10 }.distinct().sortedDescending()
+    HomeData(r, f, newest.await(), starred.await(), f.filter { it.id !in recentIds }.take(20), random.await(), top, genres, decades)
 }
 
 @Composable
@@ -195,10 +206,32 @@ fun HomeScreen(nav: NavController) {
                                 items(home.topArtists, key = { it.id }) { a -> ArtistCircle(a) { nav.openArtist(a.id) } }
                             }
                         }
-                        Shelf("Escuchado recientemente", home.recent, nav)
                         Shelf("Agregados recientemente", home.newest, nav, big = true)
+                        if (home.genres.isNotEmpty()) {
+                            SectionHeader("Explora por género")
+                            val cols = if (wide) 4 else 2
+                            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                home.genres.chunked(cols).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        row.forEach { (name, cover) ->
+                                            CategoryTile(name, null, cover, Modifier.weight(1f)) { nav.navigate(BrowseRoute(name, genre = name)) }
+                                        }
+                                        repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                                    }
+                                }
+                            }
+                        }
                         Shelf("Lo que más pones", home.frequent, nav)
                         Shelf("Tus favoritos", home.starred, nav)
+                        if (home.decades.size > 1) {
+                            SectionHeader("Por década")
+                            ArrowRow(contentPadding = PaddingValues(horizontal = 16.dp), spacing = 12.dp, arrowsOffset = 0.dp) {
+                                items(home.decades, key = { it }) { d ->
+                                    val label = if (d >= 2000) "Los $d" else "Los ${d % 100}"
+                                    CategoryTile(label, null, null, Modifier.width(170.dp)) { nav.navigate(BrowseRoute(label, fromYear = d, toYear = d + 9)) }
+                                }
+                            }
+                        }
                         Shelf("Redescubre", home.rediscover, nav)
                         Shelf("Al azar de tu biblioteca", home.random, nav)
                     }

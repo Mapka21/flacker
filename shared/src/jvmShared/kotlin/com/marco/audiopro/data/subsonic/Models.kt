@@ -34,6 +34,9 @@ data class Song(
     val replayGain: ReplayGain? = null,
     val starred: String? = null,
     val playCount: Long? = null,
+    /** Créditos (OpenSubsonic): composición, producción, mezcla… si los archivos los traen. */
+    val contributors: List<Contributor>? = null,
+    val displayComposer: String? = null,
     /** Muestra de 30 s de una canción que no tienes (Descubrir); se reproduce desde esta URL. */
     val externalUrl: String? = null,
 ) {
@@ -63,6 +66,16 @@ fun khz(hz: Int): String {
 data class NamedItem(val name: String = "")
 
 @Serializable
+data class ItemDate(val year: Int? = null, val month: Int? = null, val day: Int? = null)
+
+@Serializable
+data class NamedArtist(val id: String = "", val name: String = "")
+
+/** Quién hizo qué en una canción ("producer", "engineer", "mixer", "composer"…). */
+@Serializable
+data class Contributor(val role: String = "", val subRole: String? = null, val artist: NamedArtist = NamedArtist())
+
+@Serializable
 data class Album(
     val id: String,
     val name: String = "",
@@ -78,6 +91,13 @@ data class Album(
     val created: String? = null,
     val recordLabels: List<NamedItem>? = null,
     val genres: List<NamedItem>? = null,
+    val releaseDate: ItemDate? = null,
+    val originalReleaseDate: ItemDate? = null,
+    val releaseTypes: List<String>? = null,
+    val isCompilation: Boolean? = null,
+    val version: String? = null,
+    val moods: List<String>? = null,
+    val played: String? = null,
     val song: List<Song> = emptyList(),
 )
 
@@ -116,6 +136,12 @@ data class AlbumInfo(
 
 @Serializable
 data class AlbumList(val album: List<Album> = emptyList())
+
+@Serializable
+data class Genre(val value: String = "", val songCount: Int = 0, val albumCount: Int = 0)
+
+@Serializable
+data class Genres(val genre: List<Genre> = emptyList())
 
 @Serializable
 data class SearchResult(

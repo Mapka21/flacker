@@ -30,12 +30,18 @@ def song(i, t):
     return {"id": f"s{i}", "title": t, "album": "Prueba Hi-Res", "albumId": "al1", "artist": "Marco Test", "artistId": "ar1",
             "track": i, "discNumber": 1, "year": 2026, "genre": "Electrónica", "coverArt": "al1", "suffix": "wav",
             "duration": 12, "bitRate": 4608, "samplingRate": 96000, "bitDepth": 24, "channelCount": 2,
-            "replayGain": {"trackGain": -3.0, "albumGain": -4.0, "trackPeak": 0.8, "albumPeak": 0.85}}
+            "replayGain": {"trackGain": -3.0, "albumGain": -4.0, "trackPeak": 0.8, "albumPeak": 0.85},
+            "contributors": [{"role": "producer", "artist": {"id": "c1", "name": "Rick Rubin"}},
+                             {"role": "mixer", "artist": {"id": "c2", "name": "Andrew Scheps"}},
+                             {"role": "composer", "artist": {"id": "ar1", "name": "Marco Test"}}]}
 
 
 songs = [song(1, "Barrido senoidal"), song(2, "Tono de 440 Hz")]
 album = {"id": "al1", "name": "Prueba Hi-Res", "artist": "Marco Test", "artistId": "ar1", "coverArt": "al1",
-         "songCount": 2, "duration": 24, "year": 2026, "genre": "Electrónica", "song": songs}
+         "songCount": 2, "duration": 24, "year": 2026, "genre": "Electrónica", "song": songs,
+         "releaseDate": {"year": 2026, "month": 3, "day": 14}, "recordLabels": [{"name": "Laboratorio Flacker"}],
+         "genres": [{"name": "Electrónica"}, {"name": "Ambient"}], "releaseTypes": ["Album"], "playCount": 12,
+         "created": "2026-10-06T10:00:00Z", "played": "2026-10-09T22:00:00Z"}
 alb_short = {k: v for k, v in album.items() if k != "song"}
 lyrics = {"synced": True, "line": [{"start": i * 1500, "value": v} for i, v in enumerate(
     ["Este es un barrido", "de veinte hercios", "hasta veinte mil", "para probar", "las letras sincronizadas", "estilo Apple Music"])]}
@@ -57,6 +63,9 @@ files = {
     "getSimilarSongs2": resp("similarSongs2", {"song": songs[::-1]}),
     "getTopSongs": resp("topSongs", {"song": songs}),
     "getPlaylists": resp("playlists", {"playlist": [playlist_short]}),
+    "getGenres": resp("genres", {"genre": [{"value": "Electrónica", "songCount": 2, "albumCount": 1},
+                                           {"value": "Ambient", "songCount": 2, "albumCount": 1},
+                                           {"value": "Rock", "songCount": 2, "albumCount": 1}]}),
     "getPlaylist": resp("playlist", playlist),
     "createPlaylist": resp("playlist", playlist),
     "updatePlaylist": resp(), "deletePlaylist": resp(),

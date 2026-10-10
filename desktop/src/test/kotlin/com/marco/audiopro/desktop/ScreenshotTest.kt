@@ -193,6 +193,23 @@ class ScreenshotTest {
         ui { pnav!!.popBackStack(); pnav!!.navigate(ArtistRoute("ar1")) }; ppump(3000); psave("11-phone-artist")
         ui { phone.close() }
 
+        // "Dentro de la portada": la tarjeta con toda la info del álbum, en PC y en celular.
+        val fullAlbum = runBlocking { graph.api.album("al1") }
+        for ((name, w, h) in listOf(Triple("14-album-info", 1380, 860), Triple("15-album-info-phone", 412, 915))) {
+            val sc = ui { ImageComposeScene(w, h, Density(1f)) {
+                WithOwners {
+                    val n = rememberNavController()
+                    CompositionLocalProvider(LocalApp provides graph) {
+                        MarcoTheme { com.marco.audiopro.ui.screens.AlbumDetails(fullAlbum, n) {} }
+                    }
+                }
+            } }
+            val e = System.currentTimeMillis() + 3500
+            while (System.currentTimeMillis() < e) { ui { sc.render(System.nanoTime()) }; Thread.sleep(30) }
+            File(outDir, "$name.png").writeBytes(ui { sc.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
+            ui { sc.close() }
+        }
+
         // Miniplayer iPod (sin ventana: sólo el cuerpo, sobre fondo gris para ver la sombra):
         // los tres tamaños y la pantalla con cada visualizador.
         fun ipodShot(name: String, size: IpodSize, screen: IpodScreen) {
