@@ -88,7 +88,7 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **Ruta de señal** (estilo Roon): fuente → transporte → decodificador → ReplayGain → EQ → salida.
 - **ReplayGain** por pista/álbum, sin pasarse nunca del pico real.
 - **Me gusta** sincronizado con Navidrome, "Radio Me gusta", letras sincronizadas, scrobbling.
-- Reseña del álbum: Last.fm → notas de Navidrome → Claude. Se guarda una vez por álbum.
+- Reseña del álbum: Last.fm → notas de Navidrome → Wikipedia (español, luego inglés) → Claude. Se guarda una vez por álbum.
 - **Temas de color**: Ámbar VU, Cian estudio, Rosa neón, Fósforo, Violeta o "Portada".
 - Sólo Android: **descargas offline**, caché de 3 GB, calidad separada Wi-Fi/datos, controles
   en notificación, pantalla de bloqueo y audífonos.

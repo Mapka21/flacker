@@ -109,7 +109,7 @@ class DesktopGraph : AppGraph {
     override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
     override val downloads = null
     override val cache = null
-    override val versionName = "2.0.0"
+    override val versionName = "2.1.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()

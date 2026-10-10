@@ -22,6 +22,52 @@ data class LastFmAlbum(
 
 class LastFm(private val http: OkHttpClient) {
 
+    /**
+     * Reseña de Wikipedia (primero en español, luego en inglés) cuando Last.fm no tiene texto:
+     * busca el artículo del álbum, comprueba que sea del artista correcto y toma la introducción.
+     * @return texto y liga al artículo.
+     */
+    suspend fun wikipedia(artist: String, album: String): Pair<String, String>? = withContext(Dispatchers.IO) {
+        for ((lang, word) in listOf("es" to "álbum", "en" to "album")) {
+            runCatching { wikiLookup(lang, word, artist, album) }.getOrNull()?.let { return@withContext it }
+        }
+        null
+    }
+
+    private fun wikiGet(url: okhttp3.HttpUrl): JsonObject? =
+        http.newCall(Request.Builder().url(url).header("User-Agent", "Flacker/2.0 (personal music app)").build()).execute().use { r ->
+            if (!r.isSuccessful) null else SubsonicJson.parseToJsonElement(r.body!!.string()).jsonObject
+        }
+
+    private fun wikiLookup(lang: String, word: String, artist: String, album: String): Pair<String, String>? {
+        val api = "https://$lang.wikipedia.org/w/api.php".toHttpUrl()
+        val search = wikiGet(
+            api.newBuilder().addQueryParameter("action", "query").addQueryParameter("list", "search")
+                .addQueryParameter("srsearch", "$album $artist $word").addQueryParameter("srlimit", "5")
+                .addQueryParameter("format", "json").build(),
+        ) ?: return null
+        val hits = ((search["query"] as? JsonObject)?.get("search") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+        val a = norm(album); val ar = norm(artist)
+        val title = hits.firstOrNull { h ->
+            val t = norm(h.str("title") ?: "")
+            val snip = norm(h.str("snippet") ?: "")
+            t.startsWith(a) && (t.contains(ar) || snip.contains(ar))
+        }?.str("title") ?: return null
+        val page = wikiGet(
+            api.newBuilder().addQueryParameter("action", "query").addQueryParameter("prop", "extracts")
+                .addQueryParameter("exintro", "1").addQueryParameter("explaintext", "1").addQueryParameter("redirects", "1")
+                .addQueryParameter("titles", title).addQueryParameter("format", "json").build(),
+        ) ?: return null
+        val pages = (page["query"] as? JsonObject)?.get("pages") as? JsonObject ?: return null
+        val text = pages.values.firstNotNullOfOrNull { (it as? JsonObject)?.str("extract") }?.trim()
+            ?.takeIf { it.length > 80 && norm(it).contains(ar) } ?: return null
+        return text to "https://$lang.wikipedia.org/wiki/${title.replace(' ', '_')}"
+    }
+
+    /** Sin acentos, signos ni etiquetas HTML (los fragmentos de búsqueda traen <span>). */
+    private fun norm(s: String) = java.text.Normalizer.normalize(s.replace(Regex("<[^>]+>"), "").lowercase(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9]+"), " ").trim()
+
     suspend fun albumInfo(apiKey: String, artist: String, album: String): LastFmAlbum? {
         // Primero en español; si no hay wiki traducida, en inglés.
         val es = fetch(apiKey, artist, album, "es") ?: return null

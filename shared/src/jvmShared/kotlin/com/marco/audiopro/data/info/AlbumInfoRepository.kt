@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import java.io.File
 
-enum class InfoSource(val label: String) { LASTFM("Last.fm"), NAVIDROME("Last.fm vía Navidrome"), CLAUDE("IA · Claude"), NONE("") }
+enum class InfoSource(val label: String) { LASTFM("Last.fm"), NAVIDROME("Last.fm vía Navidrome"), WIKIPEDIA("Wikipedia"), CLAUDE("IA · Claude"), NONE("") }
 
 @Serializable
 data class AlbumSummary(
@@ -65,9 +65,16 @@ class AlbumInfoRepository(
             return base.copy(source = InfoSource.NAVIDROME, text = notes, url = base.url ?: nav.lastFmUrl).also { save(album.id, it) }
         }
 
+        // Wikipedia (es → en), sin llaves.
+        album.artist?.let { artist ->
+            lastFm.wikipedia(artist, album.name)?.let { (text, url) ->
+                return base.copy(source = InfoSource.WIKIPEDIA, text = text, url = url).also { save(album.id, it) }
+            }
+        }
+
         if (prefs.anthropicKey.isNotBlank()) return generateWithClaude(album, base, tags)
 
-        return base.copy(source = InfoSource.NONE, error = "Sin reseña en Last.fm. Agrega tu API key de Anthropic en Ajustes para generar una con IA.")
+        return base.copy(source = InfoSource.NONE, error = "Ni Last.fm ni Wikipedia tienen reseña de este disco. Con una API key de Anthropic (Ajustes) la IA puede escribir una.")
     }
 
     suspend fun generateWithClaude(album: Album, base: AlbumSummary = AlbumSummary(), tags: List<String> = base.tags): AlbumSummary {
