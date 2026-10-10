@@ -34,7 +34,11 @@ data class Song(
     val replayGain: ReplayGain? = null,
     val starred: String? = null,
     val playCount: Long? = null,
+    /** Muestra de 30 s de una canción que no tienes (Descubrir); se reproduce desde esta URL. */
+    val externalUrl: String? = null,
 ) {
+    val isPreview: Boolean get() = externalUrl != null
+
     /** "FLAC · 24/96" */
     val formatLabel: String
         get() = buildString {

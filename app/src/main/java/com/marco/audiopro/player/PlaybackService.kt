@@ -132,6 +132,10 @@ class PlaybackService : MediaSessionService() {
 
     /** La UI manda MediaItems sin URI (no cruzan el IPC): aquí se arma la URL de stream. */
     private fun resolve(item: MediaItem): MediaItem {
+        item.toSong()?.externalUrl?.let { url ->
+            resolvedTransport[item.mediaId] = "Muestra de 30 s (Deezer, MP3)"
+            return item.buildUpon().setUri(url).build()
+        }
         container.downloads.completed(item.mediaId)?.let { req ->
             val q = req.customCacheKey?.substringAfter(':')?.let { runCatching { StreamQuality.valueOf(it) }.getOrNull() }
             resolvedTransport[item.mediaId] = "Descargado · ${q?.label ?: "local"}"

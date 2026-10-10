@@ -146,11 +146,14 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     suspend fun star(id: String, starred: Boolean) { call(if (starred) "star" else "unstar", mapOf("id" to id)) }
 
     suspend fun scrobble(id: String, submission: Boolean) {
+        if (id.startsWith("dz:")) return // muestras de Descubrir: no son de tu servidor
         runCatching { call("scrobble", mapOf("id" to id, "submission" to submission, "time" to System.currentTimeMillis())) }
     }
 
     fun coverUrl(coverArt: String?, size: Int = 600): String? =
-        coverArt?.let { runCatching { url("getCoverArt", mapOf("id" to it, "size" to size)).toString() }.getOrNull() }
+        // Las muestras de Descubrir ya traen la URL de su portada.
+        if (coverArt?.startsWith("http") == true) coverArt
+        else coverArt?.let { runCatching { url("getCoverArt", mapOf("id" to it, "size" to size)).toString() }.getOrNull() }
 
     fun streamUrl(id: String, quality: StreamQuality): String =
         url(

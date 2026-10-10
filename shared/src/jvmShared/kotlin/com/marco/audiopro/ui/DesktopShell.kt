@@ -121,7 +121,11 @@ import com.marco.audiopro.player.RepeatMode
 import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.ConnectToast
 import com.marco.audiopro.ui.components.CoverArt
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
+import com.marco.audiopro.ui.components.ConnectGreen
 import com.marco.audiopro.ui.components.DevicesButton
+import com.marco.audiopro.ui.components.RemoteBadge
 import com.marco.audiopro.ui.components.FlackerLogo
 import com.marco.audiopro.ui.components.LyricsPane
 import com.marco.audiopro.ui.components.SegmentedControl
@@ -384,10 +388,17 @@ private fun RoundGlass(icon: ImageVector, desc: String, onClick: () -> Unit) {
 
 @Composable
 private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) {
-    val song = LocalApp.current.player.state.collectAsState().value.current
+    val c = LocalApp.current
+    val song = c.player.state.collectAsState().value.current
+    // Encogido = mini reproductor arriba y más espacio para la cola o la letra (se recuerda).
+    var collapsed by remember { mutableStateOf(c.settings.getString("np_collapsed") == "1") }
+    fun setCollapsed(v: Boolean) { collapsed = v; c.settings.putString("np_collapsed", if (v) "1" else "0") }
     Column(Modifier.width(340.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         RemotePlaybackBanner()
-        NowPlayingCard(nav, lyricsOn = tab == 1) { onTab(if (tab == 1) 0 else 1) }
+        AnimatedContent(collapsed, transitionSpec = { (fadeIn() + expandVertically()) togetherWith (fadeOut() + shrinkVertically()) }, label = "np") { small ->
+            if (small) CompactNowPlaying(nav) { setCollapsed(false) }
+            else NowPlayingCard(nav, lyricsOn = tab == 1, onCollapse = { setCollapsed(true) }) { onTab(if (tab == 1) 0 else 1) }
+        }
         // Abajo: la cola o la letra (como la barra lateral de Apple Music en Mac).
         Column(Modifier.weight(1f).fillMaxWidth().panel().padding(top = 12.dp)) {
             SegmentedControl(listOf("A continuación", "Letra"), tab, onTab, Modifier.padding(horizontal = 12.dp).fillMaxWidth())
@@ -400,7 +411,7 @@ private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) 
 }
 
 @Composable
-private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onLyrics: () -> Unit) {
+private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse: () -> Unit, onLyrics: () -> Unit) {
     val c = LocalApp.current
     val player = c.player
     val st by player.state.collectAsState()
@@ -409,7 +420,12 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onLyrics: 
 
     Column(Modifier.fillMaxWidth().volumeWheel().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 2.sp), modifier = Modifier.weight(1f))
+            Box(Modifier.weight(1f)) {
+                if (st.remoteName != null) RemoteBadge(st.remoteName)
+                else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 2.sp))
+            }
+            Icon(Icons.Default.UnfoldLess, "Hacer mini", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onCollapse))
+            Spacer(Modifier.width(12.dp))
             Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() })
         }
         Spacer(Modifier.height(12.dp))
@@ -459,6 +475,44 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onLyrics: 
             ) { Icon(Icons.Default.Lyrics, "Letra", tint = if (lyricsOn) Color.White else Hifi.OnArt, modifier = Modifier.size(20.dp)) }
             IconButton(onClick = { nav.openTab(DspRoute) }) { Icon(Icons.Default.Equalizer, "Ecualizador", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
             DevicesButton(size = 20)
+        }
+    }
+}
+
+/** "Reproduciendo" encogido: portada, título, controles y la barrita de avance. */
+@Composable
+private fun CompactNowPlaying(nav: NavHostController, onExpand: () -> Unit) {
+    val c = LocalApp.current
+    val player = c.player
+    val st by player.state.collectAsState()
+    val song = st.current ?: return
+    val pos by rememberPlaybackPosition(400)
+    val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
+    val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
+    Column(Modifier.fillMaxWidth().volumeWheel().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(12.dp)) {
+        if (st.remoteName != null) { RemoteBadge(st.remoteName); Spacer(Modifier.height(8.dp)) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CoverArt(song.coverArt, Modifier.size(54.dp).shadow(10.dp, RoundedCornerShape(10.dp)).bouncyClick { nav.openPlayer() }, size = 200, corner = 10.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(song.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.artist ?: "", fontSize = 12.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.Default.UnfoldMore, "Agrandar", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onExpand))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.18f))) {
+                Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color.White.copy(alpha = 0.9f)))
+            }
+            Spacer(Modifier.width(12.dp))
+            Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.previous() })
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
+                Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", tint = Color.Black, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
         }
     }
 }
@@ -522,7 +576,7 @@ private fun PillPlayer(nav: NavHostController) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(song.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist ?: "", fontSize = 12.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(st.remoteName?.let { "▶ En $it" } ?: song.artist ?: "", fontSize = 12.sp, color = if (st.remoteName != null) ConnectGreen else Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.previous() })
             Spacer(Modifier.width(8.dp))

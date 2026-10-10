@@ -40,6 +40,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.animation.Crossfade
+import com.marco.audiopro.platform.supportsBlur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -80,8 +85,9 @@ fun Modifier.bouncyClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
 }
 
 /**
- * Fondo "vivo" como el de Apple Music, que además es el visualizador: con el modo visual
- * encendido se mueve con la música usando el preset elegido; apagado, sólo respira lento.
+ * Fondo "vivo" como el de Apple Music, que además es el visualizador. Tres capas:
+ * la portada derretida (muy difuminada), el brillo de las figuras del preset (difuminado
+ * suave) y las figuras nítidas con un velo para leer el texto.
  * @param intensity 1 = reproductor a pantalla completa; menos = fondo más oscuro para leer.
  * @param preset fuerza un preset (vistas previas del selector).
  */
@@ -92,11 +98,16 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
     val prefs by c.settings.prefs.collectAsState()
     val playing by rememberUpdatedState(c.player.state.collectAsState().value.isPlaying)
     val reactive by rememberUpdatedState(preset != null || prefs.visualMode)
-    val mode = preset ?: if (prefs.visualMode) prefs.visualPreset else VisualPreset.AURORA
+    // Apagado = la portada fluyendo tranquila, sin reaccionar a la música.
+    val mode = preset ?: if (prefs.visualMode) prefs.visualPreset else VisualPreset.PORTADA
     val offset by rememberUpdatedState(prefs.visualOffsetMs)
 
     var target by remember { mutableStateOf(DuskPalette) }
-    LaunchedEffect(coverArt) { coverColors(ctx, c.api, coverArt)?.let { target = it.swatches } }
+    var art by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(coverArt) {
+        coverColors(ctx, c.api, coverArt)?.let { target = it.swatches }
+        art = if (coverArt == null) null else coverBitmap(ctx, c.api, coverArt) ?: art
+    }
     val c0 by animateColorAsState(target[0], tween(1400), label = "a0")
     val c1 by animateColorAsState(target[1], tween(1400), label = "a1")
     val c2 by animateColorAsState(target[2], tween(1400), label = "a2")
@@ -114,9 +125,32 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
             tick.longValue = t
         }
     }
-    Canvas(modifier.fillMaxSize()) {
-        tick.longValue
-        scene.draw(this, mode, listOf(c0, c1, c2, c3), if (reactive) LiveAudio.features else LiveAudio.quiet, intensity)
+    val feats = { if (reactive) LiveAudio.features else LiveAudio.quiet }
+    val cols = listOf(c0, c1, c2, c3)
+    BoxWithConstraints(modifier.fillMaxSize().background(Hifi.Bg)) {
+        // Difuminado proporcional al tamaño (en las vistas previas chicas también se ve igual).
+        val big = (minOf(maxWidth, maxHeight) * 0.16f).coerceIn(14.dp, 90.dp)
+        // Sin blur (Android < 12) la portada se vería tal cual: ahí van las manchas de color.
+        val useArt = if (supportsBlur) art else null
+        Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
+            Canvas(Modifier.fillMaxSize().blur(big, BlurredEdgeTreatment.Rectangle)) {
+                tick.longValue
+                scene.drawBase(this, mode, cols, img, feats())
+            }
+        }
+        if (scene.hasFx(mode)) {
+            // Brillo (bloom) de las figuras y luego las figuras nítidas.
+            // (Las olas son rellenos grandes: su brillo deja manchas, así que van sin él.)
+            if (supportsBlur && mode != VisualPreset.OLAS) Canvas(Modifier.fillMaxSize().blur(big / 5, BlurredEdgeTreatment.Unbounded).graphicsLayer { alpha = 0.9f }) {
+                tick.longValue
+                scene.drawFx(this, mode, cols, feats(), glow = true)
+            }
+            Canvas(Modifier.fillMaxSize()) {
+                tick.longValue
+                scene.drawFx(this, mode, cols, feats(), glow = false)
+            }
+        }
+        Canvas(Modifier.fillMaxSize()) { scene.drawVeil(this, intensity) }
     }
 }
 

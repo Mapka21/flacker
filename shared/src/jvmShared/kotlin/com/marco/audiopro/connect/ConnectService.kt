@@ -71,6 +71,20 @@ private data class Command(
     val songs: List<Song> = emptyList(),
     val index: Int = 0,
     val positionMs: Long = 0,
+    val value: Float = 0f,
+)
+
+/** Estado completo de un reproductor remoto (para controlarlo como si fuera local). */
+@Serializable
+data class RemoteStatus(
+    val queue: List<Song> = emptyList(),
+    val index: Int = -1,
+    val playing: Boolean = false,
+    val positionMs: Long = 0,
+    val durationMs: Long = 0,
+    val shuffle: Boolean = false,
+    val repeat: String = "OFF",
+    val volume: Float? = null,
 )
 
 @Serializable
@@ -80,6 +94,7 @@ private data class Reply(
     val index: Int = 0,
     val positionMs: Long = 0,
     val error: String? = null,
+    val status: RemoteStatus? = null,
 )
 
 /**
@@ -105,6 +120,17 @@ class ConnectService(
     val notice = MutableStateFlow<String?>(null)
 
     val id: String = settings.getString("connect_id") ?: UUID.randomUUID().toString().also { settings.putString("connect_id", it) }
+
+    /** Dispositivo que estás controlando (como "Escuchando en …" de Spotify); null = éste. */
+    private val _controlling = MutableStateFlow<RemoteDevice?>(null)
+    val controlling: StateFlow<RemoteDevice?> = _controlling.asStateFlow()
+
+    /** Último estado del dispositivo controlado y cuándo llegó (para extrapolar la posición). */
+    private val _remote = MutableStateFlow<Pair<RemoteStatus, Long>?>(null)
+    val remote: StateFlow<Pair<RemoteStatus, Long>?> = _remote.asStateFlow()
+
+    /** Volumen pendiente de mandar (al arrastrar la barra sólo viaja el último valor). */
+    private val pendingVolume = MutableStateFlow<Float?>(null)
 
     private var server: ServerSocket? = null
     private var udp: DatagramSocket? = null
@@ -133,6 +159,8 @@ class ConnectService(
         jobs += scope.launch(Dispatchers.IO) { acceptLoop(srv) }
         jobs += scope.launch(Dispatchers.IO) { listenLoop() }
         jobs += scope.launch { beaconLoop(srv.localPort) }
+        jobs += scope.launch { pollLoop() }
+        jobs += scope.launch { volumeLoop() }
         jobs += scope.launch {
             // Olvida a los que dejaron de anunciarse.
             while (isActive) {
@@ -226,17 +254,34 @@ class ConnectService(
         out.println(SubsonicJson.encodeToString(reply))
     }
 
+    private fun localStatus(): RemoteStatus {
+        val st = player.state.value
+        return RemoteStatus(
+            st.queue, st.currentIndex, st.isPlaying, player.positionMs(), st.durationMs, st.shuffle, st.repeat.name, player.volume?.value,
+        )
+    }
+
     private fun execute(c: Command): Reply {
         when (c.cmd) {
             "play" -> {
+                // Si otro dispositivo nos manda música, dejamos de controlar al que fuera.
+                stopControlling()
                 player.playFrom(c.songs, c.index, c.positionMs)
                 notice.value = "Reproduciendo desde ${c.from}"
             }
+            "status" -> {}
             "toggle" -> player.toggle()
             "pause" -> if (player.state.value.isPlaying) player.toggle()
             "next" -> player.next()
             "previous" -> player.previous()
             "seek" -> player.seekTo(c.positionMs)
+            "volume" -> player.setVolume(c.value)
+            "shuffle" -> player.toggleShuffle()
+            "repeat" -> player.cycleRepeat()
+            "skip" -> player.skipToIndex(c.index)
+            "remove" -> player.removeAt(c.index)
+            "playNext" -> player.playNext(c.songs)
+            "enqueue" -> player.enqueue(c.songs)
             // Entrega la cola para que otro dispositivo la "jale" (Traer aquí).
             "handoff" -> {
                 val st = player.state.value
@@ -246,7 +291,7 @@ class ConnectService(
             }
             else -> return Reply(false, error = "desconocida")
         }
-        return Reply(true)
+        return Reply(true, status = localStatus())
     }
 
     private suspend fun send(to: RemoteDevice, cmd: Command): Reply? = withContext(Dispatchers.IO) {
@@ -274,6 +319,9 @@ class ConnectService(
         if (r?.ok == true) {
             withContext(Dispatchers.Main) { if (player.state.value.isPlaying) player.toggle() }
             notice.value = "Ahora suena en ${to.name}"
+            // Como en Spotify: después de pasarla, la app controla ese dispositivo.
+            _controlling.value = to
+            r.status?.let { _remote.value = it to System.currentTimeMillis() }
             return true
         }
         notice.value = "No se pudo conectar con ${to.name}"
@@ -284,6 +332,7 @@ class ConnectService(
     suspend fun pullFrom(from: RemoteDevice): Boolean {
         val r = send(from, Command("handoff", accountKey(), deviceName))
         if (r?.ok == true && r.songs.isNotEmpty()) {
+            stopControlling()
             withContext(Dispatchers.Main) { player.playFrom(r.songs, r.index, r.positionMs) }
             notice.value = "Traído de ${from.name}"
             return true
@@ -292,9 +341,79 @@ class ConnectService(
         return false
     }
 
-    /** Control remoto: toggle / next / previous. */
-    suspend fun remote(to: RemoteDevice, cmd: String) {
-        if (send(to, Command(cmd, accountKey(), deviceName))?.ok != true) notice.value = "${to.name} no responde"
+    /** Control remoto: toggle / next / previous / seek / skip… (responde con el estado nuevo). */
+    suspend fun remote(to: RemoteDevice, cmd: String, index: Int = 0, positionMs: Long = 0, songs: List<Song> = emptyList()) {
+        val r = send(fresh(to), Command(cmd, accountKey(), deviceName, songs, index, positionMs))
+        if (r?.ok != true) { notice.value = "${to.name} no responde"; return }
+        if (_controlling.value?.id == to.id) r.status?.let { _remote.value = it to System.currentTimeMillis() }
+    }
+
+    /** Pasa lo que suena en `from` (otro dispositivo) a `to` y controla `to`. */
+    suspend fun moveBetween(from: RemoteDevice, to: RemoteDevice): Boolean {
+        val h = send(fresh(from), Command("handoff", accountKey(), deviceName))
+        if (h?.ok != true || h.songs.isEmpty()) { notice.value = "No se pudo mover desde ${from.name}"; return false }
+        val r = send(fresh(to), Command("play", accountKey(), deviceName, h.songs, h.index, h.positionMs))
+        if (r?.ok != true) { notice.value = "No se pudo conectar con ${to.name}"; return false }
+        _controlling.value = to
+        r.status?.let { _remote.value = it to System.currentTimeMillis() }
+        notice.value = "Ahora suena en ${to.name}"
+        return true
+    }
+
+    /** Controlar un dispositivo sin pasarle la música (lo que ya suena allá). */
+    fun control(d: RemoteDevice) {
+        _remote.value = null
+        _controlling.value = d
+    }
+
+    fun stopControlling() {
+        _controlling.value = null
+        _remote.value = null
+        pendingVolume.value = null
+    }
+
+    /** Volumen del dispositivo controlado; se manda el último valor, sin saturar la red. */
+    fun remoteVolume(v: Float) {
+        pendingVolume.value = v.coerceIn(0f, 1f)
+        _remote.value = _remote.value?.let { (st, t) -> st.copy(volume = v.coerceIn(0f, 1f)) to t }
+    }
+
+    /** La dirección más reciente del dispositivo (pudo cambiar de IP). */
+    private fun fresh(d: RemoteDevice) = _devices.value.firstOrNull { it.id == d.id } ?: d
+
+    private suspend fun pollLoop() {
+        var fails = 0
+        while (scope.isActive) {
+            val d = _controlling.value
+            if (d != null) {
+                val r = send(fresh(d), Command("status", accountKey(), deviceName))
+                if (_controlling.value?.id == d.id) {
+                    if (r?.status != null) {
+                        fails = 0
+                        _remote.value = r.status to System.currentTimeMillis()
+                    } else if (++fails >= 4) {
+                        notice.value = "Se perdió la conexión con ${d.name}"
+                        stopControlling()
+                        fails = 0
+                    }
+                }
+            }
+            delay(if (d != null) 700 else 1000)
+        }
+    }
+
+    private suspend fun volumeLoop() {
+        var sent: Float? = null
+        while (scope.isActive) {
+            val v = pendingVolume.value
+            val d = _controlling.value
+            if (v != null && v != sent && d != null) {
+                send(fresh(d), Command("volume", accountKey(), deviceName, value = v))
+                sent = v
+            }
+            if (v == null) sent = null
+            delay(90)
+        }
     }
 
     companion object {

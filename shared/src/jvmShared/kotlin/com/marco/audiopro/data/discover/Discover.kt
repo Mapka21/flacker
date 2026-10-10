@@ -1,6 +1,7 @@
 package com.marco.audiopro.data.discover
 
 import com.marco.audiopro.data.subsonic.Artist
+import com.marco.audiopro.data.subsonic.Song
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.data.subsonic.SubsonicJson
 import kotlinx.coroutines.Dispatchers
@@ -43,9 +44,19 @@ data class DzTrack(
     val track_position: Int? = null,
     val disk_number: Int? = null,
     val rank: Long? = null,
+    val preview: String? = null,
     val artist: DzArtist? = null,
     val album: DzAlbum? = null,
 )
+
+/** Canción reproducible (muestra de 30 s) para el reproductor normal. */
+fun DzTrack.toPreviewSong(fallbackAlbum: DzAlbum? = null, fallbackArtist: DzArtist? = null): Song {
+    val al = album ?: fallbackAlbum
+    return Song(
+        id = "dz:$id", title = title, album = al?.title, artist = (artist ?: fallbackArtist ?: al?.artist)?.name,
+        coverArt = al?.cover_xl ?: al?.cover_medium, duration = 30, suffix = "mp3", bitRate = 128, externalUrl = preview,
+    )
+}
 
 @Serializable
 data class DzAlbum(
@@ -100,6 +111,7 @@ private class DeezerClient(private val http: OkHttpClient) {
     suspend fun top(id: Long, limit: Int = 10) = get<DzList<DzTrack>>("artist/$id/top", mapOf("limit" to limit)).data
     suspend fun albums(id: Long, limit: Int = 100) = get<DzList<DzAlbum>>("artist/$id/albums", mapOf("limit" to limit)).data
     suspend fun album(id: Long) = get<DzAlbum>("album/$id")
+    suspend fun track(id: Long) = get<DzTrack>("track/$id")
 }
 
 // ------------------------------------------------------------------ recomendaciones
@@ -132,7 +144,7 @@ fun normName(s: String): String =
 /**
  * Descubrir música que NO tienes: artistas parecidos a los que más escuchas (que no están en
  * tu biblioteca), sus discos y canciones más populares, y los álbumes que te faltan de tus
- * artistas. Sólo es catálogo para explorar; lo consigues en las tiendas de [HiResStores].
+ * artistas, con muestras de 30 s para conocerlas.
  */
 class DiscoverRepository(http: OkHttpClient, private val api: SubsonicApi, cacheDir: File) {
     private val dz = DeezerClient(http)
@@ -164,6 +176,26 @@ class DiscoverRepository(http: OkHttpClient, private val api: SubsonicApi, cache
     suspend fun top(id: Long) = dz.top(id, 10)
     suspend fun related(id: Long) = dz.related(id, 20)
     suspend fun album(id: Long) = dz.album(id)
+
+    /**
+     * Muestras listas para sonar. Deezer firma las URLs por ~15 min, así que se piden de nuevo
+     * justo antes de reproducir (las guardadas en las recomendaciones ya caducaron).
+     */
+    suspend fun previewSongs(tracks: List<DzTrack>): List<Song> = tracks.mapNotNull { t ->
+        val fresh = runCatching { dz.track(t.id) }.getOrNull() ?: return@mapNotNull null
+        fresh.preview?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        fresh.toPreviewSong(fallbackAlbum = t.album, fallbackArtist = t.artist)
+    }
+
+    /** Todas las muestras de un álbum (una sola llamada, URLs recién firmadas). */
+    suspend fun albumPreviews(id: Long): List<Song> {
+        val a = dz.album(id)
+        return a.tracks?.data.orEmpty().filter { !it.preview.isNullOrBlank() }.map { it.toPreviewSong(a, a.artist) }
+    }
+
+    /** Populares del artista como muestras (una llamada). */
+    suspend fun topPreviews(id: Long): List<Song> =
+        dz.top(id, 10).filter { !it.preview.isNullOrBlank() }.map { it.toPreviewSong() }
 
     /** Discografía sin duplicados (Deezer repite ediciones), lo más nuevo primero. */
     suspend fun discography(id: Long): List<DzAlbum> =
@@ -232,22 +264,4 @@ class DiscoverRepository(http: OkHttpClient, private val api: SubsonicApi, cache
         }
         return Discoveries(System.currentTimeMillis(), recArtists, albums.distinctBy { it.id }, tracks.distinctBy { it.id }, missing)
     }
-}
-
-/**
- * Dónde conseguir un disco en alta calidad, legal: tiendas con FLAC/Hi-Res y Archive.org
- * (grabaciones libres, muchas en FLAC).
- */
-object HiResStores {
-    data class Store(val name: String, val note: String, val url: (String) -> String)
-
-    private fun enc(q: String) = java.net.URLEncoder.encode(q, "UTF-8")
-
-    val all = listOf(
-        Store("Qobuz", "FLAC hasta 24/192") { "https://www.qobuz.com/us-en/search?q=${enc(it)}" },
-        Store("Bandcamp", "FLAC / WAV, directo al artista") { "https://bandcamp.com/search?item_type=a&q=${enc(it)}" },
-        Store("7digital", "FLAC 16 y 24 bits") { "https://us.7digital.com/search?q=${enc(it)}" },
-        Store("Presto Music", "Hi-Res, fuerte en clásica y jazz") { "https://www.prestomusic.com/search?search_query=${enc(it)}" },
-        Store("Archive.org", "Gratis y legal: conciertos y libre") { "https://archive.org/search?query=${enc(it)}&and%5B%5D=format%3A%22Flac%22" },
-    )
 }

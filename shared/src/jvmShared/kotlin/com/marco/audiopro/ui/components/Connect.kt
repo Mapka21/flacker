@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Devices
@@ -67,7 +69,8 @@ fun DevicesButton(modifier: Modifier = Modifier, tint: Color = Hifi.OnArt, size:
     val c = LocalApp.current
     val devices by c.connect.devices.collectAsState()
     var open by remember { mutableStateOf(false) }
-    val remotePlaying = devices.any { it.nowPlaying?.playing == true }
+    val controlling by c.connect.controlling.collectAsState()
+    val remotePlaying = controlling != null || devices.any { it.nowPlaying?.playing == true }
     IconButton(onClick = { open = true }, modifier) {
         Box {
             Icon(Icons.Default.Devices, "Dispositivos", tint = if (remotePlaying) ConnectGreen else tint, modifier = Modifier.size(size.dp))
@@ -79,35 +82,44 @@ fun DevicesButton(modifier: Modifier = Modifier, tint: Color = Hifi.OnArt, size:
     if (open) DevicesDialog { open = false }
 }
 
-/** "Conectar a un dispositivo", como el de Spotify: este dispositivo + los que hay en la red. */
+/**
+ * "Conectar a un dispositivo", como el de Spotify: elegir dónde suena. Al elegir otro
+ * dispositivo la música pasa allá y toda la app lo controla (play, barra, volumen, cola).
+ */
 @Composable
 fun DevicesDialog(onDismiss: () -> Unit) {
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     val devices by c.connect.devices.collectAsState()
+    val controlling by c.connect.controlling.collectAsState()
     val st by c.player.state.collectAsState()
+    val vol = c.player.volume?.collectAsState()?.value
     var busy by remember { mutableStateOf<String?>(null) }
+    fun go(block: suspend () -> Unit, id: String) {
+        busy = id
+        scope.launch { block(); busy = null; onDismiss() }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            Modifier.widthIn(max = 420.dp).fillMaxWidth()
+            Modifier.widthIn(max = 440.dp).fillMaxWidth()
                 .shadow(30.dp, RoundedCornerShape(26.dp))
                 .glass(RoundedCornerShape(26.dp), Hifi.PanelHi.copy(alpha = 0.97f))
                 .padding(20.dp),
         ) {
             Text("Conectar a un dispositivo", style = Display.copy(fontSize = 22.sp))
             Spacer(Modifier.height(4.dp))
-            Text("Marco Connect · misma red Wi-Fi", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
+            Text("Flacker Connect · misma red", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
             Spacer(Modifier.height(16.dp))
 
-            // Este dispositivo
+            val here = controlling == null
             DeviceRow(
                 icon = if (c.isDesktop) Icons.Default.Computer else Icons.Default.PhoneAndroid,
                 name = "Este dispositivo",
-                subtitle = st.current?.let { "${it.title} · ${it.artist ?: ""}" } ?: "Nada sonando",
-                active = st.isPlaying,
-                trailing = { if (st.isPlaying) Icon(Icons.Default.Check, null, tint = ConnectGreen) },
-                onClick = null,
+                subtitle = if (here) st.current?.let { "${it.title} · ${it.artist ?: ""}" } ?: "Nada sonando" else "Toca para traer la música aquí",
+                active = here,
+                trailing = { if (here) Icon(Icons.Default.Check, null, tint = ConnectGreen) },
+                onClick = controlling?.let { d -> { go({ c.connect.pullFrom(d) }, "here") } },
             )
 
             if (devices.isEmpty()) {
@@ -119,35 +131,68 @@ fun DevicesDialog(onDismiss: () -> Unit) {
             }
             devices.forEach { d ->
                 val np = d.nowPlaying
+                val active = controlling?.id == d.id
                 DeviceRow(
                     icon = platformIcon(d.platform),
                     name = d.name,
                     subtitle = when {
                         busy == d.id -> "Conectando…"
+                        active -> "Controlando · ${np?.title ?: "…"}"
                         np?.playing == true -> "▶ ${np.title} · ${np.artist ?: ""}"
                         np != null -> "En pausa · ${np.title}"
                         else -> "Disponible"
                     },
-                    active = np?.playing == true,
+                    active = active,
                     trailing = {
-                        if (np != null && !st.isPlaying) {
+                        if (!active && np != null) {
                             Text(
-                                "Traer aquí", color = ConnectGreen, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).bouncyClick {
-                                    busy = d.id
-                                    scope.launch { c.connect.pullFrom(d); busy = null; onDismiss() }
-                                }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                "Controlar", color = ConnectGreen, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).bouncyClick { c.connect.control(d); onDismiss() }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
                             )
                         }
+                        if (active) Icon(Icons.Default.Check, null, tint = ConnectGreen)
                     },
-                    // Tocar un dispositivo = mandar ahí lo que suena aquí.
-                    onClick = if (st.current != null) ({
-                        busy = d.id
-                        scope.launch { c.connect.transferTo(d); busy = null; onDismiss() }
-                    }) else null,
+                    // Tocar un dispositivo = que la música suene allá (venga de aquí o de otro).
+                    onClick = when {
+                        active -> null
+                        controlling != null -> ({ go({ c.connect.moveBetween(controlling!!, d) }, d.id) })
+                        st.current != null -> ({ go({ c.connect.transferTo(d) }, d.id) })
+                        np != null -> ({ c.connect.control(d); onDismiss() })
+                        else -> null
+                    },
+                )
+            }
+            // Volumen de donde suena (aquí o el dispositivo controlado).
+            if (vol != null) {
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.VolumeDown, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    com.marco.audiopro.ui.screens.AppleBar(vol, { c.player.setVolume(it) }, { c.player.setVolume(it) }, Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
+                }
+                Text(
+                    "Volumen de ${controlling?.name ?: "este dispositivo"}", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
+    }
+}
+
+/** Pastilla verde "Reproduciendo en PC-MARCO" (como Spotify) cuando controlas otro dispositivo. */
+@Composable
+fun RemoteBadge(name: String?, modifier: Modifier = Modifier) {
+    if (name == null) return
+    Row(
+        modifier.clip(RoundedCornerShape(50)).background(ConnectGreen.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Devices, null, tint = ConnectGreen, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Reproduciendo en $name", color = ConnectGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -180,25 +225,27 @@ private fun DeviceRow(
 }
 
 /**
- * Barra "Reproduciendo en …" (como la verde de Spotify): aparece cuando otro dispositivo
- * suena y éste no. Control remoto + "Traer aquí".
+ * Aviso "Suena en …" cuando otro dispositivo está reproduciendo y aquí no (y no lo controlas):
+ * tocarlo lo controla desde aquí; "Traer" pasa la música a este dispositivo.
  */
 @Composable
 fun RemotePlaybackBanner(modifier: Modifier = Modifier) {
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     val devices by c.connect.devices.collectAsState()
+    val controlling by c.connect.controlling.collectAsState()
     val local by c.player.state.collectAsState()
     val remote = devices.firstOrNull { it.nowPlaying?.playing == true }
     AnimatedVisibility(
-        remote != null && !local.isPlaying,
+        remote != null && !local.isPlaying && controlling == null,
         enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut(),
         modifier = modifier,
     ) {
         val d = remote ?: return@AnimatedVisibility
         val np = d.nowPlaying ?: return@AnimatedVisibility
         Row(
-            Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), ConnectGreen.copy(alpha = 0.16f)).padding(8.dp),
+            Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), ConnectGreen.copy(alpha = 0.16f))
+                .bouncyClick { c.connect.control(d) }.padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CoverArt(np.coverArt, Modifier.size(40.dp), size = 120, corner = 8.dp)
@@ -207,14 +254,10 @@ fun RemotePlaybackBanner(modifier: Modifier = Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(platformIcon(d.platform), null, tint = ConnectGreen, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Reproduciendo en ${d.name}", style = Mono.copy(color = ConnectGreen, fontSize = 10.sp))
+                    Text("Suena en ${d.name} · toca para controlar", style = Mono.copy(color = ConnectGreen, fontSize = 10.sp), maxLines = 1)
                 }
                 Text("${np.title} · ${np.artist ?: ""}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = { scope.launch { c.connect.remote(d, "toggle") } }) {
-                Icon(if (np.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/pausa remoto", tint = Hifi.Text)
-            }
-            IconButton(onClick = { scope.launch { c.connect.remote(d, "next") } }) { Icon(Icons.Default.SkipNext, "Siguiente remoto", tint = Hifi.Text) }
             Text(
                 "Traer", color = ConnectGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).bouncyClick { scope.launch { c.connect.pullFrom(d) } }.padding(8.dp),

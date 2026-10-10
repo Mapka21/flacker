@@ -82,6 +82,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import coil3.compose.LocalPlatformContext
 import com.marco.audiopro.core.LocalApp
+import com.marco.audiopro.player.PlayerController
 import com.marco.audiopro.resources.Res
 import com.marco.audiopro.resources.app_icon
 import com.marco.audiopro.ui.components.CoverArt
@@ -157,7 +158,7 @@ private val Silver = Color(0xFFB9BEC6)
  */
 @Composable
 internal fun IpodBody(
-    player: DesktopPlayer,
+    player: PlayerController,
     onExpand: () -> Unit,
     size: IpodSize = IpodSize.M,
     onResize: () -> Unit = {},
@@ -172,7 +173,7 @@ internal fun IpodBody(
 
 @Composable
 private fun IpodBodyContent(
-    player: DesktopPlayer,
+    player: PlayerController,
     onExpand: () -> Unit,
     size: IpodSize,
     onResize: () -> Unit,
@@ -207,7 +208,7 @@ private fun IpodBodyContent(
                 if (e.type == PointerEventType.Scroll) {
                     val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                     if (dy != 0f) {
-                        player.setVolume(player.volume.value - dy * 0.04f)
+                        player.setVolume((player.volume?.value ?: 0f) - dy * 0.04f)
                         volumeShownAt = System.currentTimeMillis()
                         e.changes.forEach { it.consume() }
                     }
@@ -234,7 +235,7 @@ private fun IpodBodyContent(
                     player,
                     onMenu = onExpand,
                     onRotate = { steps ->
-                        player.setVolume(player.volume.value + steps * 0.02f)
+                        player.setVolume((player.volume?.value ?: 0f) + steps * 0.02f)
                         volumeShownAt = System.currentTimeMillis()
                     },
                 )
@@ -260,7 +261,7 @@ private fun IpodBodyContent(
 }
 
 @Composable
-private fun Screen(player: DesktopPlayer, showVolume: Boolean, screen: IpodScreen, onExpand: () -> Unit, onCycle: () -> Unit) {
+private fun Screen(player: PlayerController, showVolume: Boolean, screen: IpodScreen, onExpand: () -> Unit, onCycle: () -> Unit) {
     val st by player.state.collectAsState()
     val song = st.current
     Box(
@@ -314,7 +315,7 @@ private fun Screen(player: DesktopPlayer, showVolume: Boolean, screen: IpodScree
  * abajo, el título corriendo para saber qué suena.
  */
 @Composable
-private fun VizScreen(player: DesktopPlayer, preset: VisualPreset, showVolume: Boolean) {
+private fun VizScreen(player: PlayerController, preset: VisualPreset, showVolume: Boolean) {
     val app = LocalApp.current
     val st by player.state.collectAsState()
     val playing by rememberUpdatedState(st.isPlaying)
@@ -375,8 +376,8 @@ private fun ProgressBar(durationMs: Long) {
 }
 
 @Composable
-private fun VolumeBar(player: DesktopPlayer) {
-    val vol by player.volume.collectAsState()
+private fun VolumeBar(player: PlayerController) {
+    val vol by (player.volume ?: kotlinx.coroutines.flow.MutableStateFlow(0f)).collectAsState()
     Row(Modifier.padding(horizontal = 6.dp).padding(bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.AutoMirrored.Filled.VolumeDown, null, tint = ScreenText, modifier = Modifier.size(10.dp))
         Box(Modifier.weight(1f).padding(horizontal = 3.dp)) { GlossyBar(vol) }
@@ -415,7 +416,7 @@ private fun Battery() {
  * puntos y el centro es play/pausa.
  */
 @Composable
-private fun ClickWheel(player: DesktopPlayer, onMenu: () -> Unit, onRotate: (Int) -> Unit) {
+private fun ClickWheel(player: PlayerController, onMenu: () -> Unit, onRotate: (Int) -> Unit) {
     var pressedCenter by remember { mutableStateOf(false) }
     val centerScale by animateFloatAsState(if (pressedCenter) 0.92f else 1f, label = "center")
     val label = Color(0xFF8A8F98)

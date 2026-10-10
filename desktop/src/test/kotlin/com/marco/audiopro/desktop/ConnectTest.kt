@@ -37,7 +37,9 @@ class ConnectTest {
         val s = MutableStateFlow(PlaybackState())
         var pos = 0L
         override val state: StateFlow<PlaybackState> = s
-        override val volume: StateFlow<Float>? = null
+        val vol = MutableStateFlow(0.5f)
+        override val volume: StateFlow<Float> = vol
+        override fun setVolume(v: Float) { vol.value = v }
         override fun play(songs: List<Song>, startIndex: Int, shuffle: Boolean) = playFrom(songs, startIndex, 0)
         override fun playFrom(songs: List<Song>, index: Int, positionMs: Long) {
             pos = positionMs
@@ -49,7 +51,7 @@ class ConnectTest {
         override fun next() {}
         override fun previous() {}
         override fun seekTo(ms: Long) { pos = ms }
-        override fun skipToIndex(i: Int) {}
+        override fun skipToIndex(i: Int) { s.value = s.value.copy(currentIndex = i, current = s.value.queue.getOrNull(i)) }
         override fun removeAt(i: Int) {}
         override fun toggleShuffle() {}
         override fun cycleRepeat() {}
@@ -101,6 +103,44 @@ class ConnectTest {
         assertEquals(50_000L, phonePlayer.pos)
         assertTrue("la PC no se pausó", waitFor(2000) { !pcPlayer.state.value.isPlaying })
 
+        phone.stop(); pc.stop()
+        scope.cancel()
+    }
+
+    /** Como Spotify: después de pasar la música, el celular controla la PC (pausa, barra, volumen, otra rola). */
+    @Test fun controlsRemoteLikeSpotify() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val phonePlayer = FakePlayer()
+        val pcPlayer = FakePlayer()
+        val phone = device("Celular", phonePlayer, scope)
+        val pc = device("PC", pcPlayer, scope)
+        phone.start(); pc.start()
+        val songs = listOf(Song("a", "Uno"), Song("b", "Dos"), Song("c", "Tres"))
+        phonePlayer.playFrom(songs, 0, 1000)
+        assertTrue(waitFor(8000) { phone.devices.value.any { it.name == "PC" } })
+        val routed = com.marco.audiopro.player.RoutedPlayer(phonePlayer, phone, scope)
+
+        assertTrue(phone.transferTo(phone.devices.value.first { it.name == "PC" }))
+        assertEquals("PC", phone.controlling.value?.name)
+        assertTrue("la UI no muestra lo de la PC", waitFor(3000) { routed.state.value.remoteName == "PC" && routed.state.value.current?.title == "Uno" })
+
+        routed.toggle()
+        assertTrue("no se pausó la PC", waitFor(3000) { !pcPlayer.state.value.isPlaying })
+        routed.seekTo(30_000)
+        assertTrue("no se movió la barra en la PC", waitFor(3000) { pcPlayer.pos == 30_000L })
+        routed.setVolume(0.2f)
+        assertTrue("no cambió el volumen de la PC", waitFor(3000) { pcPlayer.vol.value == 0.2f })
+        assertTrue(waitFor(3000) { routed.volume!!.value == 0.2f })
+        routed.skipToIndex(2)
+        assertTrue(waitFor(3000) { routed.state.value.current?.title == "Tres" })
+        routed.play(listOf(Song("z", "Nueva")))
+        assertTrue("no puso la rola nueva en la PC", waitFor(3000) { pcPlayer.state.value.current?.title == "Nueva" })
+        assertTrue(!phonePlayer.state.value.isPlaying)
+
+        // "Este dispositivo": la música regresa y se deja de controlar.
+        assertTrue(phone.pullFrom(phone.devices.value.first { it.name == "PC" }))
+        assertEquals(null, phone.controlling.value)
+        assertTrue(waitFor(2000) { routed.state.value.remoteName == null && routed.state.value.current?.title == "Nueva" })
         phone.stop(); pc.stop()
         scope.cancel()
     }

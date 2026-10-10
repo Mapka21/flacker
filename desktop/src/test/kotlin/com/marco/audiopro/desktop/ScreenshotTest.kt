@@ -120,6 +120,15 @@ class ScreenshotTest {
         // Descubrir (catálogo real de Deezer: necesita internet).
         ui { nav!!.navigate(com.marco.audiopro.ui.DiscoverRoute) }; pump(20000); save("3g-discover")
         ui { nav!!.navigate(com.marco.audiopro.ui.ExternalArtistRoute(288567)) }; pump(6000); save("3h-ext-artist")
+        // Muestra de 30 s de Deezer sonando en el motor de PC (necesita internet).
+        runCatching { runBlocking { graph.discover.topPreviews(288567) } }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { previews ->
+            graph.player.play(previews)
+            ui { nav!!.navigate(PlayerRoute) }; pump(6000); save("3j-preview-player")
+            check(graph.player.state.value.current?.isPreview == true) { "no suena la muestra" }
+            check(graph.player.positionMs() > 500) { "la muestra no avanza: ${graph.player.positionMs()} ${graph.player.state.value.error}" }
+            ui { nav!!.popBackStack() }
+            graph.player.play(songs)
+        }
         // Sin internet no hay catálogo: se omite esa captura.
         runCatching { runBlocking { graph.discover.discography(288567).first { it.record_type == "album" }.id } }.getOrNull()?.let { extAlbum ->
             ui { nav!!.navigate(com.marco.audiopro.ui.ExternalAlbumRoute(extAlbum)) }; pump(5000); save("3i-ext-album")

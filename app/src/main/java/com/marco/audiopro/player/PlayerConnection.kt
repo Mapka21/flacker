@@ -2,6 +2,12 @@ package com.marco.audiopro.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.database.ContentObserver
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -24,8 +30,30 @@ class PlayerConnection(private val context: Context) : PlayerController {
     private val _state = MutableStateFlow(PlaybackState())
     override val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
-    /** En el teléfono el volumen va con los botones físicos. */
-    override val volume: StateFlow<Float>? = null
+    /** Volumen de medios del sistema (el mismo de los botones físicos). */
+    private val audio = context.getSystemService(AudioManager::class.java)
+    private fun readVolume(): Float {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        return audio.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat()
+    }
+    private val _volume = MutableStateFlow(readVolume())
+    override val volume: StateFlow<Float> = _volume.asStateFlow()
+
+    init {
+        // Se entera también de los botones físicos.
+        context.contentResolver.registerContentObserver(
+            Settings.System.CONTENT_URI, true,
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) { _volume.value = readVolume() }
+            },
+        )
+    }
+
+    override fun setVolume(v: Float) {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, (v.coerceIn(0f, 1f) * max).roundToInt(), 0)
+        _volume.value = readVolume()
+    }
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) =

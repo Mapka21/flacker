@@ -201,14 +201,14 @@ class DesktopPlayer(
 
     private fun open(index: Int, song: Song): Track {
         val q = settings.prefs.value.wifiQuality
-        val g = FFmpegFrameGrabber(api.streamUrl(song.id, q))
+        val g = FFmpegFrameGrabber(song.externalUrl ?: api.streamUrl(song.id, q))
         g.sampleFormat = avutil.AV_SAMPLE_FMT_FLT
         g.audioChannels = 2
         g.setOption("reconnect", "1")
         g.setOption("reconnect_streamed", "1")
         g.setOption("rw_timeout", "20000000")
         g.start()
-        return Track(index, song, g, q.label)
+        return Track(index, song, g, if (song.isPreview) "Muestra de 30 s (Deezer, MP3)" else q.label)
     }
 
     /** Abre (o reutiliza) la salida al sample rate de la pista; 24 bits si se puede. */

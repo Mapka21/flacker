@@ -100,6 +100,7 @@ import com.marco.audiopro.player.RepeatMode
 import com.marco.audiopro.ui.DspRoute
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.DevicesButton
+import com.marco.audiopro.ui.components.RemoteBadge
 import com.marco.audiopro.ui.components.DownloadButton
 import com.marco.audiopro.ui.components.GlassChip
 import com.marco.audiopro.ui.components.LikeButton
@@ -161,6 +162,8 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             RoundButton(Icons.Default.KeyboardArrowDown, "Cerrar") { nav.popBackStack() }
+            Spacer(Modifier.width(14.dp))
+            RemoteBadge(st.remoteName)
             Spacer(Modifier.weight(1f))
             Row(Modifier.glass(RoundedCornerShape(50), Color.Black.copy(alpha = 0.25f)).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VisualModeButton(size = 20)
@@ -218,7 +221,8 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
                 Icon(Icons.Default.KeyboardArrowDown, "Cerrar", tint = Color.White, modifier = Modifier.size(28.dp))
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 9.sp))
+                if (st.remoteName != null) RemoteBadge(st.remoteName)
+                else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 9.sp))
                 Text(song.album ?: "", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
             }
             VisualModeButton()
@@ -327,6 +331,10 @@ private fun LcdStrip(song: Song, engine: AudioEngine, modifier: Modifier, onClic
             if (!song.isLossless) song.bitRate?.takeIf { it > 0 }?.let { add("$it kbps") }
         }
         Text(parts.joinToString("  "), style = lcd, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (song.isPreview) {
+            Text("MUESTRA 30 s", style = lcd.copy(color = Hifi.Accent, fontSize = 10.sp))
+            return@Row
+        }
         if (signal.replayGainDb != null) {
             Text("RG %+.1f".format(signal.replayGainDb), style = lcd.copy(color = Hifi.OnArt, fontSize = 10.sp))
             Spacer(Modifier.width(8.dp))

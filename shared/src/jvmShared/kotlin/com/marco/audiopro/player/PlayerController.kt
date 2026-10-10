@@ -15,6 +15,8 @@ data class PlaybackState(
     val repeat: RepeatMode = RepeatMode.OFF,
     val queue: List<Song> = emptyList(),
     val error: String? = null,
+    /** Si suena en otro dispositivo controlado con Connect: su nombre ("PC-MARCO"). */
+    val remoteName: String? = null,
 )
 
 /** Contrato del reproductor: Media3 en Android, motor propio (ffmpeg + Java Sound) en PC. */

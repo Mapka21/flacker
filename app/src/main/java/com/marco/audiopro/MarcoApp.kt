@@ -85,15 +85,17 @@ class AppContainer(private val context: Context) : AppGraph {
     override val engine = AudioEngine(settings, tap)
     val eqProcessor = ParametricEqProcessor(engine.eq)
     override val albumInfo = AlbumInfoRepository(context.filesDir, api, LastFm(http), ClaudeReviewer(), settings)
-    override val player = PlayerConnection(context)
+    /** El reproductor de este teléfono (Media3). La UI usa [player], que puede ser remoto. */
+    val localPlayer = PlayerConnection(context)
     override val lyrics = LyricsRepository(http, api, context.filesDir)
     override val connect: ConnectService by lazy {
-        ConnectService(Build.MODEL ?: "Android", "android", settings, player, appScope) {
+        ConnectService(Build.MODEL ?: "Android", "android", settings, localPlayer, appScope) {
             // Sin esto muchos teléfonos descartan los anuncios UDP de la red.
             context.applicationContext.getSystemService(WifiManager::class.java)
                 ?.createMulticastLock("marco-connect")?.apply { setReferenceCounted(false); acquire() }
         }
     }
+    override val player by lazy { com.marco.audiopro.player.RoutedPlayer(localPlayer, connect, appScope) }
     override val likes = Likes(api, appScope)
     override val discover = com.marco.audiopro.data.discover.DiscoverRepository(http, api, context.filesDir)
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)

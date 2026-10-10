@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -93,16 +94,21 @@ private val actionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
 // ------------------------------------------------------------------ mouse
 
-/** Clic derecho (mouse): abre el mismo menú que el ⋮ o el toque largo. */
-fun Modifier.onRightClick(action: () -> Unit): Modifier = composed {
+/**
+ * Clic derecho (mouse). Entrega dónde fue el clic como desplazamiento para un DropdownMenu
+ * anclado a este mismo elemento, así el menú sale justo donde picaste.
+ */
+fun Modifier.onRightClick(action: (DpOffset) -> Unit): Modifier = composed {
     val current by rememberUpdatedState(action)
     pointerInput(Unit) {
         awaitPointerEventScope {
             while (true) {
                 val e = awaitPointerEvent()
                 if (e.type == PointerEventType.Press && e.buttons.isSecondaryPressed) {
+                    val pos = e.changes.firstOrNull()?.position ?: continue
                     e.changes.forEach { it.consume() }
-                    current()
+                    // El DropdownMenu se coloca debajo del ancla: se compensa la altura.
+                    current(DpOffset(pos.x.toDp(), (pos.y - size.height).toDp()))
                 }
             }
         }
@@ -289,7 +295,7 @@ fun CoverEditButton(key: String, modifier: Modifier = Modifier) {
 
 /** Acciones de un álbum sin abrirlo: se cargan sus canciones al elegir la opción. */
 @Composable
-fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavController? = null) {
+fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavController? = null, offset: DpOffset = DpOffset.Zero) {
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     var addTo by remember { mutableStateOf<List<Song>?>(null) }
@@ -298,7 +304,7 @@ fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavCo
         scope.launch { runCatching { c.api.album(album.id).song }.onSuccess { if (it.isNotEmpty()) block(it) } }
     }
     DropdownMenu(
-        expanded, onDismiss, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp),
+        expanded, onDismiss, offset = offset, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
     ) {
         DropdownMenuItem(text = { Text("Reproducir") }, leadingIcon = { Icon(Icons.Default.PlayArrow, null) }, onClick = { withSongs { c.player.play(it) } })

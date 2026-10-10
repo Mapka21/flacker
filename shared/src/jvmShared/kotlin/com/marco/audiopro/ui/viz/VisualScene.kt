@@ -20,6 +20,9 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import com.marco.audiopro.audio.SampleSource
@@ -34,6 +37,7 @@ import kotlin.random.Random
 
 /** Los "modos visuales": el fondo de la app se vuelve el visualizador. */
 enum class VisualPreset(val label: String, val blurb: String) {
+    PORTADA("Portada viva", "Como Apple Music: tu portada derretida fluyendo con la música"),
     AURORA("Aurora", "Los colores de la portada respiran con el bajo"),
     PULSO("Pulso", "Ondas de choque en cada golpe"),
     HALO("Halo", "Un anillo líquido que baila con el espectro"),
@@ -204,33 +208,76 @@ class VisualScene {
         for (s in stars) { s.z -= dt * speed; if (s.z <= 0.03f) respawn(s) }
     }
 
-    /**
-     * @param cols 4 tonos de la portada (animados).
-     * @param intensity 1 = a todo color (reproductor); menos = más oscuro, para fondos con texto.
-     */
-    fun draw(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, intensity: Float) =
-        // Estrellas y rejilla se salen del lienzo: se recorta para las vistas previas chicas.
-        scope.clipRect { drawClipped(this, preset, cols, f, intensity) }
+    /** Presets que llevan figuras encima del fondo (las demás son sólo el fondo fluido). */
+    fun hasFx(preset: VisualPreset) = preset != VisualPreset.PORTADA && preset != VisualPreset.AURORA
 
-    private fun drawClipped(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, intensity: Float) = with(scope) {
+    /**
+     * Capa de fondo, pensada para difuminarse muchísimo: la portada girando y fluyendo
+     * (Apple Music) o, sin portada, manchas de sus colores.
+     */
+    fun drawBase(scope: DrawScope, preset: VisualPreset, cols: List<Color>, art: ImageBitmap?, f: AudioFeatures) = scope.clipRect {
         dpScale = density
         drawRect(Hifi.Bg)
+        val v = List(4) { cols[it].vivid(DuskPalette[it]) }
+        val k = if (hasFx(preset)) 0.6f else 1f
+        if (art != null && preset != VisualPreset.AURORA) artwork(art, f, k) else blobs(cols, v, f, k)
+    }
+
+    /** Capa de figuras: se dibuja dos veces, difuminada (brillo) y nítida encima. */
+    fun drawFx(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, glow: Boolean) = scope.clipRect {
+        dpScale = density
         val v = List(4) { cols[it].vivid(DuskPalette[it]) }
         val punch = 1f + 0.06f * f.beat + 0.03f * f.bass
         drawContext.transform.scale(punch, punch, center)
         when (preset) {
-            VisualPreset.AURORA -> blobs(cols, v, f, 1f)
-            VisualPreset.PULSO -> { blobs(cols, v, f, 0.6f); pulse(v, f) }
-            VisualPreset.HALO -> { blobs(cols, v, f, 0.5f); halo(v, f) }
-            VisualPreset.OLAS -> { blobs(cols, v, f, 0.55f); waves(v, f) }
-            VisualPreset.HIPER -> { blobs(cols, v, f, 0.45f); hyperspace(v, f) }
+            VisualPreset.PULSO -> pulse(v, f)
+            VisualPreset.HALO -> halo(v, f)
+            VisualPreset.OLAS -> waves(v, f)
+            VisualPreset.HIPER -> hyperspace(v, f)
             VisualPreset.SYNTH -> synthwave(v, f)
-            VisualPreset.NEON -> neon.frame(this, f, time, dtLast)
+            VisualPreset.NEON -> if (glow) neon.drawLast(this) else neon.frame(this, f, time, dtLast)
+            else -> {}
         }
         drawContext.transform.scale(1f / punch, 1f / punch, center)
-        // Velo: más oscuro abajo, donde van los controles y el texto.
-        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.50f))))
+    }
+
+    /** Velo para que se lea el texto: más oscuro abajo y según la intensidad pedida. */
+    fun drawVeil(scope: DrawScope, intensity: Float) = with(scope) {
+        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.06f), Color.Black.copy(alpha = 0.45f))))
         if (intensity < 1f) drawRect(Hifi.Bg.copy(alpha = ((1f - intensity) * 0.8f).coerceIn(0f, 1f)))
+    }
+
+    /** Todo en un solo lienzo, sin difuminar (pantallas chicas como la del iPod). */
+    fun draw(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, intensity: Float, art: ImageBitmap? = null) {
+        drawBase(scope, if (art == null && preset == VisualPreset.PORTADA) VisualPreset.AURORA else preset, cols, art, f)
+        if (hasFx(preset)) drawFx(scope, preset, cols, f, glow = false)
+        drawVeil(scope, intensity)
+    }
+
+    // ---------------------------------------------------------------- Portada viva (Apple Music)
+
+    private val saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.6f) })
+
+    /** Cuatro copias enormes de la portada girando lento; difuminadas parecen pintura líquida. */
+    private fun DrawScope.artwork(img: ImageBitmap, f: AudioFeatures, k: Float) {
+        val w = size.width; val h = size.height
+        val s = max(w, h)
+        val src = IntSize(img.width, img.height)
+        for (i in 0..3) {
+            val a = phase * ART_SPEED[i] + BLOB_OFFSET[i]
+            val cx = w * (0.5f + 0.30f * cos(a))
+            val cy = h * (0.5f + 0.28f * sin(a * 1.2f))
+            val band = when (i) { 0 -> f.bass; 1 -> f.mid; 2 -> f.treble; else -> f.level }
+            val d = s * (0.85f + 0.12f * i) * (1f + 0.25f * band)
+            rotate(a * 40f + i * 90f, Offset(cx, cy)) {
+                drawImage(
+                    img, srcOffset = IntOffset.Zero, srcSize = src,
+                    dstOffset = IntOffset((cx - d / 2).toInt(), (cy - d / 2).toInt()), dstSize = IntSize(d.toInt(), d.toInt()),
+                    alpha = (0.9f * k).coerceAtMost(1f), colorFilter = saturate,
+                )
+            }
+        }
+        if (f.beat > 0f) drawRect(Color.White.copy(alpha = 0.07f * f.beat * k))
     }
 
     // ---------------------------------------------------------------- Aurora (base de casi todos)
@@ -402,6 +449,7 @@ class VisualScene {
     private companion object {
         val BLOB_SPEED = floatArrayOf(1.0f, -0.7f, 0.5f, -1.3f)
         val BLOB_OFFSET = floatArrayOf(0.0f, 1.9f, 3.6f, 5.1f)
+        val ART_SPEED = floatArrayOf(0.6f, -0.45f, 0.35f, -0.8f)
     }
 }
 
@@ -441,10 +489,16 @@ class NeonFeedback(private val maxPx: Int = 420) {
         // Intercambia: lo recién pintado es la base del siguiente frame.
         a = dst; b = src
         val t = ca; ca = cb; cb = t
+        drawLast(scope)
+    }
+
+    /** Pinta el último frame sin avanzar (para la capa de brillo). */
+    fun drawLast(scope: DrawScope) {
+        val img = a ?: return
         scope.drawImage(
-            dst, srcOffset = androidx.compose.ui.unit.IntOffset.Zero, srcSize = IntSize(bw, bh),
-            dstOffset = androidx.compose.ui.unit.IntOffset.Zero, dstSize = IntSize(w.toInt(), h.toInt()),
-            filterQuality = FilterQuality.Low,
+            img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),
+            dstOffset = IntOffset.Zero, dstSize = IntSize(scope.size.width.toInt(), scope.size.height.toInt()),
+            filterQuality = FilterQuality.Low, blendMode = BlendMode.Screen,
         )
     }
 

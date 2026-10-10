@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        container.player.connect()
+        container.localPlayer.connect()
         container.connect.start()
         setContent {
             CompositionLocalProvider(LocalApp provides container) {

@@ -31,7 +31,7 @@ data class AppPrefs(
     val downloadWifiOnly: Boolean = true,
     /** Modo visual: el fondo reacciona a la música con el preset elegido. */
     val visualMode: Boolean = true,
-    val visualPreset: VisualPreset = VisualPreset.AURORA,
+    val visualPreset: VisualPreset = VisualPreset.PORTADA,
 )
 
 /** Almacenamiento clave-valor de cada plataforma (SharedPreferences en Android, Preferences en PC). */
@@ -80,7 +80,7 @@ class Settings(private val sp: KeyValueStore) {
         downloadQuality = enumOr(sp.getString("q_download"), StreamQuality.ORIGINAL),
         downloadWifiOnly = sp.getBoolean("dl_wifi", true),
         visualMode = sp.getBoolean("vis_mode", true),
-        visualPreset = enumOr(sp.getString("vis_preset"), VisualPreset.AURORA),
+        visualPreset = enumOr(sp.getString("vis_preset2"), VisualPreset.PORTADA),
     )
 
     fun updatePrefs(f: (AppPrefs) -> AppPrefs) {
@@ -98,7 +98,7 @@ class Settings(private val sp: KeyValueStore) {
                 "q_download" to p.downloadQuality.name,
                 "dl_wifi" to p.downloadWifiOnly,
                 "vis_mode" to p.visualMode,
-                "vis_preset" to p.visualPreset.name,
+                "vis_preset2" to p.visualPreset.name,
             ),
         )
         _prefs.value = p

@@ -353,7 +353,11 @@ private fun MiniPlayer(onOpen: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(song.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Hifi.TextDim)
+                // Como Spotify: en verde si suena en otro dispositivo que controlas.
+                Text(
+                    st.remoteName?.let { "▶ Reproduciendo en $it" } ?: song.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
+                    color = if (st.remoteName != null) com.marco.audiopro.ui.components.ConnectGreen else Hifi.TextDim,
+                )
             }
             DevicesButton(size = 20)
             LikeButton(song, size = 20.dp)

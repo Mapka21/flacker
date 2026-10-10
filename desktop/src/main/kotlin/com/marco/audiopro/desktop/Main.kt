@@ -35,6 +35,8 @@ import com.marco.audiopro.connect.ConnectService
 import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.resources.Res
 import com.marco.audiopro.resources.app_icon
+import com.marco.audiopro.player.PlayerController
+import com.marco.audiopro.player.RoutedPlayer
 import com.marco.audiopro.ui.DesktopHistory
 import com.marco.audiopro.ui.DesktopRoot
 import java.awt.AWTEvent
@@ -87,8 +89,8 @@ class DesktopGraph : AppGraph {
 
     override val settings = Settings(PrefsStore(Preferences.userRoot().node("marco-audio-pro$profileSuffix")))
     override val api = SubsonicApi(http) { settings.account.value }
-    private val desktopPlayer = DesktopPlayer(api, settings, scope)
-    override val player: DesktopPlayer = desktopPlayer
+    /** El motor de audio de esta PC (atajos e iPod usan [player], que puede ser remoto). */
+    val desktopPlayer = DesktopPlayer(api, settings, scope)
     override val engine = AudioEngine(settings, desktopPlayer.tap).also { e ->
         desktopPlayer.eq = e.eq
         desktopPlayer.onSignal = { e.signal.value = it }
@@ -102,9 +104,11 @@ class DesktopGraph : AppGraph {
     override val connect = ConnectService(
         System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
     )
+    /** Lo que ve la UI: este reproductor o el del dispositivo que controlas con Connect. */
+    override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
     override val downloads = null
     override val cache = null
-    override val versionName = "1.7.0"
+    override val versionName = "1.8.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -159,14 +163,14 @@ fun main() {
 }
 
 /** Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen, Alt+←/→ = atrás/adelante, teclas multimedia. */
-fun handleShortcut(e: KeyEvent, player: DesktopPlayer): Boolean {
+fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
     if (e.type != KeyEventType.KeyDown) return false
     return when {
         e.isCtrlPressed && e.key == Key.Spacebar -> { player.toggle(); true }
         e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
-        e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(player.volume.value + 0.05f); true }
-        e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume(player.volume.value - 0.05f); true }
+        e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume((player.volume?.value ?: 0f) + 0.05f); true }
+        e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume((player.volume?.value ?: 0f) - 0.05f); true }
         e.isAltPressed && e.key == Key.DirectionLeft -> { DesktopHistory.events.tryEmit(false); true }
         e.isAltPressed && e.key == Key.DirectionRight -> { DesktopHistory.events.tryEmit(true); true }
         e.key == Key.MediaPlayPause -> { player.toggle(); true }

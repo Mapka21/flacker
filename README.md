@@ -30,13 +30,10 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
-- **Descubrir** (y arriba en Inicio): artistas, álbumes y canciones que **no tienes**,
-  parecidos a lo que más escuchas y a tus favoritos, más "Te faltan de …" (discos de tus
-  artistas que no están en tu biblioteca). Catálogo de la API pública de Deezer, se refresca
-  cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
-- **Consíguelo en alta calidad**: cada artista/álbum de fuera tiene botones a tiendas legales
-  con FLAC/Hi-Res (Qobuz, Bandcamp, 7digital, Presto) y a Archive.org (FLAC gratis y legal).
-  Lo compras, lo pones en la carpeta de Navidrome y aparece en tu biblioteca.
+- **Descubrir** (sección aparte; Inicio es sólo tu biblioteca): canciones, artistas y álbumes
+  que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
+  Toca cualquier canción para oír una **muestra de 30 s** (o "Escuchar todas"). Catálogo de la
+  API pública de Deezer; se refresca cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
 - **Playlists**: crear, renombrar, borrar, agregar canciones o álbumes enteros ("Agregar a
   playlist…" en el menú) y quitar canciones. Todo se guarda en Navidrome.
 - **Portadas propias** para playlists, "Me gusta" y artistas (botón ✎ sobre la portada).
@@ -44,11 +41,16 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **Biblioteca → Canciones**: todas tus rolas, cargando por páginas.
 - **Una sola barra de búsqueda** (la de arriba en la PC), como en Spotify.
 - **Modo visual**: el fondo de la app es el visualizador y baila con la música (bajo, medios,
-  agudos y golpes). Presets: Aurora, Pulso, Halo, Olas, Hiperespacio, Synthwave y Neón 360.
+  agudos y golpes). "Portada viva" (la portada derretida fluyendo, como Apple Music), Aurora,
+  Pulso, Halo, Olas, Hiperespacio, Synthwave y Neón 360, con brillo real (blur).
   Botón ✨ para encenderlo/apagarlo y elegir preset viéndolos en vivo.
 - **Letra en su propio módulo** (como Apple Music): en la PC, el reproductor completo pone la
   letra a la derecha y la barra derecha tiene la pestaña "Letra"; en el celular, el botón de
   letra la pone en grande con la portada chiquita arriba.
+- **Connect como Spotify**: al mandar la música a otro dispositivo, toda la app lo controla
+  (play/pausa, siguiente, barra de tiempo, **volumen**, aleatorio, la cola y poner otras rolas),
+  con la pastilla verde "Reproduciendo en …". Funciona en los dos sentidos (el volumen del
+  celular es el de medios del sistema). "Este dispositivo" trae la música de regreso.
 - **Connect** (como Spotify Connect, sin nube): el celular y la PC se ven en la misma red
   Wi-Fi. Botón de dispositivos → tocas tu PC y la canción sigue ahí en el mismo segundo;
   "Traer aquí" la regresa. Si algo suena en otro dispositivo aparece la barra verde
