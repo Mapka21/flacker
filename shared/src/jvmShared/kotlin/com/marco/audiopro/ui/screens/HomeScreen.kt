@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.DownloadForOffline
@@ -149,7 +150,10 @@ fun HomeScreen(nav: NavController) {
                         Text(date, style = Mono.copy(color = Hifi.TextDim, fontSize = 11.sp, letterSpacing = 1.5.sp))
                         Text(greeting, style = Display.copy(fontSize = 36.sp))
                     }
-                    if (!c.isDesktop) IconButton(onClick = { nav.navigate(SettingsRoute) }) { Icon(Icons.Default.Settings, "Ajustes", tint = Hifi.TextDim) }
+                    if (!c.isDesktop) {
+                        IconButton(onClick = { nav.navigate(com.marco.audiopro.ui.LastFmRoute) }) { Icon(Icons.Default.Insights, "Mi Last.fm", tint = Hifi.TextDim) }
+                        IconButton(onClick = { nav.navigate(SettingsRoute) }) { Icon(Icons.Default.Settings, "Ajustes", tint = Hifi.TextDim) }
+                    }
                 }
                 if (!c.isDesktop) RemotePlaybackBanner(Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             }

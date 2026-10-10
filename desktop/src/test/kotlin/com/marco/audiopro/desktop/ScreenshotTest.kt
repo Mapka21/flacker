@@ -75,6 +75,7 @@ class ScreenshotTest {
         val outDir = System.getenv("MARCO_SHOTS_DIR")
         assumeTrue("Sin servidor/carpeta de capturas", System.getenv("MARCO_TEST_SERVER") != null && outDir != null)
         System.setProperty("marco.profile", "dev")
+        System.setProperty("flacker.lastfm.base", System.getenv("MARCO_TEST_SERVER") + "/2.0/")
         val graph = DesktopGraph()
         SingletonImageLoader.setSafe { ctx ->
             ImageLoader.Builder(ctx).components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }.build()
@@ -139,6 +140,25 @@ class ScreenshotTest {
         ui { nav!!.navigate(DspRoute) }; pump(2500); save("4-dsp")
         ui { nav!!.navigate(LikedRoute) }; pump(2000); save("5-liked")
         ui { nav!!.navigate(SettingsRoute) }; pump(1500); save("6-settings")
+        // "Mi Last.fm" con un perfil falso.
+        graph.settings.updatePrefs { it.copy(lastFmUser = "marcotest", lastFmKey = "prueba") }
+        ui { nav!!.navigate(com.marco.audiopro.ui.LastFmRoute) }; pump(6000); save("16-lastfm")
+        // La página completa (alta) en PC y en celular, para ver todas las secciones.
+        for ((name, w, h) in listOf(Triple("16b-lastfm-full", 1000, 3600), Triple("16c-lastfm-phone", 412, 4200))) {
+            val sc = ui { ImageComposeScene(w, h, Density(1f)) {
+                WithOwners {
+                    val n = rememberNavController()
+                    CompositionLocalProvider(LocalApp provides graph) {
+                        MarcoTheme { com.marco.audiopro.ui.screens.LastFmScreen(n) }
+                    }
+                }
+            } }
+            val e = System.currentTimeMillis() + 7000
+            while (System.currentTimeMillis() < e) { ui { sc.render(System.nanoTime()) }; Thread.sleep(40) }
+            File(outDir, "$name.png").writeBytes(ui { sc.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes })
+            ui { sc.close() }
+        }
+        graph.settings.updatePrefs { it.copy(lastFmUser = "", lastFmKey = "") }
         // "Inicio" desde un álbum regresa a Inicio (antes restauraba el álbum).
         ui { nav!!.navigate(AlbumRoute("al1")) }; pump(1500)
         ui { nav!!.openTab(com.marco.audiopro.ui.HomeRoute) }; pump(3000); save("6b-home-again")

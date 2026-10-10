@@ -10,3 +10,4 @@ captures/
 *.apk
 *.zip
 tools/fake-navidrome/rest/
+tools/fake-navidrome/lastfm/

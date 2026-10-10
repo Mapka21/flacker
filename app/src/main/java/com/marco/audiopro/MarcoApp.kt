@@ -88,6 +88,7 @@ class AppContainer(private val context: Context) : AppGraph {
     /** El reproductor de este teléfono (Media3). La UI usa [player], que puede ser remoto. */
     val localPlayer = PlayerConnection(context)
     override val lyrics = LyricsRepository(http, api, context.filesDir)
+    override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect: ConnectService by lazy {
         ConnectService(Build.MODEL ?: "Android", "android", settings, localPlayer, appScope) {
             // Sin esto muchos teléfonos descartan los anuncios UDP de la red.

@@ -14,7 +14,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def send_head(self):
-        path = self.translate_path(self.path.split("?")[0])
+        # Last.fm falso: /2.0/?method=user.getinfo&... -> lastfm/user.getinfo
+        m = re.search(r"[?&]method=([\w.]+)", self.path)
+        if self.path.startswith("/2.0") and m:
+            path = os.path.join(ROOT, "lastfm", m.group(1).lower())
+        else:
+            path = self.translate_path(self.path.split("?")[0])
         if not os.path.isfile(path):
             self.send_error(404)
             return None

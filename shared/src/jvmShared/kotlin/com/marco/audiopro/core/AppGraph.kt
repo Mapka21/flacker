@@ -28,6 +28,8 @@ interface AppGraph {
     val engine: AudioEngine
     val albumInfo: AlbumInfoRepository
     val lyrics: LyricsRepository
+    /** Tu perfil de Last.fm (sección "Mi Last.fm"). */
+    val lastFm: com.marco.audiopro.data.info.LastFmProfile
     /** Música que no tienes: recomendaciones y catálogo para explorar. */
     val discover: DiscoverRepository
     /** Marco Connect: otros dispositivos con la app en la red. */

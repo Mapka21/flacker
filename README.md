@@ -34,6 +34,12 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
   que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
   Toca cualquier canción para oír una **muestra de 30 s** (o "Escuchar todas"). Catálogo de la
   API pública de Deezer; se refresca cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
+- **Mi Last.fm**: tu perfil de Last.fm dentro de la app (usuario + API key gratis, se piden la
+  primera vez): scrobbles, artistas, álbumes y canciones totales, lo que estás escuchando, gráfica
+  de los últimos 30 días, tu reloj musical (horas) y días de la semana, tus tops de artistas,
+  álbumes y canciones por periodo (7 días a siempre), tus géneros, scrobbles recientes y lo que te
+  encanta. Lo que tengas en tu biblioteca se abre o suena directo; lo demás abre su página en
+  Descubrir.
 - **Álbum "dentro de la portada"**: el álbum muestra sólo el tracklist y lo básico; al tocar la
   portada (o ⓘ) se abre en grande con una tarjeta: reseña completa, lanzamiento, géneros, sello,
   formato y calidad, duración, tamaño, ReplayGain, créditos (producción, mezcla, composición…

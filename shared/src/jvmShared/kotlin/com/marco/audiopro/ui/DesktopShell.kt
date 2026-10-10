@@ -72,6 +72,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -254,6 +255,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         SectionLabel("MENÚ")
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
+        SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
         SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
         SectionLabel("MI BIBLIOTECA")
         SidebarItem(Icons.Default.Album, "Álbumes", libTab == 0) { nav.openLibrary(0) }

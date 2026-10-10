@@ -77,6 +77,35 @@ for k, v in files.items():
     with open(os.path.join(REST, k), "w", encoding="utf-8") as f:
         f.write(v)
 
+# Last.fm falso (para la sección "Mi Last.fm"): un perfil con scrobbles del último mes.
+import random, time
+LF = os.path.join(HERE, "lastfm")
+os.makedirs(LF, exist_ok=True)
+rnd = random.Random(4)
+now = int(time.time())
+img = lambda u: [{"#text": u, "size": "extralarge"}]
+cover = "http://127.0.0.1:8765/rest/getCoverArt"
+artists = ["Asking Alexandria", "Bring Me the Horizon", "Peso Pluma", "Daft Punk", "Bad Bunny", "Sleep Token", "The Weeknd", "Deftones", "Natanael Cano", "Gorillaz"]
+recent = []
+for i in range(600):
+    t = now - int(rnd.random() ** 1.3 * 30 * 86400)
+    a = rnd.choice(artists)
+    recent.append({"artist": {"name": a}, "name": f"Rola {i % 37}", "album": {"#text": f"Disco de {a}"}, "image": img(cover), "date": {"uts": str(t)}, "loved": "1" if i % 9 == 0 else "0"})
+recent.sort(key=lambda x: -int(x["date"]["uts"]))
+recent.insert(0, {"artist": {"name": "Daft Punk"}, "name": "Get Lucky", "album": {"#text": "Random Access Memories"}, "image": img(cover), "@attr": {"nowplaying": "true"}, "loved": "1"})
+def lfw(name, obj):
+    with open(os.path.join(LF, name), "w", encoding="utf-8") as f:
+        json.dump(obj, f)
+lfw("user.getinfo", {"user": {"name": "marcotest", "realname": "Marco", "country": "Mexico", "url": "https://www.last.fm/user/marcotest",
+                             "playcount": "84213", "artist_count": "2311", "album_count": "5120", "track_count": "19873",
+                             "registered": {"unixtime": str(now - 9 * 365 * 86400)}, "image": img(cover)}})
+lfw("user.getrecenttracks", {"recenttracks": {"track": recent, "@attr": {"totalPages": "1", "total": str(len(recent))}}})
+lfw("user.getlovedtracks", {"lovedtracks": {"track": [{"name": r["name"], "artist": {"name": r["artist"]["name"]}, "image": img(cover), "date": r.get("date", {"uts": str(now)})} for r in recent if r["loved"] == "1"][:20], "@attr": {"total": "642"}}})
+lfw("user.gettopartists", {"topartists": {"artist": [{"name": a, "playcount": str(900 - i * 70)} for i, a in enumerate(artists)]}})
+lfw("user.gettopalbums", {"topalbums": {"album": [{"name": f"Disco de {a}", "playcount": str(400 - i * 30), "artist": {"name": a}, "image": img(cover)} for i, a in enumerate(artists)]}})
+lfw("user.gettoptracks", {"toptracks": {"track": [{"name": f"Rola {i}", "playcount": str(120 - i * 9), "artist": {"name": a}, "image": img(cover)} for i, a in enumerate(artists)]}})
+lfw("artist.gettoptags", {"toptags": {"tag": [{"name": "metalcore", "count": "100"}, {"name": "rock", "count": "60"}, {"name": "electronic", "count": "40"}]}})
+
 # 12 s de barrido log 20 Hz → 20 kHz, WAV 24-bit / 96 kHz estéreo a -12 dBFS.
 sr = 96000
 n = sr * 12

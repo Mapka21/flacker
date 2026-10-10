@@ -101,6 +101,7 @@ class DesktopGraph : AppGraph {
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(dataDir)
     override val lyrics = LyricsRepository(http, api, dataDir)
+    override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect = ConnectService(
         System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
     )
@@ -108,7 +109,7 @@ class DesktopGraph : AppGraph {
     override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
     override val downloads = null
     override val cache = null
-    override val versionName = "1.9.0"
+    override val versionName = "2.0.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
