@@ -123,6 +123,11 @@ import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.ConnectToast
 import com.marco.audiopro.ui.components.CoverArt
 import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.ViewSidebar
+import androidx.compose.material.icons.automirrored.filled.LastPage
+import androidx.compose.ui.unit.DpOffset
+import com.marco.audiopro.ui.components.SongMenu
+import com.marco.audiopro.ui.components.onRightClick
 import androidx.compose.material.icons.filled.UnfoldMore
 import com.marco.audiopro.ui.components.ConnectGreen
 import com.marco.audiopro.ui.components.DevicesButton
@@ -201,6 +206,10 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     val fwd by rememberUpdatedState(goForward)
     LaunchedEffect(Unit) { DesktopHistory.events.collect { if (it) fwd() else back() } }
 
+    // Panel derecho escondido = sólo el mini reproductor flotante (en cualquier ancho; se recuerda).
+    var rightHidden by remember { mutableStateOf(c.settings.getString("right_hidden") == "1") }
+    fun setRightHidden(v: Boolean) { rightHidden = v; c.settings.putString("right_hidden", if (v) "1" else "0") }
+
     CompositionLocalProvider(LocalSearchQuery provides search) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
@@ -218,17 +227,17 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
                 Box(Modifier.weight(1f).fillMaxWidth().then(if (onPlayer) Modifier else Modifier.panel())) { AppNavHost(nav, Modifier.fillMaxSize()) }
             }
             AnimatedVisibility(
-                wide && playback.current != null && !onPlayer,
+                wide && !rightHidden && playback.current != null && !onPlayer,
                 enter = expandHorizontally(tween(280)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
-            ) { Row { Spacer(Modifier.width(14.dp)); RightColumn(nav, rightTab) { rightTab = it } } }
+            ) { Row { Spacer(Modifier.width(14.dp)); RightColumn(nav, rightTab, { rightTab = it }) { setRightHidden(true) } } }
         }
         AnimatedVisibility(
-            !wide && playback.current != null && !onPlayer,
+            (!wide || rightHidden) && playback.current != null && !onPlayer,
             enter = slideInVertically(spring(dampingRatio = 0.75f, stiffness = 300f)) { it * 2 } + fadeIn(),
             exit = slideOutVertically { it * 2 } + fadeOut(),
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp),
-        ) { PillPlayer(nav) }
+        ) { PillPlayer(nav, onShowPanel = if (wide) ({ setRightHidden(false) }) else null) }
         ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp))
     }
     }
@@ -326,6 +335,8 @@ private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: M
         Spacer(Modifier.width(12.dp))
         SearchField(nav, query, onSearch)
         Spacer(Modifier.weight(1f))
+        RoundGlass(Icons.Default.Shuffle, "Aleatorio de toda tu música") { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
+        Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { DevicesButton() }
@@ -389,7 +400,7 @@ private fun RoundGlass(icon: ImageVector, desc: String, onClick: () -> Unit) {
 // ------------------------------------------------------------------ columna derecha
 
 @Composable
-private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) {
+private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit, onHide: () -> Unit) {
     val c = LocalApp.current
     val song = c.player.state.collectAsState().value.current
     // Encogido = mini reproductor arriba y más espacio para la cola o la letra (se recuerda).
@@ -398,8 +409,8 @@ private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) 
     Column(Modifier.width(340.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         RemotePlaybackBanner()
         AnimatedContent(collapsed, transitionSpec = { (fadeIn() + expandVertically()) togetherWith (fadeOut() + shrinkVertically()) }, label = "np") { small ->
-            if (small) CompactNowPlaying(nav) { setCollapsed(false) }
-            else NowPlayingCard(nav, lyricsOn = tab == 1, onCollapse = { setCollapsed(true) }) { onTab(if (tab == 1) 0 else 1) }
+            if (small) CompactNowPlaying(nav, onHide) { setCollapsed(false) }
+            else NowPlayingCard(nav, lyricsOn = tab == 1, onCollapse = { setCollapsed(true) }, onHide = onHide) { onTab(if (tab == 1) 0 else 1) }
         }
         // Abajo: la cola o la letra (como la barra lateral de Apple Music en Mac).
         Column(Modifier.weight(1f).fillMaxWidth().panel().padding(top = 12.dp)) {
@@ -413,13 +424,16 @@ private fun RightColumn(nav: NavHostController, tab: Int, onTab: (Int) -> Unit) 
 }
 
 @Composable
-private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse: () -> Unit, onLyrics: () -> Unit) {
+private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse: () -> Unit, onHide: () -> Unit, onLyrics: () -> Unit) {
     val c = LocalApp.current
     val player = c.player
     val st by player.state.collectAsState()
     val song = st.current ?: return
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
+    var menu by remember { mutableStateOf<DpOffset?>(null) }
 
+    Box(Modifier.onRightClick { menu = it }) {
+    SongMenu(song, menu != null, { menu = null }, nav, offset = menu ?: DpOffset.Zero)
     Column(Modifier.fillMaxWidth().volumeWheel().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -427,6 +441,8 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
                 else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 2.sp))
             }
             Icon(Icons.Default.UnfoldLess, "Hacer mini", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onCollapse))
+            Spacer(Modifier.width(12.dp))
+            Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel (mini reproductor)", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide))
             Spacer(Modifier.width(12.dp))
             Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() })
         }
@@ -480,10 +496,11 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
         }
     }
 }
+}
 
 /** "Reproduciendo" encogido: portada, título, controles y la barrita de avance. */
 @Composable
-private fun CompactNowPlaying(nav: NavHostController, onExpand: () -> Unit) {
+private fun CompactNowPlaying(nav: NavHostController, onHide: () -> Unit, onExpand: () -> Unit) {
     val c = LocalApp.current
     val player = c.player
     val st by player.state.collectAsState()
@@ -491,6 +508,9 @@ private fun CompactNowPlaying(nav: NavHostController, onExpand: () -> Unit) {
     val pos by rememberPlaybackPosition(400)
     val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
+    var menu by remember { mutableStateOf<DpOffset?>(null) }
+    Box(Modifier.onRightClick { menu = it }) {
+    SongMenu(song, menu != null, { menu = null }, nav, offset = menu ?: DpOffset.Zero)
     Column(Modifier.fillMaxWidth().volumeWheel().glass(PanelShape, tint.copy(alpha = 0.55f)).padding(12.dp)) {
         if (st.remoteName != null) { RemoteBadge(st.remoteName); Spacer(Modifier.height(8.dp)) }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -501,6 +521,8 @@ private fun CompactNowPlaying(nav: NavHostController, onExpand: () -> Unit) {
                 Text(song.artist ?: "", fontSize = 12.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Default.UnfoldMore, "Agrandar", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onExpand))
+            Spacer(Modifier.width(10.dp))
+            Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide))
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -517,6 +539,7 @@ private fun CompactNowPlaying(nav: NavHostController, onExpand: () -> Unit) {
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
         }
     }
+}
 }
 
 @Composable
@@ -558,7 +581,7 @@ private fun UpNextList() {
 // ------------------------------------------------------------------ píldora flotante (ventana angosta)
 
 @Composable
-private fun PillPlayer(nav: NavHostController) {
+private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
     val player = LocalApp.current.player
     val st by player.state.collectAsState()
     val song = st.current ?: return
@@ -569,8 +592,11 @@ private fun PillPlayer(nav: NavHostController) {
     val spin = rememberInfiniteTransition(label = "spin")
     val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(12_000, easing = LinearEasing)), label = "a")
 
+    var menu by remember { mutableStateOf<DpOffset?>(null) }
+    Box(Modifier.onRightClick { menu = it }) {
+    SongMenu(song, menu != null, { menu = null }, nav, offset = menu ?: DpOffset.Zero)
     Column(
-        Modifier.width(400.dp).volumeWheel().shadow(26.dp, RoundedCornerShape(50)).glass(RoundedCornerShape(50), tint.copy(alpha = 0.75f))
+        Modifier.width(if (onShowPanel != null) 440.dp else 400.dp).volumeWheel().shadow(26.dp, RoundedCornerShape(50)).glass(RoundedCornerShape(50), tint.copy(alpha = 0.75f))
             .bouncyClick { nav.openPlayer() },
     ) {
         Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 9.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -587,9 +613,14 @@ private fun PillPlayer(nav: NavHostController) {
             }
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
+            if (onShowPanel != null) {
+                Spacer(Modifier.width(10.dp))
+                Icon(Icons.Default.ViewSidebar, "Mostrar el panel", tint = Hifi.OnArt, modifier = Modifier.size(22.dp).bouncyClick(onClick = onShowPanel))
+            }
         }
         Box(Modifier.padding(horizontal = 30.dp).padding(bottom = 8.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f))) {
             Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Hifi.Accent))
         }
     }
+}
 }

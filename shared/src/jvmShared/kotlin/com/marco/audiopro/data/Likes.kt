@@ -23,6 +23,9 @@ class Likes(private val api: SubsonicApi, private val scope: CoroutineScope) {
     var loaded = false
         private set
 
+    /** Se llama tras un cambio confirmado por el servidor (para avisar a otros dispositivos). */
+    var onChanged: () -> Unit = {}
+
     suspend fun refresh() {
         val s = api.starred().song
         _songs.value = s
@@ -47,7 +50,7 @@ class Likes(private val api: SubsonicApi, private val scope: CoroutineScope) {
             runCatching { api.star(song.id, like) }.onFailure {
                 _songs.value = prevSongs
                 _ids.value = prevIds
-            }
+            }.onSuccess { onChanged() }
         }
     }
 }

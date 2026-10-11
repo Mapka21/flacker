@@ -114,6 +114,7 @@ class ScreenshotTest {
         pump(4000); save("3a-player-later")
         ui { nav!!.popBackStack() }
         ui { nav!!.navigate(LibraryRoute(0)) }; pump(3000); save("3b-library")
+        ui { nav!!.navigate(LibraryRoute(1)) }; pump(3000); save("3bb-artists")
         ui { nav!!.navigate(LibraryRoute(2)) }; pump(3000); save("3c-songs")
         ui { nav!!.navigate(LibraryRoute(3)) }; pump(2500); save("3d-playlists")
         ui { nav!!.navigate(PlaylistRoute("pl1")) }; pump(2500); save("3e-playlist")

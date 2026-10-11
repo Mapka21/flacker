@@ -3,6 +3,8 @@ package com.marco.audiopro.data
 import com.marco.audiopro.data.subsonic.Playlist
 import com.marco.audiopro.data.subsonic.Song
 import com.marco.audiopro.data.subsonic.SubsonicApi
+import com.marco.audiopro.data.subsonic.SubsonicJson
+import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,11 +24,18 @@ class PlaylistStore(private val api: SubsonicApi) {
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
 
+    /** Se llama tras cambiar algo (para avisar a otros dispositivos). */
+    var onChanged: () -> Unit = {}
+
     suspend fun refresh() { _lists.value = api.playlists() }
+
+    /** Otro dispositivo cambió playlists: recarga la lista y la playlist abierta. */
+    suspend fun remoteChanged() { _version.value++; runCatching { refresh() } }
 
     suspend fun create(name: String, songs: List<Song> = emptyList()): Playlist {
         val p = api.createPlaylist(name.trim(), songs.map { it.id })
         refresh()
+        onChanged()
         return p
     }
 
@@ -48,11 +57,13 @@ class PlaylistStore(private val api: SubsonicApi) {
     suspend fun delete(id: String) {
         api.deletePlaylist(id)
         refresh()
+        onChanged()
     }
 
     private suspend fun bump() {
         _version.value++
         runCatching { refresh() }
+        onChanged()
     }
 }
 
@@ -68,8 +79,41 @@ class CustomCovers(root: File) {
 
     private fun safe(key: String) = key.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
+    private val metaFile = File(dir, "_manifest.json")
+    private var meta: Map<String, Long> = runCatching { SubsonicJson.decodeFromString<Map<String, Long>>(metaFile.readText()) }.getOrDefault(emptyMap())
+
+    init {
+        // Portadas de antes del manifiesto: se fechan con su archivo para poder compartirlas.
+        val missing = _map.value.filterKeys { it !in meta }
+        if (missing.isNotEmpty()) {
+            meta = meta + missing.mapValues { it.value.lastModified() }
+            runCatching { metaFile.writeText(SubsonicJson.encodeToString(meta)) }
+        }
+    }
+
+    /** Clave → cuándo cambió (ms). Negativo = se quitó la portada propia en ese momento. */
+    fun manifest(): Map<String, Long> = meta
+
+    /** Se llama tras cambiar una portada (para avisar a otros dispositivos). */
+    var onChanged: () -> Unit = {}
+
+    private fun stamp(k: String, ts: Long) {
+        meta = meta + (k to ts)
+        runCatching { metaFile.writeText(SubsonicJson.encodeToString(meta)) }
+    }
+
+    fun bytes(safeKey: String): ByteArray? = _map.value[safeKey]?.takeIf { it.exists() }?.readBytes()
+
+    /** Aplica una portada que llegó de otro dispositivo (conserva su fecha). */
+    suspend fun applyRemote(safeKey: String, bytes: ByteArray?, ts: Long) = withContext(Dispatchers.IO) {
+        dir.listFiles { f -> f.name.startsWith("${safeKey}__") }?.forEach { it.delete() }
+        if (bytes != null) File(dir, "${safeKey}__${System.currentTimeMillis()}.img").writeBytes(bytes)
+        stamp(safeKey, ts)
+        _map.value = scan()
+    }
+
     private fun scan(): Map<String, File> =
-        (dir.listFiles() ?: emptyArray()).filter { it.isFile }
+        (dir.listFiles() ?: emptyArray()).filter { it.isFile && it.name.contains("__") }
             .groupBy { it.name.substringBeforeLast("__") }
             .mapValues { (_, files) -> files.maxBy { it.lastModified() } }
 
@@ -79,13 +123,17 @@ class CustomCovers(root: File) {
         val k = safe(key)
         dir.listFiles { f -> f.name.startsWith("${k}__") }?.forEach { it.delete() }
         File(dir, "${k}__${System.currentTimeMillis()}.img").writeBytes(bytes)
+        stamp(k, System.currentTimeMillis())
         _map.value = scan()
+        onChanged()
     }
 
     suspend fun clear(key: String) = withContext(Dispatchers.IO) {
         val k = safe(key)
         dir.listFiles { f -> f.name.startsWith("${k}__") }?.forEach { it.delete() }
+        stamp(k, -System.currentTimeMillis())
         _map.value = scan()
+        onChanged()
     }
 
     companion object {

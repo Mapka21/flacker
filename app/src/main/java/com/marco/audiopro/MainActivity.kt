@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         container.localPlayer.connect()
         container.connect.start()
+        container.sync
         setContent {
             CompositionLocalProvider(LocalApp provides container) {
                 MarcoTheme { MarcoRoot() }

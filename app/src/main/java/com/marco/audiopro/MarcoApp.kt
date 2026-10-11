@@ -98,6 +98,8 @@ class AppContainer(private val context: Context) : AppGraph {
     }
     override val player by lazy { com.marco.audiopro.player.RoutedPlayer(localPlayer, connect, appScope) }
     override val likes = Likes(api, appScope)
+    /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos (se arranca en MainActivity). */
+    val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, appScope).also { it.start() } }
     override val discover = com.marco.audiopro.data.discover.DiscoverRepository(http, api, context.filesDir)
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(context.filesDir)

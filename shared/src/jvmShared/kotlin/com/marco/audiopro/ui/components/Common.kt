@@ -44,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.currentCompositeKeyHash
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -96,14 +97,43 @@ sealed interface Load<out T> {
 
 class Loader<T>(val state: State<Load<T>>, val retry: () -> Unit)
 
-/** Carga `block` al entrar (y al cambiar `key`); `retry()` la repite. */
+/**
+ * Memoria de pantallas mientras vive la app: al regresar a una pantalla sus datos ya están, así
+ * la lista vuelve justo a donde la dejaste (en vez de recargar y saltar al principio).
+ */
+private object ScreenMemory {
+    val map = object : LinkedHashMap<String, Any?>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Any?>?) = size > 150
+    }
+}
+
+/** Como `remember`, pero sobrevive a salir y regresar a la pantalla (por posición y claves). */
+@Composable
+fun <T> rememberRetained(vararg keys: Any?, init: () -> T): T {
+    val slot = "$currentCompositeKeyHash:${keys.contentHashCode()}"
+    @Suppress("UNCHECKED_CAST")
+    return remember(*keys) { ScreenMemory.map.getOrPut(slot) { init() } as T }
+}
+
+private class Cached(val value: Any?, val at: Long)
+
+/**
+ * Carga `block` al entrar (y al cambiar `key`); `retry()` la repite. Si ya se había cargado hace
+ * menos de 5 min, se muestra al instante sin volver a pedirla (y el scroll queda donde estaba).
+ */
 @Composable
 fun <T> rememberLoad(key: Any?, block: suspend () -> T): Loader<T> {
     var attempt by remember { mutableIntStateOf(0) }
-    val state = remember(key) { mutableStateOf<Load<T>>(Load.Loading) }
+    val slot = "load:$currentCompositeKeyHash:${key.hashCode()}"
+    val cached = remember(key) { ScreenMemory.map[slot] as? Cached }
+    @Suppress("UNCHECKED_CAST")
+    val state = remember(key) { mutableStateOf<Load<T>>(cached?.let { Load.Ok(it.value as T) } ?: Load.Loading) }
     LaunchedEffect(key, attempt) {
+        if (attempt == 0 && cached != null && System.currentTimeMillis() - cached.at < 5 * 60_000) return@LaunchedEffect
         if (state.value !is Load.Ok) state.value = Load.Loading
-        state.value = runCatching { block() }.fold({ Load.Ok(it) }, { Load.Err(it.message ?: it.javaClass.simpleName) })
+        runCatching { block() }
+            .onSuccess { ScreenMemory.map[slot] = Cached(it, System.currentTimeMillis()); state.value = Load.Ok(it) }
+            .onFailure { if (state.value !is Load.Ok) state.value = Load.Err(it.message ?: it.javaClass.simpleName) }
     }
     return Loader(state) { attempt++ }
 }
@@ -384,6 +414,8 @@ fun TrackRow(
     onGoToAlbum: (() -> Unit)? = null,
     /** En una playlist: quitar esta canción de ella. */
     onRemove: (() -> Unit)? = null,
+    /** Columna de álbum (tabla de "Canciones" en pantallas anchas). */
+    showAlbum: Boolean = false,
 ) {
     val c = LocalApp.current
     val liked = song.id in c.likes.ids.collectAsState().value
@@ -427,6 +459,12 @@ fun TrackRow(
                 Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.weight(1f, fill = false))
                 if (showFormat) { Spacer(Modifier.width(6.dp)); FormatBadge(song) }
             }
+        }
+        if (showAlbum) {
+            Text(
+                song.album ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = Hifi.TextDim,
+                modifier = Modifier.weight(0.8f).padding(horizontal = 8.dp),
+            )
         }
         if (liked) Icon(Icons.Default.Favorite, "Me gusta", tint = Hifi.Accent, modifier = Modifier.size(15.dp))
         IconButton(onClick = { menu = dotsAt() }) { Icon(Icons.Default.MoreVert, null, tint = Hifi.TextFaint) }

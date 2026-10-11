@@ -107,9 +107,11 @@ class DesktopGraph : AppGraph {
     )
     /** Lo que ve la UI: este reproductor o el del dispositivo que controlas con Connect. */
     override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+    /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
+    val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.1.0"
+    override val versionName = "2.2.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -118,6 +120,7 @@ class DesktopGraph : AppGraph {
 fun main() {
     val graph = DesktopGraph()
     graph.connect.start()
+    graph.sync.start()
     // Botones laterales del mouse (atrás / adelante), como en el navegador o Spotify.
     Toolkit.getDefaultToolkit().addAWTEventListener({ e ->
         if (e is MouseEvent && e.id == MouseEvent.MOUSE_PRESSED) when (e.button) {

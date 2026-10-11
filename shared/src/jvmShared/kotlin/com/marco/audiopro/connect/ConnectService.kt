@@ -72,6 +72,7 @@ private data class Command(
     val index: Int = 0,
     val positionMs: Long = 0,
     val value: Float = 0f,
+    val key: String = "",
 )
 
 /** Estado completo de un reproductor remoto (para controlarlo como si fuera local). */
@@ -95,7 +96,15 @@ private data class Reply(
     val positionMs: Long = 0,
     val error: String? = null,
     val status: RemoteStatus? = null,
+    /** Datos de sincronización (manifiesto o archivo en base64). */
+    val payload: String? = null,
 )
+
+/** Lo que este dispositivo comparte con los demás (ajustes y portadas propias). */
+interface SyncSource {
+    fun manifest(): String
+    fun blob(key: String): String?
+}
 
 /**
  * "Marco Connect", al estilo Spotify Connect pero sin nube: cada app anuncia por UDP en la red
@@ -128,6 +137,10 @@ class ConnectService(
     /** Último estado del dispositivo controlado y cuándo llegó (para extrapolar la posición). */
     private val _remote = MutableStateFlow<Pair<RemoteStatus, Long>?>(null)
     val remote: StateFlow<Pair<RemoteStatus, Long>?> = _remote.asStateFlow()
+
+    /** Sincronización: quién responde "manifest"/"blob" y qué hacer cuando otro avisa de cambios. */
+    @Volatile var sync: SyncSource? = null
+    @Volatile var onRefresh: () -> Unit = {}
 
     /** Volumen pendiente de mandar (al arrastrar la barra sólo viaja el último valor). */
     private val pendingVolume = MutableStateFlow<Float?>(null)
@@ -270,6 +283,9 @@ class ConnectService(
                 notice.value = "Reproduciendo desde ${c.from}"
             }
             "status" -> {}
+            "refresh" -> { onRefresh(); return Reply(true) }
+            "manifest" -> return Reply(true, payload = sync?.manifest())
+            "blob" -> return Reply(true, payload = sync?.blob(c.key))
             "toggle" -> player.toggle()
             "pause" -> if (player.state.value.isPlaying) player.toggle()
             "next" -> player.next()
@@ -294,12 +310,12 @@ class ConnectService(
         return Reply(true, status = localStatus())
     }
 
-    private suspend fun send(to: RemoteDevice, cmd: Command): Reply? = withContext(Dispatchers.IO) {
-        withTimeoutOrNull(6000) {
+    private suspend fun send(to: RemoteDevice, cmd: Command, timeoutMs: Long = 6000): Reply? = withContext(Dispatchers.IO) {
+        withTimeoutOrNull(timeoutMs) {
             runCatching {
                 Socket().use { s ->
                     s.connect(InetSocketAddress(to.address, to.port), 3000)
-                    s.soTimeout = 5000
+                    s.soTimeout = (timeoutMs - 1000).toInt()
                     PrintWriter(s.getOutputStream().bufferedWriter(Charsets.UTF_8), true).println(SubsonicJson.encodeToString(cmd))
                     val line = BufferedReader(InputStreamReader(s.getInputStream(), Charsets.UTF_8)).readLine()
                     line?.let { SubsonicJson.decodeFromString<Reply>(it) }
@@ -346,6 +362,17 @@ class ConnectService(
         val r = send(fresh(to), Command(cmd, accountKey(), deviceName, songs, index, positionMs))
         if (r?.ok != true) { notice.value = "${to.name} no responde"; return }
         if (_controlling.value?.id == to.id) r.status?.let { _remote.value = it to System.currentTimeMillis() }
+    }
+
+    /** Pide datos de sincronización a otro dispositivo ("manifest" o "blob"). */
+    suspend fun ask(d: RemoteDevice, cmd: String, key: String = ""): String? =
+        send(fresh(d), Command(cmd, accountKey(), deviceName, key = key), timeoutMs = 25_000)?.takeIf { it.ok }?.payload
+
+    /** Avisa a los demás que algo cambió aquí (me gusta, playlists, portadas, ajustes). */
+    fun broadcastRefresh() {
+        val list = _devices.value
+        if (list.isEmpty()) return
+        scope.launch(Dispatchers.IO) { list.forEach { d -> send(fresh(d), Command("refresh", accountKey(), deviceName)) } }
     }
 
     /** Pasa lo que suena en `from` (otro dispositivo) a `to` y controla `to`. */

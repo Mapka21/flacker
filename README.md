@@ -34,6 +34,22 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
   que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
   Toca cualquier canción para oír una **muestra de 30 s** (o "Escuchar todas"). Catálogo de la
   API pública de Deezer; se refresca cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
+- **Aleatorio de toda tu música** (Inicio, Biblioteca y la barra de arriba en PC): pone
+  canciones al azar de toda la biblioteca y agrega más solas cuando se acaban.
+- **Biblioteca**: artistas en cuadrícula con foto e índice A-Z; "Canciones" como tabla (título,
+  álbum, duración) con filtro instantáneo, orden por título/artista/álbum/más oídas e índice A-Z.
+  Al regresar de un álbum o artista, cada pantalla queda donde la dejaste.
+- **PC**: el panel derecho se puede esconder (botón ⇥) para quedarte con el mini reproductor
+  flotante en cualquier ancho; clic derecho en "Reproduciendo", el mini y la portada del
+  reproductor completo abre el menú de la canción (playlist, radio, ir al álbum/artista…).
+- **Todo sincronizado entre tus dispositivos**: Me gusta y playlists (viven en Navidrome) se
+  recargan solos cada minuto y al instante cuando otro dispositivo de la misma red avisa que
+  cambió algo. Las portadas propias y los ajustes compartidos (Last.fm, IA, color, modo visual)
+  viajan por Connect entre dispositivos de la misma red; gana el cambio más reciente.
+- **Letras confiables**: sólo se acepta la letra de LRCLIB de la misma versión que tu archivo
+  (mismo artista y título, duración ±3 s); si sus tiempos se pasan de lo que dura la canción,
+  se muestra sin sincronizar. Se limpian líneas basura. En la letra: "−½ s / +½ s" para
+  ajustarla y "Otra letra" para elegir a mano (se recuerda por canción).
 - **Mi Last.fm**: tu perfil de Last.fm dentro de la app (usuario + API key gratis, se piden la
   primera vez): scrobbles, artistas, álbumes y canciones totales, lo que estás escuchando, gráfica
   de los últimos 30 días, tu reloj musical (horas) y días de la semana, tus tops de artistas,

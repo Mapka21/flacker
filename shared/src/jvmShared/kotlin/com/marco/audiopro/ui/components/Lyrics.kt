@@ -46,6 +46,24 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.marco.audiopro.core.LocalApp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import com.marco.audiopro.data.info.LyricsCandidate
+import kotlinx.coroutines.launch
 import com.marco.audiopro.data.subsonic.Song
 import com.marco.audiopro.data.subsonic.StructuredLyrics
 import com.marco.audiopro.platform.supportsBlur
@@ -66,8 +84,12 @@ fun LyricsPane(song: Song, modifier: Modifier = Modifier, fontSize: TextUnit = 3
     val c = LocalApp.current
     var lyrics by remember(song.id) { mutableStateOf<StructuredLyrics?>(null) }
     var loaded by remember(song.id) { mutableStateOf(false) }
-    LaunchedEffect(song.id) { lyrics = runCatching { c.lyrics.get(song) }.getOrNull(); loaded = true }
+    var reload by remember(song.id) { mutableStateOf(0) }
+    var picking by remember(song.id) { mutableStateOf(false) }
+    LaunchedEffect(song.id, reload) { lyrics = runCatching { c.lyrics.get(song) }.getOrNull(); loaded = true }
+    if (picking) LyricsPicker(song, onDismiss = { picking = false }) { picking = false; reload++ }
     val l = lyrics
+    Box(modifier.fillMaxSize()) {
     when {
         !loaded -> Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Buscando la letra…", color = Hifi.TextFaint, fontSize = 13.sp)
@@ -78,16 +100,119 @@ fun LyricsPane(song: Song, modifier: Modifier = Modifier, fontSize: TextUnit = 3
             Icon(Icons.Default.Lyrics, null, tint = Hifi.TextFaint, modifier = Modifier.size(34.dp))
             Spacer(Modifier.height(10.dp))
             Text("Sin letra para esta canción", color = Hifi.TextDim, fontSize = 15.sp)
-            Text("No la tiene Navidrome ni LRCLIB.", color = Hifi.TextFaint, fontSize = 12.sp, textAlign = TextAlign.Center)
+            Text("No encontré una letra de esta misma versión.", color = Hifi.TextFaint, fontSize = 12.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(12.dp))
+            ToolChip("Buscar letra a mano") { picking = true }
         }
-        else -> SyncedLyrics(l, modifier, fontSize, horizontalPadding)
+        else -> {
+            SyncedLyrics(song, l, Modifier, fontSize, horizontalPadding)
+            LyricsTools(song, l.synced, Modifier.align(Alignment.TopEnd)) { picking = true }
+        }
+    }
+    }
+}
+
+/**
+ * Herramientas de la letra (arriba a la derecha): atrasar/adelantar medio segundo si va
+ * desfasada, y "Otra letra" si salió la de otra canción. Se recuerda por canción.
+ */
+@Composable
+private fun LyricsTools(song: Song, synced: Boolean, modifier: Modifier, onPick: () -> Unit) {
+    val c = LocalApp.current
+    val off = c.lyrics.offsets.collectAsState().value[song.id] ?: 0L
+    Row(modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (synced) {
+            ToolChip("−½ s") { c.lyrics.setOffset(song.id, off - 500) }
+            if (off != 0L) {
+                Text(
+                    "%+.1f s".format(off / 1000f), style = Mono.copy(color = Hifi.Accent, fontSize = 10.sp),
+                    modifier = Modifier.bouncyClick { c.lyrics.setOffset(song.id, 0) },
+                )
+            }
+            ToolChip("+½ s") { c.lyrics.setOffset(song.id, off + 500) }
+        }
+        ToolChip("Otra letra", onPick)
     }
 }
 
 @Composable
-private fun SyncedLyrics(l: StructuredLyrics, modifier: Modifier, fontSize: TextUnit, hPad: Int) {
+private fun ToolChip(label: String, onClick: () -> Unit) {
+    Text(
+        label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Hifi.OnArt,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.35f)).bouncyClick(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    )
+}
+
+/** Elegir la letra a mano entre lo que tiene LRCLIB (la duración más parecida primero). */
+@Composable
+private fun LyricsPicker(song: Song, onDismiss: () -> Unit, onChanged: () -> Unit) {
     val c = LocalApp.current
-    val pos by rememberPlaybackPosition(120)
+    val scope = rememberCoroutineScope()
+    var query by remember { mutableStateOf("") }
+    var list by remember { mutableStateOf<List<LyricsCandidate>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { list = runCatching { c.lyrics.candidates(song) }.getOrDefault(emptyList()) }
+    GlassDialog(onDismiss) {
+        Text("Elegir letra", style = Display.copy(fontSize = 22.sp))
+        Text(
+            "${song.title} · ${song.artist ?: ""}${song.duration?.let { " · " + formatDuration(it) } ?: ""}",
+            color = Hifi.TextDim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            query, { query = it }, singleLine = true, placeholder = { Text("Buscar otra (artista y título)") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = {
+                scope.launch { list = null; list = runCatching { c.lyrics.candidates(song, query) }.getOrDefault(emptyList()) }
+            }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
+        val l = list
+        when {
+            l == null -> Text("Buscando…", color = Hifi.TextFaint)
+            l.isEmpty() -> Text("No hay resultados.", color = Hifi.TextDim)
+            else -> LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(l, key = { it.id }) { cand ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).bouncyClick {
+                            if (busy) return@bouncyClick
+                            busy = true
+                            scope.launch { c.lyrics.choose(song, cand.id); busy = false; onChanged() }
+                        }.padding(vertical = 8.dp, horizontal = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(cand.track, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(listOfNotNull(cand.artist, cand.album).joinToString(" · "), fontSize = 12.sp, color = Hifi.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(formatDuration(cand.duration), style = Mono.copy(color = if ((cand.diff ?: 99) <= 3) Hifi.LedGreen else Hifi.TextDim, fontSize = 11.sp))
+                            Text(
+                                if (cand.synced) "SINCRONIZADA" else "SÓLO TEXTO",
+                                style = Mono.copy(color = if (cand.synced) Hifi.Accent else Hifi.TextFaint, fontSize = 9.sp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { scope.launch { c.lyrics.hide(song); onChanged() } }) { Text("Sin letra", color = Hifi.TextDim) }
+            TextButton(onClick = { scope.launch { c.lyrics.reset(song); onChanged() } }) { Text("Automática", color = Hifi.Accent) }
+        }
+        Text("La duración en verde coincide con tu archivo (±3 s): esa es la versión correcta.", fontSize = 11.sp, color = Hifi.TextFaint)
+    }
+}
+
+@Composable
+private fun SyncedLyrics(song: Song, l: StructuredLyrics, modifier: Modifier, fontSize: TextUnit, hPad: Int) {
+    val c = LocalApp.current
+    val rawPos by rememberPlaybackPosition(120)
+    // Ajuste manual de esta canción (positivo = la letra va antes).
+    val pos = rawPos + (c.lyrics.offsets.collectAsState().value[song.id] ?: 0L)
     val current = if (l.synced) l.line.indexOfLast { (it.start ?: 0) <= pos } else -1
     val list = rememberLazyListState()
     // Si el usuario mueve la letra, se respeta su scroll 4 s antes de volver a seguir la canción.

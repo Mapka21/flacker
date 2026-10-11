@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
@@ -198,6 +199,7 @@ fun MarcoGate(shell: @Composable () -> Unit) {
         return
     }
     LaunchedEffect(account) { runCatching { c.likes.refresh() } }
+    LaunchedEffect(Unit) { com.marco.audiopro.ui.components.LibraryShuffle.keepAlive(c) }
     shell()
 }
 
@@ -288,8 +290,9 @@ private fun PhoneShell(nav: NavHostController) {
         add(NavItem(HomeRoute, "Inicio", Icons.Default.Home))
         add(NavItem(LibraryRoute(), "Biblioteca", Icons.Default.LibraryMusic))
         add(NavItem(SearchRoute, "Buscar", Icons.Default.Search))
-        if (c.downloads != null) add(NavItem(DownloadsRoute, "Descargas", Icons.Outlined.DownloadForOffline))
         add(NavItem(DiscoverRoute, "Descubrir", Icons.Default.Explore))
+        // Descargas se abre desde Biblioteca e Inicio; aquí va tu Last.fm, siempre a la mano.
+        add(NavItem(LastFmRoute, "Last.fm", Icons.Default.Insights))
     }
 
     Scaffold(

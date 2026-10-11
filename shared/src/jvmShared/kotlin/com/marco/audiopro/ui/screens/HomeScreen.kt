@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -150,8 +151,16 @@ fun HomeScreen(nav: NavController) {
                         Text(date, style = Mono.copy(color = Hifi.TextDim, fontSize = 11.sp, letterSpacing = 1.5.sp))
                         Text(greeting, style = Display.copy(fontSize = 36.sp))
                     }
+                    // Modo chill: toda tu biblioteca al azar, sin fin.
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(Hifi.Accent).bouncyClick { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Default.Shuffle, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                        if (wide) { Spacer(Modifier.width(6.dp)); Text("Aleatorio · toda tu música", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    }
                     if (!c.isDesktop) {
-                        IconButton(onClick = { nav.navigate(com.marco.audiopro.ui.LastFmRoute) }) { Icon(Icons.Default.Insights, "Mi Last.fm", tint = Hifi.TextDim) }
                         IconButton(onClick = { nav.navigate(SettingsRoute) }) { Icon(Icons.Default.Settings, "Ajustes", tint = Hifi.TextDim) }
                     }
                 }

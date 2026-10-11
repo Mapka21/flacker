@@ -111,6 +111,7 @@ import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.formatMs
 import com.marco.audiopro.ui.components.glass
 import com.marco.audiopro.ui.components.volumeWheel
+import com.marco.audiopro.ui.components.onRightClick
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
 import com.marco.audiopro.ui.rememberPlaybackPosition
@@ -175,7 +176,11 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
         Row(Modifier.weight(1f).fillMaxWidth().padding(start = 48.dp, end = 32.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.weight(1f).fillMaxWidth().volumeWheel().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    BreathingCover(song, st.isPlaying, Modifier.widthIn(max = 560.dp))
+                    var menu by remember { mutableStateOf<androidx.compose.ui.unit.DpOffset?>(null) }
+                    Box(Modifier.onRightClick { menu = it }) {
+                        BreathingCover(song, st.isPlaying, Modifier.widthIn(max = 560.dp))
+                        com.marco.audiopro.ui.components.SongMenu(song, menu != null, { menu = null }, nav, offset = menu ?: androidx.compose.ui.unit.DpOffset.Zero)
+                    }
                 }
                 Column(Modifier.widthIn(max = 560.dp).fillMaxWidth()) {
                     TitleBlock(song, nav)

@@ -79,11 +79,42 @@ import com.marco.audiopro.ui.components.songsLabel
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.marco.audiopro.ui.components.AlphabetIndex
+import com.marco.audiopro.ui.components.LibraryShuffle
+import com.marco.audiopro.ui.components.glass
+import com.marco.audiopro.ui.components.rememberRetained
+import com.marco.audiopro.ui.theme.Fonts
+import kotlinx.coroutines.launch
+
 @Composable
 fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
     var tab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
+    val c = LocalApp.current
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 12.dp))
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.weight(1f))
+            GlassChip("Aleatorio · toda tu música", false) { LibraryShuffle.start(c) }
+            // En el celular, las descargas viven aquí.
+            c.downloads?.let { store ->
+                Spacer(Modifier.width(8.dp))
+                val done = store.items.collectAsState().value.values.count { it.done }
+                GlassChip("Descargas · $done", false) { nav.navigate(com.marco.audiopro.ui.DownloadsRoute) { launchSingleTop = true } }
+            }
+        }
         // Control segmentado de vidrio (en lugar de la barra de pestañas de Material).
         SegmentedControl(
             listOf("Álbumes", "Artistas", "Canciones", "Playlists"), tab, { tab = it },
@@ -92,8 +123,8 @@ fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
         Spacer(Modifier.height(4.dp))
         when (tab) {
             0 -> AlbumsGrid(nav)
-            1 -> ArtistsList(nav)
-            2 -> SongsList(nav)
+            1 -> ArtistsGrid(nav)
+            2 -> SongsTable(nav)
             else -> PlaylistsList(nav)
         }
     }
@@ -109,21 +140,27 @@ private val sorts = listOf(
     "random" to "Al azar",
 )
 
+/** Estado de una lista por páginas que se conserva al salir y regresar. */
+private class Pager<T> {
+    val items: SnapshotStateList<T> = mutableStateListOf()
+    var end by mutableStateOf(false)
+    var error by mutableStateOf<String?>(null)
+    var page by mutableStateOf(0)
+}
+
 @Composable
 private fun AlbumsGrid(nav: NavController) {
     val c = LocalApp.current
     var sort by rememberSaveable { mutableStateOf("alphabeticalByName") }
-    val albums = remember(sort) { mutableStateListOf<Album>() }
-    var end by remember(sort) { mutableStateOf(false) }
-    var error by remember(sort) { mutableStateOf<String?>(null) }
-    var page by remember(sort) { mutableStateOf(0) }
+    val pager = rememberRetained(sort) { Pager<Album>() }
+    val albums = pager.items
     val grid = rememberLazyGridState()
 
-    LaunchedEffect(sort, page) {
-        if (end) return@LaunchedEffect
+    LaunchedEffect(sort, pager.page) {
+        if (pager.end || (pager.page == 0 && albums.isNotEmpty())) return@LaunchedEffect
         runCatching { c.api.albumList(sort, 60, albums.size) }
-            .onSuccess { albums += it.filter { a -> albums.none { it.id == a.id } }; if (it.size < 60 || sort == "random") end = true }
-            .onFailure { error = it.message }
+            .onSuccess { albums += it.filter { a -> albums.none { it.id == a.id } }; if (it.size < 60 || sort == "random") pager.end = true }
+            .onFailure { pager.error = it.message }
     }
     val nearEnd by remember {
         derivedStateOf {
@@ -131,7 +168,7 @@ private fun AlbumsGrid(nav: NavController) {
             last >= grid.layoutInfo.totalItemsCount - 12
         }
     }
-    LaunchedEffect(nearEnd, albums.size) { if (nearEnd && albums.isNotEmpty() && !end) page++ }
+    LaunchedEffect(nearEnd, albums.size) { if (nearEnd && albums.isNotEmpty() && !pager.end) pager.page++ }
 
     Column {
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,8 +176,8 @@ private fun AlbumsGrid(nav: NavController) {
                 GlassChip(label, sort == key) { sort = key }
             }
         }
-        if (error != null && albums.isEmpty()) {
-            ErrorBox(error!!, { error = null; page++ })
+        if (pager.error != null && albums.isEmpty()) {
+            ErrorBox(pager.error!!, { pager.error = null; pager.page++ })
         } else {
             LazyVerticalGrid(GridCells.Adaptive(150.dp), state = grid, contentPadding = PaddingValues(10.dp)) {
                 itemsIndexed(albums, key = { _, a -> a.id }) { _, a -> AlbumCard(a, { nav.openAlbum(a.id) }, nav = nav) }
@@ -149,20 +186,50 @@ private fun AlbumsGrid(nav: NavController) {
     }
 }
 
+private fun initialOf(name: String): Char =
+    java.text.Normalizer.normalize(name.trim(), java.text.Normalizer.Form.NFD).firstOrNull()?.uppercaseChar()?.takeIf { it in 'A'..'Z' } ?: '#'
+
+/** Artistas en cuadrícula con su foto (como Apple Music), por letra y con índice A-Z al lado. */
 @Composable
-private fun ArtistsList(nav: NavController) {
+private fun ArtistsGrid(nav: NavController) {
     val c = LocalApp.current
+    val scope = rememberCoroutineScope()
     val loader = rememberLoad(Unit) { c.api.artists() }
     LoadBox(loader) { artists ->
-        val grouped = remember(artists) { artists.groupBy { it.name.firstOrNull()?.uppercaseChar()?.takeIf { ch -> ch.isLetter() } ?: '#' }.toSortedMap() }
-        LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
-            grouped.forEach { (letter, list) ->
-                item(key = "h$letter") {
-                    Text(letter.toString(), style = Mono.copy(color = Hifi.Accent, fontSize = 13.sp), modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp))
-                }
-                items(list, key = { it.id }) { ArtistRow(it) { nav.openArtist(it.id) } }
-            }
+        val sections = remember(artists) { artists.groupBy { initialOf(it.name) }.toSortedMap(compareBy { if (it == '#') ' ' else it }) }
+        // Índice de la cabecera de cada letra dentro de la cuadrícula.
+        val headerAt = remember(sections) {
+            var i = 0
+            sections.mapValues { (_, list) -> i.also { i += 1 + list.size } }
         }
+        val grid = rememberLazyGridState()
+        Row(Modifier.fillMaxSize()) {
+            LazyVerticalGrid(
+                GridCells.Adaptive(140.dp), state = grid, modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 12.dp, end = 4.dp, bottom = 24.dp),
+            ) {
+                sections.forEach { (letter, list) ->
+                    item(key = "h$letter", span = { GridItemSpan(maxLineSpan) }) {
+                        Text(letter.toString(), style = Display.copy(fontSize = 24.sp, color = Hifi.Accent), modifier = Modifier.padding(start = 8.dp, top = 18.dp, bottom = 6.dp))
+                    }
+                    items(list, key = { it.id }) { a -> ArtistTile(a) { nav.openArtist(a.id) } }
+                }
+            }
+            AlphabetIndex(sections.keys.toList()) { l -> headerAt[l]?.let { scope.launch { grid.scrollToItem(it) } } }
+        }
+    }
+}
+
+@Composable
+private fun ArtistTile(a: Artist, onClick: () -> Unit) {
+    Column(Modifier.padding(8.dp).bouncyClick(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        CoverArt(
+            a.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(14.dp, CircleShape),
+            size = 300, corner = 200.dp, customKey = CustomCovers.artist(a.id),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(a.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        a.albumCount?.let { Text("$it álbum${if (it == 1) "" else "es"}", fontSize = 12.sp, color = Hifi.TextDim) }
     }
 }
 
@@ -223,44 +290,107 @@ private fun PlaylistsList(nav: NavController) {
     }
 }
 
-/** Todas las canciones de la biblioteca, cargando por páginas al bajar. */
+private val songSorts = listOf("title" to "Título", "artist" to "Artista", "album" to "Álbum", "plays" to "Más oídas")
+
+/**
+ * Todas tus canciones como la vista "Canciones" de Apple Music: tabla con título, artista,
+ * álbum y duración en la PC; filtro instantáneo, orden e índice A-Z para no bajar a ciegas.
+ * Se cargan todas en segundo plano (por páginas) y se recuerdan al salir y regresar.
+ */
 @Composable
-private fun SongsList(nav: NavController) {
+private fun SongsTable(nav: NavController) {
     val c = LocalApp.current
-    val songs = remember { mutableStateListOf<Song>() }
-    var end by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var page by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val pager = rememberRetained("songs") { Pager<Song>() }
+    val songs = pager.items
+    var sort by rememberSaveable { mutableStateOf("title") }
+    var filter by rememberSaveable { mutableStateOf("") }
     val list = rememberLazyListState()
     val playback by c.player.state.collectAsState()
-    LaunchedEffect(page) {
-        if (end) return@LaunchedEffect
-        runCatching { c.api.allSongs(songs.size, 200) }
-            .onSuccess { songs += it.filter { s -> songs.none { it.id == s.id } }; if (it.size < 200) end = true }
-            .onFailure { error = it.message }
-    }
-    val nearEnd by remember {
-        derivedStateOf { (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 30 }
-    }
-    LaunchedEffect(nearEnd, songs.size) { if (nearEnd && songs.isNotEmpty() && !end) page++ }
-
-    if (error != null && songs.isEmpty()) { ErrorBox(error!!, { error = null; page++ }); return }
-    LazyColumn(state = list, contentPadding = PaddingValues(bottom = 16.dp)) {
-        item {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                GlassChip("Reproducir", false) { if (songs.isNotEmpty()) c.player.play(songs.toList()) }
-                GlassChip("Aleatorio", false) { if (songs.isNotEmpty()) c.player.play(songs.toList(), shuffle = true) }
-                Text(
-                    if (end) songsLabel(songs.size) else "${songs.size}…", style = Mono.copy(color = Hifi.TextFaint),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
+    LaunchedEffect(Unit) {
+        while (!pager.end) {
+            runCatching { c.api.allSongs(songs.size, 500) }
+                .onSuccess { page -> songs += page.filter { s -> songs.none { it.id == s.id } }; if (page.size < 500) pager.end = true }
+                .onFailure { pager.error = it.message; return@LaunchedEffect }
         }
-        itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
-            TrackRow(
-                s, null, playback.current?.id == s.id, { c.player.play(songs.toList(), i) },
-                showCover = true, showFormat = true, onGoToAlbum = { s.albumId?.let(nav::openAlbum) },
-            )
+    }
+    val shown = remember(songs.size, sort, filter) {
+        val f = filter.trim().lowercase()
+        val base = if (f.isEmpty()) songs.toList() else songs.filter { s ->
+            s.title.lowercase().contains(f) || (s.artist ?: "").lowercase().contains(f) || (s.album ?: "").lowercase().contains(f)
+        }
+        when (sort) {
+            "artist" -> base.sortedWith(compareBy({ (it.artist ?: "").lowercase() }, { (it.album ?: "").lowercase() }, { it.discNumber ?: 1 }, { it.track ?: 0 }))
+            "album" -> base.sortedWith(compareBy({ (it.album ?: "").lowercase() }, { it.discNumber ?: 1 }, { it.track ?: 0 }))
+            "plays" -> base.sortedByDescending { it.playCount ?: 0 }
+            else -> base.sortedBy { it.title.lowercase() }
+        }
+    }
+    val keyOf: (Song) -> String = { s -> when (sort) { "artist" -> s.artist ?: ""; "album" -> s.album ?: ""; else -> s.title } }
+
+    if (pager.error != null && songs.isEmpty()) { ErrorBox(pager.error!!, { pager.error = null; pager.end = false }); return }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth > 760.dp
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Filtro instantáneo dentro de tus canciones.
+                Row(
+                    Modifier.weight(1f).height(38.dp).glass(RoundedCornerShape(50), Color.Black.copy(alpha = 0.25f)).padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Search, null, tint = Hifi.TextDim, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (filter.isEmpty()) Text("Filtrar ${fmtCount(songs.size)} canciones…", color = Hifi.TextFaint, fontSize = 13.sp)
+                        BasicTextField(
+                            filter, { filter = it }, singleLine = true, cursorBrush = SolidColor(Hifi.Accent),
+                            textStyle = TextStyle(color = Hifi.Text, fontSize = 13.sp, fontFamily = Fonts.inter), modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).background(Hifi.Accent).bouncyClick { if (shown.isNotEmpty()) c.player.play(shown, shuffle = true) },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Shuffle, "Aleatorio", tint = Color.Black, modifier = Modifier.size(18.dp)) }
+            }
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                items(songSorts) { (k, label) -> GlassChip(label, sort == k) { sort = k } }
+                item {
+                    Text(
+                        if (pager.end) "${fmtCount(shown.size)} canciones" else "cargando… ${fmtCount(songs.size)}",
+                        style = Mono.copy(color = Hifi.TextFaint), modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
+            if (wide) {
+                // Encabezado de la tabla.
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 52.dp, top = 10.dp, bottom = 4.dp)) {
+                    Spacer(Modifier.width(58.dp))
+                    Text("TÍTULO", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp), modifier = Modifier.weight(1f))
+                    Text("ÁLBUM", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp), modifier = Modifier.weight(0.8f))
+                    Text("⏱", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp))
+                }
+            }
+            Row(Modifier.weight(1f)) {
+                LazyColumn(state = list, modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    itemsIndexed(shown, key = { _, s -> s.id }) { i, s ->
+                        TrackRow(
+                            s, null, playback.current?.id == s.id, { c.player.play(shown, i) },
+                            showCover = true, showFormat = !wide, showAlbum = wide, onGoToAlbum = { s.albumId?.let(nav::openAlbum) },
+                        )
+                    }
+                }
+                if (sort != "plays" && filter.isBlank()) {
+                    val letters = remember(shown) { shown.map { initialOf(keyOf(it)) }.distinct() }
+                    AlphabetIndex(letters) { l ->
+                        val idx = shown.indexOfFirst { initialOf(keyOf(it)) == l }
+                        if (idx >= 0) scope.launch { list.scrollToItem(idx) }
+                    }
+                }
+            }
         }
     }
 }
+
+private fun fmtCount(n: Int) = java.text.NumberFormat.getIntegerInstance().format(n)
