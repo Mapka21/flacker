@@ -10,7 +10,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,14 +45,35 @@ import com.marco.audiopro.ui.theme.Hifi
  * Menú contextual de la app. En la PC es compacto como los de macOS / Windows 11 (filas de 32 dp,
  * texto de 13 sp, resaltado al pasar el mouse); en el celular, filas grandes para el dedo.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AppMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     offset: DpOffset = DpOffset.Zero,
+    /** Cabecera de la hoja del celular (portada y nombre de lo que se toca). */
+    header: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val desktop = LocalApp.current.isDesktop
+    if (!desktop) {
+        // En el celular: hoja desde abajo, como Spotify y Apple Music.
+        if (expanded) androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFF141417),
+            scrimColor = Color.Black.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+            dragHandle = {
+                Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f)))
+            },
+        ) {
+            Column(Modifier.navigationBarsPadding().padding(start = 8.dp, end = 8.dp, bottom = 14.dp)) {
+                if (header != null) { header(); AppMenuDivider() }
+                content()
+            }
+        }
+        return
+    }
     DropdownMenu(
         expanded, onDismiss, offset = offset,
         modifier = Modifier.widthIn(min = if (desktop) 228.dp else 220.dp).padding(horizontal = if (desktop) 5.dp else 0.dp),
@@ -124,4 +147,17 @@ fun AppMenuDivider() {
         Modifier.padding(horizontal = if (desktop) 8.dp else 14.dp, vertical = if (desktop) 4.dp else 6.dp)
             .fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)),
     )
+}
+
+/** Cabecera de la hoja del celular: portada, título y subtítulo. */
+@Composable
+fun MenuHeader(coverArt: String?, title: String, subtitle: String?, round: Boolean = false) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        CoverArt(coverArt, Modifier.size(52.dp), size = 150, corner = if (round) 26.dp else 8.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!subtitle.isNullOrBlank()) Text(subtitle, fontSize = 13.sp, color = Hifi.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
 }

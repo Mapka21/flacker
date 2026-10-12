@@ -2,6 +2,10 @@ package com.marco.audiopro.desktop
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.window.WindowPlacement
+import com.marco.audiopro.ui.WindowChrome
+import com.marco.audiopro.ui.WindowControls
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -114,7 +118,7 @@ class DesktopGraph : AppGraph {
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.6.1"
+    override val versionName = "2.7.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -159,8 +163,24 @@ fun main() {
             onPreviewKeyEvent = { e -> handleShortcut(e, player) },
         ) {
             window.minimumSize = Dimension(1050, 700)
-            // Botones ⏮ ⏯ ⏭ en la barra de tareas y "Reproduciendo" en el control multimedia de Windows.
-            LaunchedEffect(Unit) { WindowsShell.install(window, player, graph.http) { graph.api.coverUrl(it, 400) } }
+            // Botones ⏮ ⏯ ⏭ en la barra de tareas, "Reproduciendo" en el control multimedia de Windows
+            // y la barra de título propia (como Discord): si se pudo, la app dibuja sus botones.
+            val maximized = remember { derivedStateOf { windowState.placement == WindowPlacement.Maximized } }
+            LaunchedEffect(Unit) {
+                val custom = WindowsShell.install(
+                    window, player, graph.http, { graph.api.coverUrl(it, 400) },
+                    // -Dflacker.nativeTitle=true deja la barra de título de Windows (por si algo falla).
+                    isDragArea = if (System.getProperty("flacker.nativeTitle") == "true") null else { x, y -> WindowChrome.isDragArea(x, y) },
+                )
+                if (custom) WindowChrome.controls = WindowControls(
+                    minimize = { windowState.isMinimized = true },
+                    toggleMaximize = {
+                        windowState.placement = if (windowState.placement == WindowPlacement.Maximized) WindowPlacement.Floating else WindowPlacement.Maximized
+                    },
+                    close = { graph.shutdown(); exitApplication() },
+                    maximized = maximized,
+                )
+            }
             CompositionLocalProvider(LocalApp provides graph) {
                 MarcoTheme { DesktopRoot(onMiniPlayer = { mini = true }) }
             }

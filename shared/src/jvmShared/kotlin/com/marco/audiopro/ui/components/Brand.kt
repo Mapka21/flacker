@@ -8,6 +8,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import com.marco.audiopro.ui.theme.Fonts
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -123,4 +130,122 @@ fun FlackerLogo(modifier: Modifier = Modifier, size: TextUnit = 19.sp) {
             style = Display.copy(fontSize = size, fontWeight = FontWeight.Black, letterSpacing = size * 0.14f, color = BrandColors.White),
         )
     }
+}
+
+/**
+ * La calavera en arte ASCII (como los dibujos de jp2a): generada de la misma figura vectorial con
+ * tools/brand/ascii_skull.py y la rampa " .,:;?iSk$".
+ */
+object AsciiSkull {
+    val BIG = listOf(
+        "             .,;??iiii??;,.",
+        "          ,?S\$\$\$\$\$\$\$\$\$\$\$\$\$\$S?,",
+        "        :S\$\$\$\$Si\$\$\$\$\$S,i???i\$\$S:",
+        "      .S\$?;??i;:k\$\$\$\$kik\$\$\$i;S\$\$S.",
+        "     ,k:,k\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$:k\$\$k,",
+        "     ;SSS\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$;S\$\$\$k.",
+        "    ?;:, .,;?iSk\$\$\$\$\$\$\$\$\$\$\$\$k.;\$\$\$\$i",
+        "   .\$\$\$\$\$kSi?:,. ,:;?iSiiiSSkk\$\$\$\$\$k.",
+        "   :\$\$\$\$\$\$k?;:;?SSi?;:        .;;,.,:",
+        "   ;\$\$\$\$\$? .???. ?\$\$\$S         .iS\$\$;",
+        "   ;\$\$\$\$\$  S,i,S .\$\$\$i         :\$\$\$\$;",
+        "   .\$\$\$\$\$, ;?;?? :\$\$\$S         ?\$\$\$\$.",
+        "    i\$\$\$\$k;..,. :k\$\$\$\$?       .k\$\$\$i",
+        "    .k\$\$\$\$\$\$kSSk\$\$\$kk\$\$k?:,,:?k\$\$\$k.",
+        "     .i\$\$\$\$\$\$\$\$\$\$\$\$,,k\$\$\$\$\$\$\$\$\$\$\$i.",
+        "       :k\$\$\$\$\$\$\$\$\$;  ;\$\$\$\$\$\$\$\$\$k:",
+        "        :\$\$\$\$\$\$\$\$\$kkkk\$\$\$\$\$\$\$\$\$:",
+        "        :\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$:",
+        "         i\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$i",
+        "   ..      .S\$\$:\$?Siik?\$:\$\$S.      ..",
+        "  ;??:      ???.?,;::;,?.??i      :??;",
+        " :??????;:,.?\$\$,\$;Si?S;\$,\$\$?.,:;??????:",
+        ",???,:;??????SkkkSSSSSSkkkS??????;:,???,",
+        " .,.    .,:;???????;;???????;:,.    .,.",
+        "            .:;??????????;:.",
+        " :;,  .,:;???????;:,,:;???????;:,.  ,;:",
+        ".???;??????;:,.          .,:;??????;???.",
+        " .,:???:,                      ,:???:,.",
+    ).joinToString("\n")
+    val SMALL = listOf(
+        "        .:?iSSSSi?:.",
+        "      ;S\$\$k\$\$\$\$iSSSkS;",
+        "    ,SiiiS:k\$\$\$iSkk?i\$S,",
+        "   ,k:S\$\$\$\$\$\$\$\$\$\$\$\$\$?k\$k,",
+        "   ;:::?iSk\$\$\$\$\$\$\$\$\$;i\$\$k",
+        "  :\$\$\$kSi;;:::;????iiS\$ki:",
+        "  ;\$\$\$k:,:,:k\$k,      ,;i;",
+        "  ;\$\$\$:.???.;\$\$,      k\$\$;",
+        "  ,\$\$\$i ;:; S\$\$;     .\$\$\$,",
+        "   ?\$\$\$ki?ik\$\$\$\$i:..:k\$\$?",
+        "    ;\$\$\$\$\$\$\$\$::\$\$\$\$\$\$\$\$;",
+        "     .\$\$\$\$\$\$k??k\$\$\$\$\$\$.",
+        "      k\$\$\$\$\$\$\$\$\$\$\$\$\$\$k",
+        "      ,?S\$k\$SkkS\$k\$S?,",
+        " .?;    ;i;?:?;:?;i;    ;?.",
+        ".;????;::\$ik?SS?ki\$::;????;.",
+        ".;, .,:;?iiii??iiii?;:,. ,;.",
+        "        ,:????????:,",
+        ",?;,:;????;:,..,:;????;:,;?,",
+        ".:;??:,.            .,:??;:.",
+    ).joinToString("\n")
+}
+
+/**
+ * Arte ASCII en monoespaciada, con degradado de blanco a gris de arriba abajo.
+ * @param fontSize tamaño de cada carácter; el alto de línea es igual para que no se estire.
+ */
+@Composable
+fun AsciiArt(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 6.sp, top: Color = BrandColors.White, bottom: Color = BrandColors.Bone) {
+    Text(
+        text,
+        modifier = modifier,
+        style = TextStyle(
+            fontFamily = Fonts.mono, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize * 1.02f,
+            letterSpacing = 0.sp, brush = Brush.verticalGradient(listOf(top, bottom)),
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+        ),
+        softWrap = false,
+    )
+}
+
+/** Cabecera de marca: la calavera ASCII y "FLACKER 333" abajo, centrados (barra lateral, inicio de sesión). */
+@Composable
+fun FlackerBanner(modifier: Modifier = Modifier, skullSize: TextUnit = 6.sp, size: TextUnit = 18.sp, big: Boolean = false) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        AsciiArt(if (big) AsciiSkull.BIG else AsciiSkull.SMALL, fontSize = skullSize)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            buildAnnotatedString {
+                append("FLACKER")
+                withStyle(SpanStyle(fontSize = size * 0.48f, color = BrandColors.Bone, baselineShift = BaselineShift(0.9f), letterSpacing = size * 0.04f)) { append(" 333") }
+            },
+            style = Display.copy(fontSize = size, fontWeight = FontWeight.Black, letterSpacing = size * 0.16f, color = BrandColors.White),
+        )
+    }
+}
+
+/**
+ * El ícono en arte ASCII: la calavera de caracteres dentro de un cuadro de `s` px.
+ * @param background con el cuadro negro redondeado (ícono de PC); sin él, para el ícono adaptativo de Android.
+ */
+fun DrawScope.drawAsciiMark(measurer: androidx.compose.ui.text.TextMeasurer, at: Offset, s: Float, background: Boolean = true, fill: Float = 0.8f) {
+    if (background) {
+        val corner = CornerRadius(s * 0.26f)
+        drawRoundRect(Brush.verticalGradient(listOf(BrandColors.Graphite, BrandColors.Ink), at.y, at.y + s), at, Size(s, s), corner)
+        drawRoundRect(Color.White.copy(alpha = 0.10f), at, Size(s, s), corner, style = Stroke(maxOf(1f, s * 0.012f)))
+    }
+    val lines = AsciiSkull.SMALL.split("\n").size
+    val fs = s * fill / lines / 1.02f
+    val layout = measurer.measure(
+        AsciiSkull.SMALL,
+        TextStyle(
+            fontFamily = Fonts.mono, fontWeight = FontWeight.Bold, fontSize = androidx.compose.ui.unit.TextUnit(fs / fontScale / density, androidx.compose.ui.unit.TextUnitType.Sp),
+            lineHeight = androidx.compose.ui.unit.TextUnit(fs * 1.02f / fontScale / density, androidx.compose.ui.unit.TextUnitType.Sp), letterSpacing = 0.sp,
+            brush = Brush.verticalGradient(listOf(BrandColors.White, BrandColors.Bone)),
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+        ),
+        softWrap = false, density = this, layoutDirection = layoutDirection,
+    )
+    drawText(layout, topLeft = at + Offset((s - layout.size.width) / 2f, (s - layout.size.height) / 2f))
 }

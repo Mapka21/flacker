@@ -49,11 +49,21 @@ object WindowsShell {
     /** Para las pruebas: (botones de la barra, control multimedia) quedaron activos. */
     internal val active get() = (thumbBar != null) to (media != null)
 
-    fun install(window: Window, player: PlayerController, http: OkHttpClient, coverUrl: (String?) -> String?) {
-        if (installed || !System.getProperty("os.name").startsWith("Windows")) return
+    /**
+     * @param isDragArea si se da, Windows deja de pintar la barra de título y estas zonas (en pixeles
+     *   de la ventana) la arrastran; devuelve true si se pudo (la app pone sus propios botones).
+     */
+    fun install(
+        window: Window, player: PlayerController, http: OkHttpClient, coverUrl: (String?) -> String?,
+        isDragArea: ((Float, Float) -> Boolean)? = null,
+    ): Boolean {
+        if (installed || !System.getProperty("os.name").startsWith("Windows")) return false
         installed = true
-        val hwnd = Native.getWindowPointer(window) ?: return
+        val hwnd = Native.getWindowPointer(window) ?: return false
         runCatching { darkTitleBar(hwnd) }
+        val frame = isDragArea?.let { drag ->
+            runCatching { CustomFrame(hwnd, drag) }.onFailure { System.err.println("Barra de título propia: ${it.message}") }.getOrNull()
+        }
         val onUi: (() -> Unit) -> Unit = { block -> SwingUtilities.invokeLater { runCatching(block) } }
         thumbBar = runCatching { ThumbBar(hwnd) { id -> onUi { thumbClick(player, id) } } }
             .onFailure { System.err.println("Barra de tareas: ${it.message}") }.getOrNull()
@@ -85,6 +95,18 @@ object WindowsShell {
                 if (st.current != null) media?.timeline(st.durationMs, player.positionMs())
             }
         }
+        // Al final, para quedar primero en la cadena de mensajes de la ventana, y sólo ya que la
+        // ventana se ve: si se cambia el marco antes, Compose nunca llega a mostrarla.
+        frame?.let { f ->
+            if (window.isShowing) f.start(window)
+            else window.addComponentListener(object : java.awt.event.ComponentAdapter() {
+                override fun componentShown(e: java.awt.event.ComponentEvent) {
+                    window.removeComponentListener(this)
+                    SwingUtilities.invokeLater { f.start(window) }
+                }
+            })
+        }
+        return frame != null
     }
 
     /**
@@ -159,8 +181,15 @@ object MediaKeyGate {
 @Suppress("FunctionName")
 private interface User32Lib : Library {
     fun SetWindowLongPtrW(hwnd: Pointer, index: Int, newLong: Pointer): Pointer?
+    fun GetWindowLongPtrW(hwnd: Pointer, index: Int): Pointer?
     fun CallWindowProcW(prev: Pointer, hwnd: Pointer?, msg: Int, wParam: Pointer?, lParam: Pointer?): Pointer?
     fun RegisterWindowMessageW(name: WString): Int
+    fun SetWindowPos(hwnd: Pointer, after: Pointer?, x: Int, y: Int, cx: Int, cy: Int, flags: Int): Boolean
+    fun IsZoomed(hwnd: Pointer): Boolean
+    fun ScreenToClient(hwnd: Pointer, point: Pointer): Boolean
+    fun GetClientRect(hwnd: Pointer, rect: Pointer): Boolean
+    fun GetDpiForWindow(hwnd: Pointer): Int
+    fun GetSystemMetricsForDpi(index: Int, dpi: Int): Int
     fun CreateIconIndirect(info: Pointer): Pointer?
     fun GetSystemMetrics(index: Int): Int
 
@@ -403,7 +432,8 @@ private class ThumbBar(private val hwnd: Pointer, private val onClick: (Int) -> 
     )
     @Volatile private var playing = false
     private val created = User32Lib.I.RegisterWindowMessageW(WString("TaskbarButtonCreated"))
-    private var oldProc: Pointer? = null
+    /** El procedimiento anterior; se lee ANTES de engancharse (llegan mensajes en otro hilo). */
+    @Volatile private var oldProc: Pointer? = null
     private val proc = object : WndProc {
         override fun callback(hwnd: Pointer?, msg: Int, wParam: Pointer?, lParam: Pointer?): Pointer? {
             try {
@@ -427,7 +457,8 @@ private class ThumbBar(private val hwnd: Pointer, private val onClick: (Int) -> 
             taskbar = r.value
             check(taskbar.vcall(3), "HrInit")
         }
-        oldProc = User32Lib.I.SetWindowLongPtrW(hwnd, -4, CallbackReference.getFunctionPointer(proc)) // GWLP_WNDPROC
+        oldProc = User32Lib.I.GetWindowLongPtrW(hwnd, -4) // GWLP_WNDPROC
+        User32Lib.I.SetWindowLongPtrW(hwnd, -4, CallbackReference.getFunctionPointer(proc))
         // Si el botón de la barra ya existía, no llega "TaskbarButtonCreated": se agregan de una vez.
         com.async { add() }
     }
@@ -504,5 +535,99 @@ private class ThumbBar(private val hwnd: Pointer, private val onClick: (Int) -> 
     private fun drawNext(g: java.awt.Graphics2D, s: Float) {
         g.fill(RoundRectangle2D.Float(11.1f * s, 3.6f * s, 2.1f * s, 8.8f * s, 1f * s, 1f * s))
         tri(g, s, 3f, 3.8f, 3f, 12.2f, 9.8f, 8f)
+    }
+}
+
+// ------------------------------------------------------------------ barra de título propia
+
+/**
+ * Quita la barra de título de Windows pero deja el marco nativo (sombra, bordes para cambiar el
+ * tamaño, acoplar a los lados, animaciones de minimizar/maximizar):
+ * - WM_NCCALCSIZE: el área de la app empieza hasta arriba (maximizada, se respeta el borde que
+ *   Windows saca de la pantalla).
+ * - WM_NCHITTEST: el borde de arriba cambia el tamaño y las zonas de arrastre de la UI son "barra".
+ */
+private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Float, Float) -> Boolean) {
+    companion object {
+        private const val WM_NCCALCSIZE = 0x0083
+        private const val WM_NCHITTEST = 0x0084
+        private const val HTCLIENT = 1L
+        private const val HTCAPTION = 2L
+        private const val HTTOP = 12L
+        private const val HTTOPLEFT = 13L
+        private const val HTTOPRIGHT = 14L
+        private val DEBUG = System.getProperty("flacker.debugFrame") == "true"
+    }
+
+    /** El procedimiento anterior; se lee ANTES de engancharse (llegan mensajes en otro hilo). */
+    @Volatile private var oldProc: Pointer? = null
+    private val point = Memory(8)
+    private val rect = Memory(16)
+
+    /** Grosor del borde redimensionable (y lo que Windows esconde al maximizar), según los DPI. */
+    private fun frameThickness(): Int {
+        val dpi = runCatching { User32Lib.I.GetDpiForWindow(hwnd) }.getOrDefault(96).takeIf { it > 0 } ?: 96
+        return runCatching { User32Lib.I.GetSystemMetricsForDpi(33, dpi) + User32Lib.I.GetSystemMetricsForDpi(92, dpi) }
+            .getOrDefault(8) // SM_CYFRAME + SM_CXPADDEDBORDER
+    }
+
+    private val proc = object : WndProc {
+        override fun callback(hwnd: Pointer?, msg: Int, wParam: Pointer?, lParam: Pointer?): Pointer? {
+            val old = oldProc!!
+            if (DEBUG && (msg == 0x18 || msg == 0x46 || msg == 0x47 || msg == WM_NCCALCSIZE)) {
+                System.err.println("frame msg=0x%X w=%s".format(msg, wParam?.let { Pointer.nativeValue(it) }))
+            }
+            try {
+                if (msg == WM_NCCALCSIZE && wParam != null && Pointer.nativeValue(wParam) != 0L && lParam != null) {
+                    // NCCALCSIZE_PARAMS.rgrc[0] = {left, top, right, bottom}: el rectángulo propuesto de la ventana.
+                    if (User32Lib.I.IsZoomed(this@CustomFrame.hwnd)) {
+                        // Maximizada, Windows saca el borde de la pantalla: el área de la app es lo que queda.
+                        val t = frameThickness()
+                        lParam.setInt(0, lParam.getInt(0) + t)
+                        lParam.setInt(4, lParam.getInt(4) + t)
+                        lParam.setInt(8, lParam.getInt(8) - t)
+                        lParam.setInt(12, lParam.getInt(12) - t)
+                        return null
+                    }
+                    val top = lParam.getInt(4)
+                    val r = User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
+                    lParam.setInt(4, top) // sin barra de título: la app empieza hasta arriba
+                    return r
+                }
+                if (msg == WM_NCHITTEST && lParam != null) {
+                    val r = User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
+                    if (r == null || Pointer.nativeValue(r) != HTCLIENT) return r
+                    val lp = Pointer.nativeValue(lParam)
+                    point.setInt(0, (lp and 0xFFFF).toShort().toInt())
+                    point.setInt(4, ((lp shr 16) and 0xFFFF).toShort().toInt())
+                    User32Lib.I.ScreenToClient(this@CustomFrame.hwnd, point)
+                    val x = point.getInt(0); val y = point.getInt(4)
+                    val edge = frameThickness()
+                    if (!User32Lib.I.IsZoomed(this@CustomFrame.hwnd) && y < edge) {
+                        User32Lib.I.GetClientRect(this@CustomFrame.hwnd, rect)
+                        val w = rect.getInt(8)
+                        return Pointer(if (x < edge * 2) HTTOPLEFT else if (x > w - edge * 2) HTTOPRIGHT else HTTOP)
+                    }
+                    if (isDragArea(x.toFloat(), y.toFloat())) return Pointer(HTCAPTION)
+                    return r
+                }
+            } catch (_: Throwable) {}
+            return User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
+        }
+    }
+
+    /** Engancha el procedimiento y hace que Windows y AWT recalculen el marco. */
+    fun start(window: Window) {
+        oldProc = User32Lib.I.GetWindowLongPtrW(hwnd, -4)
+        User32Lib.I.SetWindowLongPtrW(hwnd, -4, CallbackReference.getFunctionPointer(proc))
+        // SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+        User32Lib.I.SetWindowPos(hwnd, null, 0, 0, 0, 0, 0x20 or 0x2 or 0x1 or 0x4 or 0x10)
+        // Un empujoncito de tamaño para que AWT vuelva a leer los márgenes (ya sin barra).
+        SwingUtilities.invokeLater {
+            val w = window.width; val h = window.height
+            window.setSize(w, h + 1)
+            window.setSize(w, h)
+            window.validate()
+        }
     }
 }

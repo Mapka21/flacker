@@ -321,7 +321,7 @@ fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavCo
         onDismiss()
         scope.launch { runCatching { c.api.album(album.id).song }.onSuccess { if (it.isNotEmpty()) block(it) } }
     }
-    AppMenu(expanded, onDismiss, offset) {
+    AppMenu(expanded, onDismiss, offset, header = { MenuHeader(album.coverArt, album.name, album.artist) }) {
         AppMenuItem("Reproducir", Icons.Default.PlayArrow) { withSongs { c.player.play(it) } }
         AppMenuItem("Aleatorio", Icons.Default.Shuffle) { withSongs { c.player.play(it, shuffle = true) } }
         AppMenuDivider()

@@ -39,7 +39,7 @@ import com.marco.audiopro.data.subsonic.SubsonicApi
 import com.marco.audiopro.ui.theme.Hifi
 import com.marco.audiopro.ui.theme.Mono
 import com.marco.audiopro.ui.components.AmbientBackground
-import com.marco.audiopro.ui.components.FlackerLogo
+import com.marco.audiopro.ui.components.FlackerBanner
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,7 +58,7 @@ fun LoginScreen() {
             Modifier.widthIn(max = 480.dp).fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(28.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            FlackerLogo(size = 36.sp)
+            FlackerBanner(skullSize = 6.5.sp, size = 30.sp, big = true)
             Spacer(Modifier.height(14.dp))
             Text("Conecta tu servidor Navidrome", color = Hifi.TextDim, fontSize = 14.sp)
             Spacer(Modifier.height(28.dp))

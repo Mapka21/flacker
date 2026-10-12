@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.unit.IntOffset
@@ -45,6 +46,7 @@ enum class VisualPreset(val label: String, val blurb: String) {
     HIPER("Hiperespacio", "Estrellas que aceleran con los agudos"),
     SYNTH("Synthwave", "Sol neón y rejilla retro al ritmo"),
     NEON("Neón 360", "Psicodelia con estela, como el del Xbox 360"),
+    ASCII("ASCII 333", "Tu portada y la música dibujadas con caracteres, como arte ASCII: ondas en cada golpe y el espectro subiendo"),
     NEXO("Nexo 2029", "El túnel caleidoscopio del Xbox 360 llevado al futuro: vidrios que salen volando con cada golpe y un disco iridiscente al centro"),
 }
 
@@ -183,6 +185,10 @@ class VisualScene {
     private val ys = FloatArray(120)
     private val neon = NeonFeedback()
     private val nexo = NexoTunnel()
+    private val ascii = AsciiVision()
+    /** Para el modo ASCII: la portada nítida y quien mide el texto (los pone el fondo cada frame). */
+    var art: ImageBitmap? = null
+    var measurer: androidx.compose.ui.text.TextMeasurer? = null
     private var dtLast = 0.016f
 
     private fun respawn(s: Star) {
@@ -220,6 +226,8 @@ class VisualScene {
     fun drawBase(scope: DrawScope, preset: VisualPreset, cols: List<Color>, art: ImageBitmap?, f: AudioFeatures) = scope.clipRect {
         dpScale = density
         drawRect(Hifi.Bg)
+        // ASCII: fondo casi negro, los caracteres son toda la imagen.
+        if (preset == VisualPreset.ASCII) return@clipRect
         val v = List(4) { cols[it].vivid(DuskPalette[it]) }
         val k = if (hasFx(preset)) 0.6f else 1f
         if (art != null && preset != VisualPreset.AURORA) artwork(art, f, k) else blobs(cols, v, f, k)
@@ -239,6 +247,7 @@ class VisualScene {
             VisualPreset.SYNTH -> synthwave(v, f)
             VisualPreset.NEON -> if (glow) neon.drawLast(this) else neon.frame(this, f, time, dtLast)
             VisualPreset.NEXO -> if (glow) nexo.drawLast(this) else nexo.frame(this, v, f, time, dtLast)
+            VisualPreset.ASCII -> measurer?.let { ascii.draw(this, it, art, v, f, time, dpScale, glow) }
             else -> {}
         }
         drawContext.transform.scale(1f / punch, 1f / punch, center)
@@ -744,5 +753,105 @@ class NexoTunnel(private val maxPx: Int = 560) {
         while (y < size.height) { drawRect(line, Offset(0f, y), Size(size.width, dp)); y += gap }
         val r = max(size.width, size.height) * 0.75f
         drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), center, r))
+    }
+}
+
+/**
+ * "ASCII 333": la portada convertida en caracteres (" .,:;?iSk$", oscuro → claro) con ondas que salen
+ * del centro en cada golpe y el espectro subiendo desde abajo, también en caracteres. Cada carácter
+ * se dibuja una vez en una tira (atlas) y luego sólo se copia: miles de celdas por frame sin texto.
+ */
+class AsciiVision {
+    private val ramp = " .,:;?iSk$"
+    private var atlas: ImageBitmap? = null
+    private var cw = 0
+    private var ch = 0
+    private var cols = 0
+    private var rows = 0
+    private var lum = FloatArray(0)
+    private var lumFor: ImageBitmap? = null
+
+    private fun buildAtlas(m: androidx.compose.ui.text.TextMeasurer, cellH: Int) {
+        val h = cellH.coerceAtLeast(6)
+        val w = (h * 0.6f).toInt().coerceAtLeast(4)
+        if (atlas != null && ch == h) return
+        ch = h; cw = w
+        val img = ImageBitmap(w * ramp.length, h)
+        val style = androidx.compose.ui.text.TextStyle(
+            fontFamily = com.marco.audiopro.ui.theme.Fonts.mono, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            fontSize = androidx.compose.ui.unit.TextUnit(h * 0.86f, androidx.compose.ui.unit.TextUnitType.Sp), color = Color.White,
+        )
+        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(img), Size(img.width.toFloat(), h.toFloat())) {
+            for (i in 1 until ramp.length) {
+                val l = m.measure(ramp[i].toString(), style, density = this, layoutDirection = LayoutDirection.Ltr)
+                drawText(l, topLeft = Offset(i * w + (w - l.size.width) / 2f, (h - l.size.height) / 2f))
+            }
+        }
+        atlas = img
+    }
+
+    /** Brillo de la portada por celda (se recalcula si cambia la portada o la cuadrícula). */
+    private fun sample(art: ImageBitmap?) {
+        if (lum.size == cols * rows && lumFor === art) return
+        lumFor = art
+        lum = FloatArray(cols * rows)
+        if (art == null) return
+        val small = ImageBitmap(cols, rows)
+        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(small), Size(cols.toFloat(), rows.toFloat())) {
+            // La portada cubre todo (recortada al centro, como "crop").
+            val s = max(cols.toFloat() / art.width, rows.toFloat() / art.height)
+            val dw = (art.width * s).toInt(); val dh = (art.height * s).toInt()
+            drawImage(art, IntOffset.Zero, IntSize(art.width, art.height), IntOffset((cols - dw) / 2, (rows - dh) / 2), IntSize(dw, dh), filterQuality = FilterQuality.Medium)
+        }
+        val px = IntArray(cols * rows)
+        small.readPixels(px, 0, 0, cols, rows)
+        var lo = 1f; var hi = 0f
+        for (i in px.indices) {
+            val p = px[i]
+            val v = (0.299f * ((p shr 16) and 255) + 0.587f * ((p shr 8) and 255) + 0.114f * (p and 255)) / 255f
+            lum[i] = v; lo = min(lo, v); hi = max(hi, v)
+        }
+        // Contraste estirado: hasta una portada oscura usa toda la rampa.
+        val span = (hi - lo).coerceAtLeast(0.15f)
+        for (i in lum.indices) lum[i] = ((lum[i] - lo) / span).coerceIn(0f, 1f)
+    }
+
+    fun draw(
+        scope: DrawScope, m: androidx.compose.ui.text.TextMeasurer, art: ImageBitmap?, tones: List<Color>,
+        f: AudioFeatures, time: Float, dp: Float, glow: Boolean,
+    ) = with(scope) {
+        buildAtlas(m, (13f * dp).toInt())
+        val a = atlas ?: return@with
+        cols = (size.width / cw).toInt().coerceAtLeast(1)
+        rows = (size.height / ch).toInt().coerceAtLeast(1)
+        sample(art)
+        val tint = ColorFilter.tint(lerp(Color.White, tones[0], 0.18f))
+        val ox = ((size.width - cols * cw) / 2).toInt(); val oy = ((size.height - rows * ch) / 2).toInt()
+        val specRows = rows * 0.32f
+        val cx = cols / 2f; val cy = rows / 2f
+        val diag = kotlin.math.sqrt(cx * cx + cy * cy * 4f)
+        val last = ramp.length - 1
+        for (y in 0 until rows) {
+            val fromBottom = rows - 1 - y
+            for (x in 0 until cols) {
+                var v = if (art != null) lum[y * cols + x] * 0.85f else 0.08f + 0.06f * sin(x * 0.3f + time)
+                val dx = x - cx; val dy = (y - cy) * 2f
+                val d = kotlin.math.sqrt(dx * dx + dy * dy) / diag
+                // Ondas desde el centro, más fuertes con el bajo y en cada golpe.
+                v += sin(d * 22f - time * 4.5f) * (0.06f + 0.16f * f.bass) + f.beat * 0.3f * (1f - d).coerceAtLeast(0f)
+                // Espectro: columnas que suben desde abajo.
+                val band = f.band(x / cols.toFloat())
+                if (fromBottom < specRows * band) v = max(v, 0.7f + 0.3f * (1f - fromBottom / (specRows * band + 0.01f)))
+                v = v.coerceIn(0f, 1f)
+                if (glow && v < 0.6f) continue
+                val i = (v * last + 0.25f).toInt().coerceIn(0, last)
+                if (i == 0) continue
+                drawImage(
+                    a, srcOffset = IntOffset(i * cw, 0), srcSize = IntSize(cw, ch),
+                    dstOffset = IntOffset(ox + x * cw, oy + y * ch), dstSize = IntSize(cw, ch),
+                    alpha = 0.25f + 0.75f * v, colorFilter = tint,
+                )
+            }
+        }
     }
 }

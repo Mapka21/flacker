@@ -526,7 +526,7 @@ fun TrackRow(
         if (liked) Icon(Icons.Default.Favorite, "Me gusta", tint = Hifi.Accent, modifier = Modifier.size(15.dp))
         IconButton(onClick = { menu = dotsAt() }) { Icon(Icons.Default.MoreVert, null, tint = Hifi.TextFaint) }
     }
-            AppMenu(menu != null, { menu = null }, menu ?: DpOffset.Zero) {
+            AppMenu(menu != null, { menu = null }, menu ?: DpOffset.Zero, header = { MenuHeader(song.coverArt, song.title, song.artist) }) {
                 AppMenuItem(
                     if (liked) "Quitar de Me gusta" else "Me gusta", if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     iconTint = if (liked) Hifi.Accent else null,

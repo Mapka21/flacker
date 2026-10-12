@@ -88,7 +88,7 @@ fun LyricsPane(song: Song, modifier: Modifier = Modifier, fontSize: TextUnit = 3
         l == null || l.line.isEmpty() -> Column(
             modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(Icons.Default.Lyrics, null, tint = Hifi.TextFaint, modifier = Modifier.size(34.dp))
+            AsciiArt(AsciiSkull.SMALL, fontSize = 3.6.sp, top = Hifi.TextDim, bottom = Hifi.TextFaint)
             Spacer(Modifier.height(10.dp))
             Text("Sin letra para esta canción", color = Hifi.TextDim, fontSize = 15.sp)
             Text("No hay una letra que coincida con esta versión.", color = Hifi.TextFaint, fontSize = 12.sp, textAlign = TextAlign.Center)

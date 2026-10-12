@@ -18,12 +18,27 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,7 +82,7 @@ fun SearchScreen(nav: NavController) {
             .onSuccess { result = it; error = null }
             .onFailure { error = it.message }
     }
-    LaunchedEffect(Unit) { if (shared == null && query.isEmpty()) runCatching { focus.requestFocus() } }
+    // (En el celular no se abre el teclado solo: primero se ven tus géneros para explorar.)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         if (shared != null) {
@@ -76,21 +91,37 @@ fun SearchScreen(nav: NavController) {
                 style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 30.sp),
                 modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp),
             )
-        } else OutlinedTextField(
-            query, { localQuery = it },
-            placeholder = { Text("Artistas, álbumes, canciones") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { localQuery = "" }) { Icon(Icons.Default.Close, null) } },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-            modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus).textInput(),
-        )
+        } else {
+            // Celular: título grande y una pastilla de búsqueda (como Spotify / Apple Music).
+            Text("Buscar", style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 32.sp), modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 10.dp))
+            Row(
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.10f)).padding(start = 16.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Search, null, tint = Hifi.TextDim, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (query.isEmpty()) Text("Artistas, álbumes, canciones", color = Hifi.TextFaint, fontSize = 15.sp)
+                    BasicTextField(
+                        query, { localQuery = it }, singleLine = true,
+                        textStyle = TextStyle(color = Hifi.Text, fontSize = 15.sp, fontFamily = com.marco.audiopro.ui.theme.Fonts.inter),
+                        cursorBrush = SolidColor(Hifi.Text),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus).textInput(),
+                    )
+                }
+                if (query.isNotEmpty()) IconButton(onClick = { localQuery = "" }) { Icon(Icons.Default.Close, "Borrar", tint = Hifi.TextDim) }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         val r = result
         when {
             error != null -> Text(error!!, color = Hifi.LedRed, modifier = Modifier.padding(20.dp))
+            r == null && shared == null -> ExploreGenres(nav)
             r == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (shared != null) "Escribe arriba para buscar en tu biblioteca" else "Busca en tu biblioteca", color = Hifi.TextFaint)
+                Text("Escribe arriba para buscar en tu biblioteca", color = Hifi.TextFaint)
             }
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (r.artist.isEmpty() && r.album.isEmpty() && r.song.isEmpty()) {
@@ -117,6 +148,33 @@ fun SearchScreen(nav: NavController) {
                 }
                 // Lo que no tienes: catálogo para descubrir y conseguir en hi-res.
                 item(key = "outside") { Column { OutsideLibraryResults(query.trim(), nav) } }
+            }
+        }
+    }
+}
+
+/** Con la búsqueda vacía en el celular: tus géneros en mosaicos para explorar (como Spotify). */
+@Composable
+private fun ExploreGenres(nav: NavController) {
+    val c = LocalApp.current
+    val loader = com.marco.audiopro.ui.components.rememberLoad("explore") {
+        coroutineScope {
+            c.api.genres().filter { it.albumCount > 0 }.sortedByDescending { it.albumCount }.take(16).map { g ->
+                async { g.value to runCatching { c.api.albumList("byGenre", 1, 0, mapOf("genre" to g.value)).firstOrNull()?.coverArt }.getOrNull() }
+            }.awaitAll()
+        }
+    }
+    val genres = (loader.state.value as? com.marco.audiopro.ui.components.Load.Ok)?.value.orEmpty()
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
+        if (genres.isNotEmpty()) item {
+            Text("Explora tus géneros", style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 20.sp), modifier = Modifier.padding(top = 14.dp, bottom = 12.dp))
+        }
+        items(genres.chunked(2)) { row ->
+            Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { (name, cover) ->
+                    CategoryTile(name, null, cover, Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.BrowseRoute(name, genre = name)) }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

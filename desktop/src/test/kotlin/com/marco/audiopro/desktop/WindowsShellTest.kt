@@ -36,7 +36,7 @@ class WindowsShellTest {
         val player = FakePlayer()
         lateinit var frame: JFrame
         SwingUtilities.invokeAndWait { frame = JFrame("Flacker prueba").apply { setSize(400, 300); isVisible = true } }
-        WindowsShell.install(frame, player, OkHttpClient()) { null }
+        WindowsShell.install(frame, player, OkHttpClient(), { null })
         player.state.value = PlaybackState(Song(id = "1", title = "Hey You", artist = "Pink Floyd", album = "The Wall"), isPlaying = true, durationMs = 280_000)
         Thread.sleep(1500)
         player.state.value = player.state.value.copy(isPlaying = false)

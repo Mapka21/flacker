@@ -137,7 +137,7 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import com.marco.audiopro.ui.components.ConnectGreen
 import com.marco.audiopro.ui.components.DevicesButton
 import com.marco.audiopro.ui.components.RemoteBadge
-import com.marco.audiopro.ui.components.FlackerLogo
+import com.marco.audiopro.ui.components.FlackerBanner
 import com.marco.audiopro.ui.components.LyricsPane
 import com.marco.audiopro.ui.components.SegmentedControl
 import com.marco.audiopro.ui.components.VisualModeButton
@@ -221,7 +221,12 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
         AmbientBackground(playback.current?.coverArt, intensity = intensity)
-        Row(Modifier.fillMaxSize().padding(pad.coerceAtLeast(0.dp))) {
+        // Con barra de título propia, la tira de arriba (botones de ventana) hace de margen superior.
+        val chrome = WindowChrome.controls != null
+        Column(Modifier.fillMaxSize()) {
+        WindowTitleStrip()
+        val p = pad.coerceAtLeast(0.dp)
+        Row(Modifier.weight(1f).fillMaxWidth().padding(start = p, end = p, bottom = p, top = if (chrome) 0.dp else p)) {
             AnimatedVisibility(
                 !onPlayer,
                 enter = expandHorizontally(tween(280)) + fadeIn(),
@@ -238,6 +243,7 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
                 enter = expandHorizontally(tween(280)) + fadeIn(),
                 exit = shrinkHorizontally() + fadeOut(),
             ) { Row { Spacer(Modifier.width(14.dp)); RightColumn(nav, rightTab, { rightTab = it }) { setRightHidden(true) } } }
+        }
         }
         AnimatedVisibility(
             (!wide || rightHidden) && playback.current != null && !onPlayer,
@@ -267,7 +273,8 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
     if (creating) NewPlaylistFlow(nav) { creating = false }
 
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
-        FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp))
+        // La calavera ASCII y FLACKER 333 (también sirve para arrastrar la ventana).
+        FlackerBanner(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 12.dp).windowDragArea())
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
         SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
@@ -345,7 +352,7 @@ private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: M
         RoundGlass(Icons.AutoMirrored.Filled.ArrowBack, "Atrás", onClick = onBack)
         Spacer(Modifier.width(12.dp))
         SearchField(nav, query, onSearch)
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.weight(1f).fillMaxHeight().windowDragArea())
         RoundGlass(Icons.Default.Shuffle, "Aleatorio de toda tu música") { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }

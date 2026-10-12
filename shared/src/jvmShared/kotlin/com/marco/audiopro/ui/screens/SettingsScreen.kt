@@ -219,7 +219,7 @@ fun SettingsScreen(nav: NavController) {
         }
 
         Column(Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            com.marco.audiopro.ui.components.FlackerMark(40.dp)
+            com.marco.audiopro.ui.components.AsciiArt(com.marco.audiopro.ui.components.AsciiSkull.SMALL, fontSize = 4.4.sp)
             Spacer(Modifier.height(10.dp))
             Text("Flacker", style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 17.sp, color = Hifi.Text))
             Text("Versión ${c.versionName}", style = Mono.copy(color = Hifi.TextFaint))

@@ -63,7 +63,7 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
     var story by remember { mutableStateOf(false) }
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
     if (story) ShareStoryDialog(song) { story = false }
-    AppMenu(expanded, onDismiss, offset) {
+    AppMenu(expanded, onDismiss, offset, header = { MenuHeader(song.coverArt, song.title, song.artist) }) {
         if (!song.isPreview) {
             AppMenuItem(
                 if (liked) "Quitar de Me gusta" else "Me gusta", if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,

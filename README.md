@@ -34,6 +34,25 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.7**:
+  - **PC sin la barra de título de Windows** (como Discord o Claude): la app dibuja sus botones de
+    minimizar, maximizar y cerrar; se arrastra desde arriba, la barra de búsqueda o el logo, con
+    doble clic para maximizar y acoplar a los lados. `-Dflacker.nativeTitle=true` regresa la barra
+    de Windows.
+  - **Logo en arte ASCII**: la calavera hecha de caracteres (`tools/brand/ascii_skull.py`) en la barra
+    lateral, el inicio de sesión, Ajustes y "sin letra"; también es el ícono en tamaños grandes (en
+    los chicos queda la calavera sólida para que se lea).
+  - **Modo visual "ASCII 333"**: tu portada y la música dibujadas con caracteres, con ondas en cada
+    golpe y el espectro subiendo.
+  - **EQ para tu música**: presets paramétricos Rock pesado, Rock, Pop, Trap / Rap, Corridos,
+    Batería al frente, Guitarras al frente y Lo-Fi / Chill (quitan lodo en vez de sólo subir todo), y
+    **✦ Auto por género**: cada canción suena con el preset de su género.
+  - **Celular más cómodo**: deslizar el mini reproductor a los lados cambia de canción y hacia
+    arriba abre el reproductor; en el reproductor, la portada se desliza para cambiar y jalar hacia
+    abajo lo cierra; menús como hoja desde abajo con la canción arriba; barra de abajo con pastilla;
+    Buscar con título, pastilla de búsqueda y tus géneros para explorar; vibración en play, cambiar
+    de canción y de pestaña.
+
 - **v2.6, marca oscura**: logo nuevo, una calavera pirata cibernética (parche, ojo biónico, pistas de
   circuito y huesos cruzados) en negro, grafito, gris hueso y blanco; "FLACKER 333". Acento "Plata"
   de fábrica (los acentos de color de antes cambian a Plata una sola vez; se puede elegir otro).

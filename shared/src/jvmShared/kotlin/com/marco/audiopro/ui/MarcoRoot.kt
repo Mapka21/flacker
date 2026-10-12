@@ -49,6 +49,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -200,6 +206,10 @@ fun MarcoGate(shell: @Composable () -> Unit) {
     }
     LaunchedEffect(account) { runCatching { c.likes.refresh() } }
     LaunchedEffect(Unit) { com.marco.audiopro.ui.components.LibraryShuffle.keepAlive(c) }
+    // EQ "Auto por género": al cambiar de canción, el preset de su género.
+    LaunchedEffect(Unit) {
+        c.player.state.collect { st -> c.engine.onSongGenre(st.current?.genre) }
+    }
     shell()
 }
 
@@ -311,10 +321,11 @@ private fun PhoneShell(nav: NavHostController) {
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             if (!onPlayer) {
+                // Abajo: degradado para que el contenido se pierda detrás, y la barra casi negra.
                 Column(
-                    Modifier
-                        .background(Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Black.copy(alpha = 0.78f)))
-                        .drawBehind { drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, 0f), Offset(size.width, 0f), 1f) },
+                    Modifier.background(
+                        Brush.verticalGradient(0f to Color.Transparent, 0.22f to Color(0xFF09090B).copy(alpha = 0.86f), 1f to Color(0xFF070708).copy(alpha = 0.97f)),
+                    ),
                 ) {
                     RemotePlaybackBanner(Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     if (playback.current != null) MiniPlayer { nav.openPlayer() }
@@ -337,29 +348,38 @@ private fun PhoneShell(nav: NavHostController) {
 
 @Composable
 private fun BottomBar(tabs: List<NavItem>, dest: NavDestination?, onSelect: (Any) -> Unit) {
+    val tick = com.marco.audiopro.ui.components.rememberTick()
     Row(
-        Modifier.fillMaxWidth().navigationBarsPadding().height(62.dp).padding(horizontal = 6.dp),
+        Modifier.fillMaxWidth().navigationBarsPadding().height(64.dp).padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         tabs.forEach { t ->
             val sel = dest.isIn(t.route::class)
-            val color by animateColorAsState(if (sel) Hifi.Accent else Hifi.TextFaint, label = "tab")
+            val color by animateColorAsState(if (sel) Hifi.Text else Hifi.TextFaint, tween(180), label = "tab")
+            val pill by animateColorAsState(if (sel) Color.White.copy(alpha = 0.13f) else Color.Transparent, tween(220), label = "pill")
+            val pillW by animateDpAsState(if (sel) 58.dp else 32.dp, spring(dampingRatio = 0.7f, stiffness = 500f), label = "pillW")
             Column(
-                Modifier.weight(1f).bouncyClick { onSelect(t.route) }
-                    .padding(vertical = 6.dp),
+                Modifier.weight(1f).fillMaxHeight()
+                    .clickable(remember { MutableInteractionSource() }, indication = null) { if (!sel) tick(); onSelect(t.route) },
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Box(Modifier.width(18.dp).height(2.dp).clip(CircleShape).background(if (sel) Hifi.Accent else Color.Transparent))
-                Spacer(Modifier.height(5.dp))
-                Icon(t.icon, t.label, tint = color, modifier = Modifier.size(22.dp))
+                // Como Material 3 / iOS 18: el ícono elegido va dentro de una pastilla que se estira.
+                Box(Modifier.width(pillW).height(30.dp).clip(CircleShape).background(pill), contentAlignment = Alignment.Center) {
+                    Icon(t.icon, t.label, tint = color, modifier = Modifier.size(22.dp))
+                }
                 Spacer(Modifier.height(3.dp))
-                Text(t.label, fontSize = 10.sp, color = color, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
+                Text(t.label, fontSize = 10.5.sp, color = color, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
             }
         }
     }
 }
 
+/**
+ * Mini reproductor (como el de Spotify): deslizar a los lados cambia de canción, deslizar hacia
+ * arriba (o tocarlo) abre el reproductor. Dispositivos, me gusta y play a la mano.
+ */
 @Composable
 private fun MiniPlayer(onOpen: () -> Unit) {
     val player = LocalApp.current.player
@@ -368,33 +388,43 @@ private fun MiniPlayer(onOpen: () -> Unit) {
     val pos by rememberPlaybackPosition(500)
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
     val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
+    val tick = com.marco.audiopro.ui.components.rememberTick()
+    val open by rememberUpdatedState(onOpen)
 
     Column(
         Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth()
-            .shadow(16.dp, RoundedCornerShape(18.dp))
-            .glass(RoundedCornerShape(18.dp), tint.copy(alpha = 0.78f))
+            .shadow(16.dp, RoundedCornerShape(16.dp))
+            .glass(RoundedCornerShape(16.dp), tint.copy(alpha = 0.82f))
+            .pointerInput(Unit) {
+                var dy = 0f
+                detectVerticalDragGestures(onDragStart = { dy = 0f }, onDragEnd = { if (dy < -40f * density) open() }) { _, d -> dy += d }
+            }
             .bouncyClick(onClick = onOpen),
     ) {
-        Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverArt(song.coverArt, Modifier.size(44.dp), size = 120, corner = 8.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                // Como Spotify: en verde si suena en otro dispositivo que controlas.
-                Text(
-                    st.remoteName?.let { "▶ Reproduciendo en $it" } ?: song.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
-                    color = if (st.remoteName != null) com.marco.audiopro.ui.components.ConnectGreen else Hifi.TextDim,
-                )
+        Row(Modifier.padding(start = 8.dp, end = 2.dp, top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            com.marco.audiopro.ui.components.SwipeToSkip(onNext = { player.next() }, onPrevious = { player.previous() }, modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CoverArt(song.coverArt, Modifier.size(44.dp), size = 120, corner = 8.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        // Como Spotify: en verde si suena en otro dispositivo que controlas.
+                        Text(
+                            st.remoteName?.let { "▶ Reproduciendo en $it" } ?: song.artist ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
+                            color = if (st.remoteName != null) com.marco.audiopro.ui.components.ConnectGreen else Hifi.TextDim,
+                        )
+                    }
+                }
             }
             DevicesButton(size = 20)
-            LikeButton(song, size = 20.dp)
-            IconButton(onClick = { player.toggle() }) {
-                Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Hifi.Text)
+            LikeButton(song, size = 21.dp)
+            Box(Modifier.size(44.dp).bouncyClick { tick(); player.toggle() }, contentAlignment = Alignment.Center) {
+                if (st.isBuffering) CircularProgressIndicator(Modifier.size(20.dp), color = Hifi.Text, strokeWidth = 2.dp)
+                else com.marco.audiopro.ui.components.PlayPauseIcon(st.isPlaying, Hifi.Text, 28.dp)
             }
-            IconButton(onClick = { player.next() }) { Icon(Icons.Default.SkipNext, null, tint = Hifi.Text) }
         }
-        Box(Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f))) {
-            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Hifi.Accent))
+        Box(Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.14f))) {
+            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(Color.White.copy(alpha = 0.9f)))
         }
     }
 }

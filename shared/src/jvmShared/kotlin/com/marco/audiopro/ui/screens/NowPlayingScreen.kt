@@ -72,6 +72,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.marco.audiopro.ui.components.rememberTick
+import com.marco.audiopro.ui.components.SwipeToSkip
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -222,8 +231,27 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
     val c = LocalApp.current
     val st by c.player.state.collectAsState()
     var stage by rememberSaveable { mutableStateOf(Stage.COVER) }
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    // Jalar hacia abajo (desde arriba o desde la portada) cierra el reproductor, como en Spotify.
+    val drop = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val dismissDrag = Modifier.draggable(
+        orientation = Orientation.Vertical,
+        state = rememberDraggableState { d -> scope.launch { drop.snapTo((drop.value + d).coerceAtLeast(0f)) } },
+        onDragStopped = { v ->
+            if (drop.value > with(density) { 130.dp.toPx() } || v > 2000f) nav.popBackStack()
+            else drop.animateTo(0f, spring(dampingRatio = 0.75f, stiffness = 420f))
+        },
+    )
+    Column(
+        Modifier.fillMaxSize().graphicsLayer {
+            translationY = drop.value
+            val k = (drop.value / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+            alpha = 1f - k * 0.6f
+            scaleX = 1f - k * 0.08f; scaleY = 1f - k * 0.08f
+        },
+    ) {
+        Row(Modifier.fillMaxWidth().then(dismissDrag).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).bouncyClick { nav.popBackStack() }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.KeyboardArrowDown, "Cerrar", tint = Color.White, modifier = Modifier.size(28.dp))
             }
@@ -238,8 +266,11 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
         AnimatedContent(stage, Modifier.weight(1f), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "stage") { s ->
             when (s) {
                 Stage.COVER -> Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        BreathingCover(song, st.isPlaying, Modifier)
+                    // La portada se desliza a los lados para cambiar de canción.
+                    Box(Modifier.weight(1f).fillMaxWidth().then(dismissDrag).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+                        SwipeToSkip(onNext = { c.player.next() }, onPrevious = { c.player.previous() }) {
+                            BreathingCover(song, st.isPlaying, Modifier)
+                        }
                     }
                     Column(Modifier.padding(horizontal = 24.dp)) {
                         LcdStrip(song, c.engine, Modifier.fillMaxWidth(), onPath)
@@ -453,10 +484,11 @@ fun AppleBar(value: Float, onChange: (Float) -> Unit, onCommit: (Float) -> Unit,
 @Composable
 private fun Controls(playing: Boolean, buffering: Boolean, shuffle: Boolean, repeat: RepeatMode) {
     val player = LocalApp.current.player
+    val tick = rememberTick()
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        StageToggle(Icons.Default.Shuffle, "Aleatorio", shuffle) { player.toggleShuffle() }
-        Glyph(Icons.Default.SkipPrevious, 46.dp, "Anterior") { player.previous() }
-        Box(Modifier.size(78.dp).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
+        StageToggle(Icons.Default.Shuffle, "Aleatorio", shuffle) { tick(); player.toggleShuffle() }
+        Glyph(Icons.Default.SkipPrevious, 46.dp, "Anterior") { tick(); player.previous() }
+        Box(Modifier.size(78.dp).bouncyClick { tick(); player.toggle() }, contentAlignment = Alignment.Center) {
             if (buffering) {
                 CircularProgressIndicator(Modifier.size(40.dp), color = Color.White, strokeWidth = 3.dp)
             } else {
@@ -469,7 +501,7 @@ private fun Controls(playing: Boolean, buffering: Boolean, shuffle: Boolean, rep
                 ) { p -> Icon(if (p) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", Modifier.size(64.dp), tint = Color.White) }
             }
         }
-        Glyph(Icons.Default.SkipNext, 46.dp, "Siguiente") { player.next() }
+        Glyph(Icons.Default.SkipNext, 46.dp, "Siguiente") { tick(); player.next() }
         StageToggle(
             if (repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
             "Repetir", repeat != RepeatMode.OFF,

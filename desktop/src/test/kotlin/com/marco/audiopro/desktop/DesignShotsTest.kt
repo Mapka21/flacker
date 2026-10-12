@@ -32,6 +32,7 @@ import com.marco.audiopro.ui.PlayerRoute
 import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.GeneratedArtistArt
 import com.marco.audiopro.ui.components.drawFlackerMark
+import com.marco.audiopro.ui.components.drawAsciiMark
 import com.marco.audiopro.ui.theme.MarcoTheme
 import com.marco.audiopro.ui.viz.VisualPreset
 import kotlinx.coroutines.runBlocking
@@ -106,6 +107,13 @@ class DesignShotsTest {
         } }
         shot(viz, "d8-nexo", 6000)
         ui { viz.close() }
+        val viz2 = ui { ImageComposeScene(1200, 760, Density(1f)) {
+            CompositionLocalProvider(LocalApp provides graph) {
+                MarcoTheme { Box(Modifier.fillMaxSize()) { AmbientBackground(graph.player.state.value.current?.coverArt, preset = VisualPreset.ASCII) } }
+            }
+        } }
+        shot(viz2, "d8b-ascii", 4000)
+        ui { viz2.close() }
 
         val gen = ui { ImageComposeScene(900, 300, Density(1f)) {
             MarcoTheme {
@@ -144,6 +152,15 @@ class DesignShotsTest {
                             androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(ic), androidx.compose.ui.geometry.Size(px.toFloat(), px.toFloat())) {
                                 val mg = px * margin
                                 drawFlackerMark(androidx.compose.ui.geometry.Offset(mg, mg), px - 2 * mg)
+                            }
+                            File(outDir, "$name.png").writeBytes(com.marco.audiopro.platform.encodePng(ic))
+                        }
+                        // La calavera ASCII: ícono de PC (grande) y frente del ícono adaptativo de Android (432 px, zona segura 264).
+                        for ((name, px, bg) in listOf(Triple("icon-ascii-512", 512, true), Triple("android-fg-432", 432, false))) {
+                            val ic = androidx.compose.ui.graphics.ImageBitmap(px, px)
+                            androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(ic), androidx.compose.ui.geometry.Size(px.toFloat(), px.toFloat())) {
+                                if (bg) drawAsciiMark(m, androidx.compose.ui.geometry.Offset(px * 0.04f, px * 0.04f), px * 0.92f)
+                                else drawAsciiMark(m, androidx.compose.ui.geometry.Offset(84f, 84f), 264f, background = false, fill = 0.98f)
                             }
                             File(outDir, "$name.png").writeBytes(com.marco.audiopro.platform.encodePng(ic))
                         }

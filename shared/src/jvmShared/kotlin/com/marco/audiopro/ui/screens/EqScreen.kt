@@ -367,9 +367,23 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 private fun PresetRow(cfg: EqConfig, engine: AudioEngine) {
     val user by engine.userPresets.collectAsState()
     var confirmDelete by remember { mutableStateOf<String?>(null) }
+    val genre = com.marco.audiopro.core.LocalApp.current.player.state.collectAsState().value.current?.genre
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Automático: cada canción se oye con el preset de su género.
+        item(key = "auto") {
+            val on = cfg.autoGenre
+            Box(
+                Modifier.clip(RoundedCornerShape(50))
+                    .background(if (on) Color.White else Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, Color.White.copy(alpha = if (on) 0f else 0.25f), RoundedCornerShape(50))
+                    .clickable { engine.setAutoGenre(!on, genre) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text("✦ Auto por género", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (on) Color.Black else Hifi.Text)
+            }
+        }
         items(EqPresets.builtIn + user, key = { it.name }) { p ->
-            val sel = cfg.presetName == p.name
+            val sel = cfg.presetName == p.name && !cfg.autoGenre
             val isUser = user.any { it.name == p.name }
             Box(
                 Modifier.clip(RoundedCornerShape(50))
@@ -383,7 +397,8 @@ private fun PresetRow(cfg: EqConfig, engine: AudioEngine) {
         }
     }
     Text(
-        "Mantén presionado un preset tuyo (★) para borrarlo.",
+        if (cfg.autoGenre) "Auto: \"${cfg.presetName}\"${genre?.let { " para $it" } ?: ""}. Cambia solo con cada canción; elige un preset para fijarlo."
+        else "Mantén presionado un preset tuyo (★) para borrarlo.",
         fontSize = 11.sp, color = Hifi.TextFaint, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
     )
     confirmDelete?.let { name ->

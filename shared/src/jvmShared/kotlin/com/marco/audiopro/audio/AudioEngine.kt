@@ -41,10 +41,24 @@ class AudioEngine(private val settings: Settings, val tap: SampleSource) {
     }
 
     fun updateBand(index: Int, f: (EqBand) -> EqBand) = update { c ->
-        c.copy(bands = c.bands.mapIndexed { i, b -> if (i == index) f(b) else b }, presetName = "Personalizado")
+        c.copy(bands = c.bands.mapIndexed { i, b -> if (i == index) f(b) else b }, presetName = "Personalizado", autoGenre = false)
     }
 
-    fun applyPreset(p: EqPreset) = update { it.copy(bands = p.bands, presetName = p.name, enabled = true) }
+    fun applyPreset(p: EqPreset) = update { it.copy(bands = p.bands, presetName = p.name, enabled = true, autoGenre = false) }
+
+    /** "Auto por género": encendido, cada canción pone el preset de su género. */
+    fun setAutoGenre(on: Boolean, currentGenre: String?) {
+        if (!on) { update { it.copy(autoGenre = false) }; return }
+        val p = EqPresets.forGenre(currentGenre)
+        update { it.copy(autoGenre = true, enabled = true, bands = p.bands, presetName = p.name) }
+    }
+
+    /** Llamar cuando cambia la canción (lo hace la raíz de la app). */
+    fun onSongGenre(genre: String?) {
+        if (!_config.value.autoGenre) return
+        val p = EqPresets.forGenre(genre)
+        if (p.name != _config.value.presetName) update { it.copy(bands = p.bands, presetName = p.name) }
+    }
 
     fun savePreset(name: String) {
         val list = _userPresets.value.filter { it.name != name } + EqPreset(name, _config.value.bands)

@@ -149,6 +149,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
     val c3 by animateColorAsState(target[3], tween(1400), label = "a3")
 
     val scene = remember { VisualScene() }
+    scene.measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val tick = remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
         var last = 0L
@@ -167,6 +168,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
         val big = (minOf(maxWidth, maxHeight) * 0.16f).coerceIn(14.dp, 90.dp)
         // Sin blur (Android < 12) la portada se vería tal cual: ahí van las manchas de color.
         val useArt = if (supportsBlur) art else null
+        scene.art = art
         Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
             Canvas(Modifier.fillMaxSize().blur(big, BlurredEdgeTreatment.Rectangle)) {
                 tick.longValue
