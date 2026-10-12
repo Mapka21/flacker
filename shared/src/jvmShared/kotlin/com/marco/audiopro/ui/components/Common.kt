@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.Download
@@ -466,6 +467,8 @@ fun TrackRow(
     var addTo by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
+    var story by remember { mutableStateOf(false) }
+    if (story) ShareStoryDialog(song) { story = false }
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
     val rowBg by animateColorAsState(
@@ -543,6 +546,7 @@ fun TrackRow(
                 } else if (store != null) {
                     AppMenuItem("Descargar", Icons.Outlined.Download) { store.download(listOf(song)); menu = null }
                 }
+                AppMenuItem("Compartir en historia", Icons.Default.IosShare) { menu = null; story = true }
                 if (onGoToAlbum != null && song.albumId != null) {
                     AppMenuDivider()
                     AppMenuItem("Ir al álbum", Icons.Default.Album) { onGoToAlbum(); menu = null }

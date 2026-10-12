@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Radio
@@ -59,7 +60,9 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
     val scope = rememberCoroutineScope()
     val liked = song.id in c.likes.ids.collectAsState().value
     var addTo by remember { mutableStateOf(false) }
+    var story by remember { mutableStateOf(false) }
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
+    if (story) ShareStoryDialog(song) { story = false }
     AppMenu(expanded, onDismiss, offset) {
         if (!song.isPreview) {
             AppMenuItem(
@@ -80,6 +83,7 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
         c.downloads?.takeIf { !song.isPreview }?.let { store ->
             AppMenuItem("Descargar", Icons.Outlined.Download) { store.download(listOf(song)); onDismiss() }
         }
+        AppMenuItem("Compartir en historia", Icons.Default.IosShare) { onDismiss(); story = true }
         if (nav != null && (song.albumId != null || song.artistId != null)) {
             AppMenuDivider()
             song.albumId?.let { id -> AppMenuItem("Ir al álbum", Icons.Default.Album) { onDismiss(); nav.openAlbum(id) } }

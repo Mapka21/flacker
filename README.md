@@ -34,6 +34,13 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **Compartir en historia** (botón ⇪ en el reproductor, en "Reproduciendo" y en el menú de cada
+  canción): arma una imagen para historias de Instagram con la portada, la canción, la calidad
+  (p. ej. "FLAC · 24/96 · HI-RES" en dorado) y la barra de avance, en tres estilos: Aura, Vinilo y
+  Póster. En el celular abre directo el editor de historias de Instagram ("Otras apps" para el
+  resto). En la PC la copia y la guarda en Imágenes\Flacker, o la manda a tu celular por Connect
+  (misma red) para subirla desde ahí.
+
 - **v2.4, diseño nuevo**: logo e ícono nuevos (adiós "HI-FI · HACKER"), tipografía Inter en
   todos los rótulos, barra de título oscura del color de la app, menús de clic derecho compactos
   como los de una app de PC, resaltado al pasar el mouse, portada y título que cambian con

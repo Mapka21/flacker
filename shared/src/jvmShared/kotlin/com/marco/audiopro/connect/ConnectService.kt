@@ -127,6 +127,8 @@ class ConnectService(
 
     /** Último aviso para la UI ("Pasó a PC-MARCO", errores de conexión…). */
     val notice = MutableStateFlow<String?>(null)
+    /** Canción que otro dispositivo (la PC) pidió compartir en historias desde aquí (el celular). */
+    val storyRequest = MutableStateFlow<Song?>(null)
 
     val id: String = settings.getString("connect_id") ?: UUID.randomUUID().toString().also { settings.putString("connect_id", it) }
 
@@ -298,6 +300,11 @@ class ConnectService(
             "remove" -> player.removeAt(c.index)
             "playNext" -> player.playNext(c.songs)
             "enqueue" -> player.enqueue(c.songs)
+            "story" -> {
+                storyRequest.value = c.songs.firstOrNull() ?: return Reply(false, error = "sin canción")
+                notice.value = "${c.from} te mandó una historia para compartir"
+                return Reply(true)
+            }
             // Entrega la cola para que otro dispositivo la "jale" (Traer aquí).
             "handoff" -> {
                 val st = player.state.value
@@ -369,6 +376,13 @@ class ConnectService(
         send(fresh(d), Command(cmd, accountKey(), deviceName, key = key), timeoutMs = 25_000)?.takeIf { it.ok }?.payload
 
     /** Avisa a los demás que algo cambió aquí (me gusta, playlists, portadas, ajustes). */
+    /** Manda una canción al celular para compartirla en historias de Instagram desde ahí. */
+    suspend fun sendStory(to: RemoteDevice, song: Song): Boolean {
+        val ok = send(fresh(to), Command("story", accountKey(), deviceName, listOf(song)))?.ok == true
+        notice.value = if (ok) "Listo: ábrela en ${to.name} y compártela" else "${to.name} no responde"
+        return ok
+    }
+
     fun broadcastRefresh() {
         val list = _devices.value
         if (list.isEmpty()) return

@@ -321,6 +321,10 @@ private fun PhoneShell(nav: NavHostController) {
             ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
         }
     }
+    // La PC mandó una canción para compartirla en historias desde el celular.
+    c.connect.storyRequest.collectAsState().value?.let { s ->
+        com.marco.audiopro.ui.components.ShareStoryDialog(s) { c.connect.storyRequest.value = null }
+    }
 }
 
 @Composable

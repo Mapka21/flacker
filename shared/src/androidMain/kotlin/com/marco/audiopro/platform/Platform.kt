@@ -16,6 +16,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.core.content.FileProvider
+import android.content.ClipData
+import android.content.Intent
+import java.io.ByteArrayOutputStream
+import java.io.File
 import coil3.Image
 import coil3.toBitmap
 
@@ -61,4 +68,44 @@ fun rememberImagePicker(onPicked: (ByteArray) -> Unit): () -> Unit {
         if (uri != null) ctx.contentResolver.openInputStream(uri)?.use { callback(it.readBytes()) }
     }
     return { launcher.launch("image/*") }
+}
+
+fun encodePng(img: ImageBitmap): ByteArray =
+    ByteArrayOutputStream().also { img.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+
+/** En el celular la imagen va directo a Instagram. */
+val sharesToInstagram: Boolean = true
+
+private const val INSTAGRAM = "com.instagram.android"
+
+/**
+ * Compartir la imagen de historia: directo al editor de historias de Instagram si está; si no,
+ * a la de la app de Instagram o, con `instagram = false`, al menú de compartir del sistema.
+ */
+@Composable
+fun rememberStoryShare(): (png: ByteArray, name: String, instagram: Boolean) -> String? {
+    val ctx = LocalContext.current
+    return remember(ctx) {
+        { png, _, instagram ->
+            val dir = File(ctx.cacheDir, "share").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+            val f = File(dir, "flacker-${System.currentTimeMillis()}.png").apply { writeBytes(png) }
+            val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".share", f)
+            val send = Intent(Intent.ACTION_SEND).setType("image/png")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                .apply { clipData = ClipData.newRawUri("", uri) }
+            val pm = ctx.packageManager
+            val story = Intent(send).setClassName(INSTAGRAM, "com.instagram.share.handleractivity.StoryShareHandlerActivity")
+            val app = Intent(send).setPackage(INSTAGRAM)
+            when {
+                !instagram -> { ctx.startActivity(Intent.createChooser(send, "Compartir").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); null }
+                story.resolveActivity(pm) != null -> { ctx.startActivity(story); null }
+                app.resolveActivity(pm) != null -> { ctx.startActivity(app); null }
+                else -> {
+                    ctx.startActivity(Intent.createChooser(send, "Compartir").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    "No encontré Instagram: elige dónde compartirla"
+                }
+            }
+        }
+    }
 }

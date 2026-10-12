@@ -117,6 +117,36 @@ class DesignShotsTest {
         } }
         shot(gen, "d9-generated", 800)
         ui { gen.close() }
+        // Historias para Instagram: los tres estilos (PNG reales) y el diálogo.
+        val song = graph.player.state.value.current!!
+        val done = java.util.concurrent.CountDownLatch(1)
+        val stories = ui { ImageComposeScene(300, 300, Density(1f)) {
+            CompositionLocalProvider(LocalApp provides graph) {
+                MarcoTheme {
+                    val m = androidx.compose.ui.text.rememberTextMeasurer()
+                    val ctx = coil3.compose.LocalPlatformContext.current
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        val art = com.marco.audiopro.ui.components.loadStoryArt(ctx, graph.api, song.coverArt)
+                        val sw = com.marco.audiopro.ui.components.coverColors(ctx, graph.api, song.coverArt)?.swatches
+                        com.marco.audiopro.ui.components.StoryStyle.entries.forEach { st ->
+                            val img = com.marco.audiopro.ui.components.renderStory(m, com.marco.audiopro.ui.components.StoryData(song, art, sw, 64_000L to 245_000L), st)
+                            File(outDir, "d10-story-${st.name.lowercase()}.png").writeBytes(com.marco.audiopro.platform.encodePng(img))
+                        }
+                        done.countDown()
+                    }
+                }
+            }
+        } }
+        val sEnd = System.currentTimeMillis() + 8000
+        while (done.count > 0 && System.currentTimeMillis() < sEnd) { ui { stories.render(System.nanoTime()) }; Thread.sleep(30) }
+        ui { stories.close() }
+        val dialog = ui { ImageComposeScene(1380, 860, Density(1f)) {
+            CompositionLocalProvider(LocalLifecycleOwner provides DesignOwner, LocalViewModelStoreOwner provides DesignOwner, LocalApp provides graph) {
+                MarcoTheme { com.marco.audiopro.ui.components.ShareStoryDialog(song) {} }
+            }
+        } }
+        shot(dialog, "d11-share-dialog", 3000)
+        ui { dialog.close() }
         graph.settings.updatePrefs { it.copy(visualMode = false) }
         graph.shutdown()
     }

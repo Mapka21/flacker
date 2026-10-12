@@ -11,6 +11,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.asSkiaBitmap
+import org.jetbrains.skia.EncodedImageFormat
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.Transferable
+import java.io.File
+import javax.imageio.ImageIO
 import coil3.Image
 import java.awt.FileDialog
 import java.awt.Frame
@@ -65,5 +72,46 @@ fun rememberImagePicker(onPicked: (ByteArray) -> Unit): () -> Unit {
             d.isVisible = true
             d.files.firstOrNull()?.takeIf { it.isFile }?.let { callback(it.readBytes()) }
         }
+    }
+}
+
+fun encodePng(img: ImageBitmap): ByteArray =
+    org.jetbrains.skia.Image.makeFromBitmap(img.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)!!.bytes
+
+/** En la PC no hay Instagram para historias: la imagen se copia y se guarda. */
+val sharesToInstagram: Boolean = false
+
+/** Carpeta Imágenes de Windows (puede estar en OneDrive y con acento: "Imágenes"); se pide en UTF-8. */
+private val picturesDir: File by lazy {
+    val path = runCatching {
+        val p = ProcessBuilder(
+            "powershell", "-NoProfile", "-Command",
+            "[Console]::OutputEncoding=[Text.Encoding]::UTF8; [Environment]::GetFolderPath('MyPictures')",
+        ).redirectErrorStream(true).start()
+        val out = p.inputStream.readBytes().toString(Charsets.UTF_8).trim().lines().lastOrNull()?.trim()
+        p.waitFor()
+        out
+    }.getOrNull()
+    path?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.isDirectory } ?: File(System.getProperty("user.home"), "Pictures")
+}
+
+private class ImageTransfer(private val img: java.awt.Image) : Transferable {
+    override fun getTransferDataFlavors() = arrayOf(DataFlavor.imageFlavor)
+    override fun isDataFlavorSupported(f: DataFlavor) = f == DataFlavor.imageFlavor
+    override fun getTransferData(f: DataFlavor): Any = img
+}
+
+/**
+ * Compartir la imagen de historia. En la PC: se copia al portapapeles (pégala donde quieras) y se
+ * guarda en Imágenes\Flacker. Devuelve el aviso para mostrar.
+ */
+@Composable
+fun rememberStoryShare(): (png: ByteArray, name: String, instagram: Boolean) -> String? = remember {
+    { png, name, _ ->
+        val dir = File(picturesDir, "Flacker").apply { mkdirs() }
+        val f = File(dir, name.replace(Regex("""[\\/:*?"<>|]+"""), " ").trim().take(120) + ".png")
+        f.writeBytes(png)
+        runCatching { Toolkit.getDefaultToolkit().systemClipboard.setContents(ImageTransfer(ImageIO.read(f)), null) }
+        "Copiada y guardada en ${dir.path}"
     }
 }

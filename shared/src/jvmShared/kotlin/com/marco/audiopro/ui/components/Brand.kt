@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -34,22 +35,24 @@ val BrandGradient = listOf(Color(0xFFFF7A45), Color(0xFFFF2D78), Color(0xFF7C4DF
  */
 @Composable
 fun FlackerMark(size: Dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val corner = CornerRadius(s * 0.28f)
-        drawRoundRect(Brush.linearGradient(BrandGradient, Offset.Zero, Offset(s, s)), cornerRadius = corner)
-        // Brillo de vidrio arriba.
-        drawRoundRect(
-            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), 0f, s * 0.55f),
-            cornerRadius = corner,
-        )
-        val bar = s * 0.13f
-        val r = CornerRadius(bar / 2)
-        val x0 = s * 0.29f
-        drawRoundRect(Color.White, Offset(x0, s * 0.22f), Size(bar, s * 0.56f), r)
-        drawRoundRect(Color.White, Offset(x0, s * 0.22f), Size(s * 0.45f, bar), r)
-        drawRoundRect(Color.White.copy(alpha = 0.92f), Offset(x0, s * 0.445f), Size(s * 0.33f, bar), r)
-    }
+    Canvas(modifier.size(size)) { drawFlackerMark(Offset.Zero, this.size.minDimension) }
+}
+
+/** El ícono dibujado en cualquier lienzo (también en las imágenes para compartir). */
+fun DrawScope.drawFlackerMark(at: Offset, s: Float) {
+    val corner = CornerRadius(s * 0.28f)
+    drawRoundRect(Brush.linearGradient(BrandGradient, at, at + Offset(s, s)), at, Size(s, s), corner)
+    // Brillo de vidrio arriba.
+    drawRoundRect(
+        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), at.y, at.y + s * 0.55f),
+        at, Size(s, s), corner,
+    )
+    val bar = s * 0.13f
+    val r = CornerRadius(bar / 2)
+    val x0 = at.x + s * 0.29f
+    drawRoundRect(Color.White, Offset(x0, at.y + s * 0.22f), Size(bar, s * 0.56f), r)
+    drawRoundRect(Color.White, Offset(x0, at.y + s * 0.22f), Size(s * 0.45f, bar), r)
+    drawRoundRect(Color.White.copy(alpha = 0.92f), Offset(x0, at.y + s * 0.445f), Size(s * 0.33f, bar), r)
 }
 
 /** Logo: el ícono y "Flacker" en Inter negrita, apretada. */

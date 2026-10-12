@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Para saber si está Instagram (compartir en historias). -->
+    <queries>
+        <package android:name="com.instagram.android" />
+    </queries>
+
     <application
         android:name=".MarcoApp"
         android:allowBackup="false"
@@ -44,5 +49,16 @@
             android:name=".download.MarcoDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Imágenes para compartir en historias (Instagram las lee desde aquí). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
     </application>
 </manifest>

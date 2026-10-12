@@ -106,6 +106,7 @@ import com.marco.audiopro.ui.components.GlassChip
 import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.LyricsPane
 import com.marco.audiopro.ui.components.VisualModeButton
+import com.marco.audiopro.ui.components.ShareStoryButton
 import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.formatMs
@@ -168,6 +169,7 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
             Spacer(Modifier.weight(1f))
             Row(Modifier.glass(RoundedCornerShape(50), Color.Black.copy(alpha = 0.25f)).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VisualModeButton(size = 20)
+                ShareStoryButton(song, size = 19)
                 StageToggle(Icons.Default.Lyrics, "Letra", side == Stage.LYRICS) { side = if (side == Stage.LYRICS) Stage.COVER else Stage.LYRICS }
                 StageToggle(Icons.AutoMirrored.Filled.QueueMusic, "Cola", side == Stage.QUEUE) { side = if (side == Stage.QUEUE) Stage.COVER else Stage.QUEUE }
                 DevicesButton(size = 20)
@@ -230,6 +232,7 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
                 else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 9.sp))
                 Text(song.album ?: "", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
             }
+            ShareStoryButton(song, size = 21, tint = Color.White)
             VisualModeButton()
         }
         AnimatedContent(stage, Modifier.weight(1f), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "stage") { s ->

@@ -516,6 +516,7 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Default.Lyrics, "Letra", tint = if (lyricsOn) Color.White else Hifi.OnArt, modifier = Modifier.size(20.dp)) }
             IconButton(onClick = { nav.openTab(DspRoute) }) { Icon(Icons.Default.Equalizer, "Ecualizador", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
+            com.marco.audiopro.ui.components.ShareStoryButton(song, size = 19)
             DevicesButton(size = 20)
         }
     }
