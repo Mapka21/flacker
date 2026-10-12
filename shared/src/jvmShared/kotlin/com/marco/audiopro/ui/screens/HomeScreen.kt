@@ -152,8 +152,8 @@ fun HomeScreen(nav: NavController) {
                         Text(date, style = Mono.copy(color = Hifi.TextDim, fontSize = 11.sp, letterSpacing = 0.8.sp))
                         Text(greeting, style = Display.copy(fontSize = 36.sp))
                     }
-                    // Modo chill: toda tu biblioteca al azar, sin fin.
-                    Row(
+                    // Modo chill: toda tu biblioteca al azar, sin fin. (En la PC ya está en la barra de arriba.)
+                    if (!c.isDesktop) Row(
                         Modifier.clip(RoundedCornerShape(50)).background(Hifi.Accent).bouncyClick { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,

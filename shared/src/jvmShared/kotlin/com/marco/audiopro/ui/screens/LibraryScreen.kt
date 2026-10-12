@@ -109,7 +109,8 @@ fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.weight(1f))
-            GlassChip("Aleatorio · toda tu música", false) { LibraryShuffle.start(c) }
+            // En la PC el aleatorio de toda tu música ya está en la barra de arriba.
+            if (!c.isDesktop) GlassChip("Aleatorio · toda tu música", false) { LibraryShuffle.start(c) }
             // En el celular, las descargas viven aquí.
             c.downloads?.let { store ->
                 Spacer(Modifier.width(8.dp))

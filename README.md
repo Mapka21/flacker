@@ -61,7 +61,7 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
   que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
   Toca cualquier canción para oír una **muestra de 30 s** (o "Escuchar todas"). Catálogo de la
   API pública de Deezer; se refresca cada 12 h. La búsqueda también muestra "Fuera de tu biblioteca".
-- **Aleatorio de toda tu música** (Inicio, Biblioteca y la barra de arriba en PC): pone
+- **Aleatorio de toda tu música** (en la PC, el botón de la barra de arriba junto al ✨; en el celular, Inicio y Biblioteca): pone
   canciones al azar de toda la biblioteca y agrega más solas cuando se acaban.
 - **Biblioteca**: artistas en cuadrícula con foto e índice A-Z; "Canciones" como tabla (título,
   álbum, duración) con filtro instantáneo, orden por título/artista/álbum/más oídas e índice A-Z.
