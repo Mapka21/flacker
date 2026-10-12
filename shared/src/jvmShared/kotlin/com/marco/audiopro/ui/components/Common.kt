@@ -69,6 +69,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -314,10 +322,10 @@ fun formatBytes(b: Long): String = when {
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Row(
-        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 22.dp, bottom = 8.dp),
+        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 26.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = Display.copy(fontSize = 19.sp, color = Hifi.Text), modifier = Modifier.weight(1f))
+        Text(title, style = Display.copy(fontSize = 22.sp, color = Hifi.Text, letterSpacing = (-0.6).sp), modifier = Modifier.weight(1f))
         action?.invoke()
     }
 }
@@ -328,9 +336,31 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Compos
 @Composable
 fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier, nav: androidx.navigation.NavController? = null) {
     var menu by remember { mutableStateOf<DpOffset?>(null) }
-    Box(modifier.onRightClick { menu = it }.bouncyClick(onClick = onClick).padding(6.dp)) {
+    val c = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val lift by animateFloatAsState(if (hovered) 1f else 0f, spring(dampingRatio = 0.8f, stiffness = 400f), label = "lift")
+    Box(modifier.hoverable(hoverSource).onRightClick { menu = it }.bouncyClick(onClick = onClick).padding(6.dp)) {
         Column {
-            CoverArt(album.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(12.dp, RoundedCornerShape(10.dp)), size = 400, corner = 10.dp)
+            Box {
+                CoverArt(
+                    album.coverArt,
+                    Modifier.fillMaxWidth().aspectRatio(1f)
+                        .graphicsLayer { translationY = -6.dp.toPx() * lift; scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift }
+                        .shadow((12 + 14 * lift).dp, RoundedCornerShape(10.dp)),
+                    size = 400, corner = 10.dp,
+                )
+                // Play directo, como en Apple Music / Spotify (sólo al pasar el mouse).
+                if (lift > 0.01f) {
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).padding(10.dp).graphicsLayer { alpha = lift; translationY = (1f - lift) * 10.dp.toPx() - 6.dp.toPx() * lift }
+                            .size(42.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(Hifi.Accent)
+                            .bouncyClick { scope.launch { runCatching { c.api.album(album.id).song }.onSuccess { if (it.isNotEmpty()) c.player.play(it) } } },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Default.PlayArrow, "Reproducir ${album.name}", tint = Color.Black, modifier = Modifier.size(24.dp)) }
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(album.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Text(
@@ -428,19 +458,35 @@ fun TrackRow(
     var addTo by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val rowBg by animateColorAsState(
+        when { isCurrent -> Hifi.Accent.copy(alpha = 0.08f); hovered -> Color.White.copy(alpha = 0.06f); else -> Color.Transparent }, tween(140), label = "rowbg",
+    )
     Box(modifier.fillMaxWidth().onSizeChanged { rowWidth = it.width }) {
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (isCurrent) Hifi.Accent.copy(alpha = 0.07f) else Color.Transparent)
+            .hoverable(hoverSource)
+            .padding(horizontal = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(rowBg)
             .onRightClick { menu = it }
             .combinedClickable(onClick = onClick, onLongClick = { menu = dotsAt() })
-            .padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+            .padding(start = 10.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
-            showCover -> CoverArt(song.coverArt, Modifier.size(46.dp), size = 120, corner = 6.dp)
+            showCover -> Box(contentAlignment = Alignment.Center) {
+                CoverArt(song.coverArt, Modifier.size(46.dp), size = 120, corner = 6.dp)
+                if (hovered && !isCurrent) {
+                    Box(Modifier.size(46.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                }
+            }
             isCurrent -> Icon(Icons.Default.GraphicEq, null, tint = Hifi.Accent, modifier = Modifier.width(28.dp).size(18.dp))
+            hovered -> Icon(Icons.Default.PlayArrow, null, tint = Hifi.Text, modifier = Modifier.width(28.dp).size(18.dp))
             else -> Text(leading ?: "", style = Mono.copy(color = Hifi.TextFaint), modifier = Modifier.width(28.dp))
         }
         Spacer(Modifier.width(12.dp))

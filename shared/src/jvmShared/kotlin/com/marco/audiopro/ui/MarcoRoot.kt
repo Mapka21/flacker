@@ -207,7 +207,10 @@ fun MarcoGate(shell: @Composable () -> Unit) {
 fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
         nav, startDestination = HomeRoute, modifier = modifier,
-        enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(180)) },
+        enterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(320)) { it / 14 } },
+        exitTransition = { fadeOut(tween(160)) },
+        popEnterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(320)) { -it / 14 } },
+        popExitTransition = { fadeOut(tween(160)) + androidx.compose.animation.slideOutHorizontally(tween(260)) { it / 14 } },
     ) {
         composable<HomeRoute> { HomeScreen(nav) }
         composable<LibraryRoute> { LibraryScreen(nav, it.toRoute<LibraryRoute>().tab) }

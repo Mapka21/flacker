@@ -46,10 +46,13 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
   recargan solos cada minuto y al instante cuando otro dispositivo de la misma red avisa que
   cambió algo. Las portadas propias y los ajustes compartidos (Last.fm, IA, color, modo visual)
   viajan por Connect entre dispositivos de la misma red; gana el cambio más reciente.
-- **Letras confiables**: sólo se acepta la letra de LRCLIB de la misma versión que tu archivo
-  (mismo artista y título, duración ±3 s); si sus tiempos se pasan de lo que dura la canción,
-  se muestra sin sincronizar. Se limpian líneas basura. En la letra: "−½ s / +½ s" para
-  ajustarla y "Otra letra" para elegir a mano (se recuerda por canción).
+- **Letras confiables, sin tocar nada**: Navidrome si trae sincronizada; si no, LRCLIB. Se juntan
+  todas las versiones que cuadran (mismo artista y título, duración ±3 s) y se califican: que sus
+  tiempos quepan en la canción, misma duración, mismo álbum y que coincidan con la mayoría de las
+  subidas. Gana la mejor; si ninguna sirve, mejor sin letra. Estilo Apple Music, con los tres
+  puntitos en las partes instrumentales.
+- **Detalles de PC**: al pasar el mouse las portadas se levantan con un botón de play directo y
+  las canciones se iluminan (el número se vuelve ▶); transiciones de "empujar" entre pantallas.
 - **Mi Last.fm**: tu perfil de Last.fm dentro de la app (usuario + API key gratis, se piden la
   primera vez): scrobbles, artistas, álbumes y canciones totales, lo que estás escuchando, gráfica
   de los últimos 30 días, tu reloj musical (horas) y días de la semana, tus tops de artistas,

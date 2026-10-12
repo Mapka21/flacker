@@ -34,6 +34,15 @@ class LyricsMatchTest {
         assertNotEquals(r2.synced to r2.line.lastOrNull()?.start, album!!.synced to album.line.lastOrNull()?.start)
     }
 
+    @Test fun picksBestOfManyUploads() = runBlocking {
+        assumeTrue(online)
+        // Korn tiene muchas subidas de esta rola; debe salir una sincronizada que quepa en 4:15.
+        val l = repo().get(Song("k", "Freak On A Leash", artist = "Korn", album = "Follow the Leader", duration = 255))
+        assertTrue("sin letra sincronizada", l?.synced == true)
+        val last = l!!.line.last { it.value.isNotBlank() }.start!!
+        assertTrue("tiempos fuera de la canción: $last", last in 150_000..260_000)
+    }
+
     @Test fun noLyricsBeatsWrongLyrics() = runBlocking {
         assumeTrue(online)
         // Duración que no existe para esa canción: mejor sin letra que la de otra versión.

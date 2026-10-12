@@ -23,18 +23,6 @@ import okhttp3.Request
 import java.io.File
 import kotlin.math.abs
 
-/** Una letra posible en LRCLIB (para "Elegir otra letra"). */
-data class LyricsCandidate(
-    val id: Long,
-    val track: String,
-    val artist: String,
-    val album: String?,
-    val duration: Int,
-    val synced: Boolean,
-    /** Diferencia de duración con tu archivo, en segundos. */
-    val diff: Int?,
-)
-
 @Serializable
 private data class CachedLyrics(val lyrics: StructuredLyrics? = null, val chosen: Boolean = false, val hidden: Boolean = false)
 
@@ -44,11 +32,12 @@ private data class CachedLyrics(val lyrics: StructuredLyrics? = null, val chosen
  * - Si no, LRCLIB, pero sólo la versión que dura lo mismo que tu archivo (±3 s) y del mismo
  *   artista y título; si no hay una así, nada (mejor sin letra que con la de otra versión,
  *   que es lo que hacía que fueran "lentas" o adelantadas).
+ * - Entre todas las versiones que cuadran, se califica cada una (duración, álbum, que sus tiempos
+ *   quepan en la canción y que coincida con la mayoría de las demás subidas) y gana la mejor.
  * - Se limpian líneas basura (anuncios, marcas de agua, ligas).
- * - Para cada canción puedes elegir otra letra a mano o moverla en el tiempo; se recuerda.
  */
 class LyricsRepository(private val http: OkHttpClient, private val api: SubsonicApi, cacheDir: File) {
-    private val dir = File(cacheDir, "lyrics2").apply { mkdirs() }
+    private val dir = File(cacheDir, "lyrics3").apply { mkdirs() }
     private fun file(id: String) = File(dir, id.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
     private val offsetsFile = File(dir, "_offsets.json")
 
@@ -69,41 +58,6 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
             else -> net
         }
     }
-
-    // ---------------------------------------------------------------- elegir a mano
-
-    /** Todas las letras de LRCLIB para esta canción, las de duración más parecida primero. */
-    suspend fun candidates(song: Song, query: String? = null): List<LyricsCandidate> = withContext(Dispatchers.IO) {
-        val url = "https://lrclib.net/api/search".toHttpUrl().newBuilder().apply {
-            if (query != null) addQueryParameter("q", query)
-            else {
-                addQueryParameter("track_name", song.title)
-                song.artist?.let { addQueryParameter("artist_name", it) }
-            }
-        }.build()
-        val list = (request(url.toString()) as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-        list.filter { it.bool("instrumental") != true }.map { o ->
-            val d = o.dbl("duration")?.toInt() ?: 0
-            LyricsCandidate(
-                o.long("id") ?: 0, o.str("trackName") ?: "", o.str("artistName") ?: "", o.str("albumName"), d,
-                o.str("syncedLyrics") != null, song.duration?.let { abs(it - d) },
-            )
-        }.sortedWith(compareBy<LyricsCandidate> { it.diff ?: 999 }.thenByDescending { it.synced })
-    }
-
-    /** Usar esta letra para esta canción (se queda guardada). */
-    suspend fun choose(song: Song, candidateId: Long): StructuredLyrics? = withContext(Dispatchers.IO) {
-        val o = request("https://lrclib.net/api/get/$candidateId")?.jsonObject ?: return@withContext null
-        val l = parse(o)?.let(::clean)?.copy(source = "LRCLIB · elegida")
-        save(song, CachedLyrics(l, chosen = true))
-        l
-    }
-
-    /** "Sin letra" para esta canción. */
-    suspend fun hide(song: Song) = save(song, CachedLyrics(hidden = true))
-
-    /** Olvida lo elegido y vuelve a buscar automáticamente. */
-    suspend fun reset(song: Song) = withContext(Dispatchers.IO) { file(song.id).delete(); Unit }
 
     fun setOffset(songId: String, ms: Long) {
         _offsets.value = if (ms == 0L) _offsets.value - songId else _offsets.value + (songId to ms)
@@ -127,7 +81,7 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
     private suspend fun fetchLrclib(song: Song): StructuredLyrics? = withContext(Dispatchers.IO) {
         val artist = song.artist ?: return@withContext null
         val dur = song.duration
-        // 1) Coincidencia exacta (LRCLIB ya filtra por duración ±2 s).
+        // Todas las fuentes de candidatos: coincidencia exacta + dos búsquedas.
         val exact = "https://lrclib.net/api/get".toHttpUrl().newBuilder()
             .addQueryParameter("artist_name", artist)
             .addQueryParameter("track_name", song.title)
@@ -135,20 +89,47 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
                 song.album?.let { addQueryParameter("album_name", it) }
                 dur?.let { addQueryParameter("duration", it.toString()) }
             }.build()
-        (request(exact.toString()) as? JsonObject)?.takeIf { it.fits(song) }?.let(::parse)?.let(::clean)?.let { sane(it, song) }?.let { return@withContext it }
-        // 2) Búsqueda, pero sólo versiones del mismo artista, mismo título y misma duración.
-        val search = "https://lrclib.net/api/search".toHttpUrl().newBuilder()
-            .addQueryParameter("track_name", song.title)
-            .addQueryParameter("artist_name", artist)
-            .build()
-        val results = (request(search.toString()) as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.filter { it.fits(song) }
-        results.sortedWith(
-            compareByDescending<JsonObject> { it.str("syncedLyrics") != null }
-                .thenBy { o -> dur?.let { abs((o.dbl("duration") ?: 0.0) - it) } ?: 0.0 },
-        ).mapNotNull { parse(it)?.let(::clean) }.let { all ->
-            // Primero una sincronizada que sí quepa en la canción; si ninguna, el texto sin tiempos.
-            all.firstOrNull { it.synced && sane(it, song) === it } ?: all.firstNotNullOfOrNull { sane(it, song) }
+        val byFields = "https://lrclib.net/api/search".toHttpUrl().newBuilder()
+            .addQueryParameter("track_name", song.title).addQueryParameter("artist_name", artist).build()
+        val byQuery = "https://lrclib.net/api/search".toHttpUrl().newBuilder()
+            .addQueryParameter("q", "$artist ${song.title}").build()
+        val raw = buildList {
+            (request(exact.toString()) as? JsonObject)?.let(::add)
+            (request(byFields.toString()) as? JsonArray).orEmpty().mapNotNullTo(this) { it as? JsonObject }
+            if (size < 3) (request(byQuery.toString()) as? JsonArray).orEmpty().mapNotNullTo(this) { it as? JsonObject }
+        }.distinctBy { it.long("id") ?: it.hashCode().toLong() }.filter { it.fits(song) }
+        pickBest(raw, song)
+    }
+
+    private class Candidate(val lyrics: StructuredLyrics, val durDiff: Double, val albumMatch: Boolean, val firstLine: Long?)
+
+    /**
+     * Califica las versiones y se queda con la mejor:
+     * - sincronizada cuyos tiempos caben en la canción ≫ sólo texto;
+     * - misma duración exacta mejor que ±3 s;
+     * - mismo álbum suma;
+     * - "consenso": si varias subidas empiezan la letra al mismo tiempo, esa es la buena (las
+     *   mal subidas suelen ir solas, adelantadas o atrasadas).
+     */
+    private fun pickBest(raw: List<JsonObject>, song: Song): StructuredLyrics? {
+        val album = song.album?.let(::normName).orEmpty()
+        val cands = raw.mapNotNull { o ->
+            val parsed = parse(o)?.let(::clean) ?: return@mapNotNull null
+            val l = sane(parsed, song) ?: return@mapNotNull null
+            val d = song.duration?.let { abs((o.dbl("duration") ?: it.toDouble()) - it) } ?: 0.0
+            val al = o.str("albumName")?.let(::normName).orEmpty()
+            Candidate(l, d, album.isNotEmpty() && (al == album || al.startsWith(album) || album.startsWith(al)), l.line.firstOrNull { it.value.isNotBlank() }?.start)
         }
+        if (cands.isEmpty()) return null
+        val syncedStarts = cands.filter { it.lyrics.synced }.mapNotNull { it.firstLine }
+        fun score(c: Candidate): Double {
+            var s = if (c.lyrics.synced) 1000.0 else 200.0
+            s -= c.durDiff * 40
+            if (c.albumMatch) s += 60
+            if (c.lyrics.synced && c.firstLine != null) s += 25.0 * syncedStarts.count { abs(it - c.firstLine) <= 750 }
+            return s
+        }
+        return cands.maxBy(::score).lyrics
     }
 
     /**
