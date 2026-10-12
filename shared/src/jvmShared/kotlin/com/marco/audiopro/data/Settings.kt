@@ -28,7 +28,7 @@ data class AppPrefs(
     /** Tu usuario de Last.fm (para la sección "Mi Last.fm"). */
     val lastFmUser: String = "",
     val anthropicKey: String = "",
-    val accent: AccentTheme = AccentTheme.AMBER,
+    val accent: AccentTheme = AccentTheme.PLATA,
     val downloadQuality: StreamQuality = StreamQuality.ORIGINAL,
     val downloadWifiOnly: Boolean = true,
     /** Modo visual: el fondo reacciona a la música con el preset elegido. */
@@ -79,7 +79,7 @@ class Settings(private val sp: KeyValueStore) {
         lastFmKey = sp.getString("lastfm").orEmpty(),
         lastFmUser = sp.getString("lastfm_user").orEmpty(),
         anthropicKey = sp.getString("anthropic").orEmpty(),
-        accent = enumOr(sp.getString("accent"), AccentTheme.AMBER),
+        accent = enumOr(sp.getString("accent"), AccentTheme.PLATA),
         downloadQuality = enumOr(sp.getString("q_download"), StreamQuality.ORIGINAL),
         downloadWifiOnly = sp.getBoolean("dl_wifi", true),
         visualMode = sp.getBoolean("vis_mode", true),

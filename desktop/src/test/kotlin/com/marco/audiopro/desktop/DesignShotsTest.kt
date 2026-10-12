@@ -31,6 +31,7 @@ import com.marco.audiopro.ui.LibraryRoute
 import com.marco.audiopro.ui.PlayerRoute
 import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.GeneratedArtistArt
+import com.marco.audiopro.ui.components.drawFlackerMark
 import com.marco.audiopro.ui.theme.MarcoTheme
 import com.marco.audiopro.ui.viz.VisualPreset
 import kotlinx.coroutines.runBlocking
@@ -129,8 +130,22 @@ class DesignShotsTest {
                         val art = com.marco.audiopro.ui.components.loadStoryArt(ctx, graph.api, song.coverArt)
                         val sw = com.marco.audiopro.ui.components.coverColors(ctx, graph.api, song.coverArt)?.swatches
                         com.marco.audiopro.ui.components.StoryStyle.entries.forEach { st ->
-                            val img = com.marco.audiopro.ui.components.renderStory(m, com.marco.audiopro.ui.components.StoryData(song, art, sw, 64_000L to 245_000L), st)
+                            val img = com.marco.audiopro.ui.components.renderStory(m, com.marco.audiopro.ui.components.StoryData(song, art, sw), st)
                             File(outDir, "d10-story-${st.name.lowercase()}.png").writeBytes(com.marco.audiopro.platform.encodePng(img))
+                        }
+                        val verses = listOf("de veinte hercios", "hasta veinte mil", "para probar", "las letras sincronizadas")
+                        com.marco.audiopro.ui.components.LyricStyle.entries.forEach { st ->
+                            val img = com.marco.audiopro.ui.components.renderLyricStory(m, com.marco.audiopro.ui.components.StoryData(song, art, sw), verses, st)
+                            File(outDir, "d10-lyric-${st.name.lowercase()}.png").writeBytes(com.marco.audiopro.platform.encodePng(img))
+                        }
+                        // El ícono en grande (para el .ico de Windows y el PNG de la ventana).
+                        for ((name, px, margin) in listOf(Triple("icon-512", 512, 0.04f), Triple("icon-full-512", 512, 0f))) {
+                            val ic = androidx.compose.ui.graphics.ImageBitmap(px, px)
+                            androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(ic), androidx.compose.ui.geometry.Size(px.toFloat(), px.toFloat())) {
+                                val mg = px * margin
+                                drawFlackerMark(androidx.compose.ui.geometry.Offset(mg, mg), px - 2 * mg)
+                            }
+                            File(outDir, "$name.png").writeBytes(com.marco.audiopro.platform.encodePng(ic))
                         }
                         done.countDown()
                     }

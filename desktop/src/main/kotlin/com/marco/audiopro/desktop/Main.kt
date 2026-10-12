@@ -114,7 +114,7 @@ class DesktopGraph : AppGraph {
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.5.0"
+    override val versionName = "2.6.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()

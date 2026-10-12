@@ -247,8 +247,16 @@ private fun AccentController() {
     LaunchedEffect(theme, cover) {
         val target = theme.color
             ?: coverColors(ctx, c.api, cover)?.accent
-            ?: AccentTheme.AMBER.color!!
+            ?: AccentTheme.PLATA.color!!
         anim.animateTo(target, tween(700)) { Hifi.Accent = value }
+    }
+    // v2.6: la marca pasó a negro, gris y blanco. Una sola vez, los acentos de color de antes
+    // (el ámbar de fábrica o el de la portada) cambian a Plata; luego se puede elegir otro.
+    LaunchedEffect(Unit) {
+        if (c.settings.getString("brand_mono") == null) {
+            c.settings.putString("brand_mono", "1")
+            if (c.settings.prefs.value.accent in setOf(AccentTheme.AMBER, AccentTheme.DYNAMIC)) c.settings.updatePrefs { it.copy(accent = AccentTheme.PLATA) }
+        }
     }
 }
 

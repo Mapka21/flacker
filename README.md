@@ -34,14 +34,20 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.6, marca oscura**: logo nuevo, una calavera pirata cibernética (parche, ojo biónico, pistas de
+  circuito y huesos cruzados) en negro, grafito, gris hueso y blanco; "FLACKER 333". Acento "Plata"
+  de fábrica (los acentos de color de antes cambian a Plata una sola vez; se puede elegir otro).
+  Las portadas generadas de artistas también van en grises con la calavera de marca de agua.
 - **Compartir en historia** (botón ⇪ en el reproductor, en "Reproduciendo" y en el menú de cada
-  canción): arma una imagen para historias de Instagram con la portada, la canción, la calidad
-  (p. ej. "FLAC · 24/96 · HI-RES" en dorado) y la barra de avance, en tres estilos: Aura, Vinilo y
-  Póster. En el celular abre directo el editor de historias de Instagram ("Otras apps" para el
-  resto). En la PC la copia y la guarda en Imágenes\Flacker, o la manda a tu celular por Connect
-  (misma red) para subirla desde ahí.
-
-- **v2.4, diseño nuevo**: logo e ícono nuevos (adiós "HI-FI · HACKER"), tipografía Inter en
+  canción), dos modos:
+  - **Portada**: la portada, la canción y la calidad (p. ej. "FLAC · 24/96 · HI-RES"), en tres
+    estilos: Aura, Vinilo y Póster.
+  - **Letra** (como Spotify): tocas uno o varios versos seguidos (hasta 5) y sale la tarjeta con la
+    letra en grande, en Color (el de la portada) o Negro. Si la canción está sonando, empieza en el
+    verso de ese momento.
+  En el celular abre directo el editor de historias de Instagram ("Otras apps" para el resto). En la
+  PC la copia y la guarda en Imágenes\Flacker, o la manda a tu celular por Connect (misma red).
+- **v2.4, diseño nuevo**: adiós "HI-FI · HACKER", tipografía Inter en
   todos los rótulos, barra de título oscura del color de la app, menús de clic derecho compactos
   como los de una app de PC, resaltado al pasar el mouse, portada y título que cambian con
   animación, play/pausa que se transforma y corazón que late al darle Me gusta.
@@ -129,7 +135,7 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **ReplayGain** por pista/álbum, sin pasarse nunca del pico real.
 - **Me gusta** sincronizado con Navidrome, "Radio Me gusta", letras sincronizadas, scrobbling.
 - Reseña del álbum: Last.fm → notas de Navidrome → Wikipedia (español, luego inglés) → Claude. Se guarda una vez por álbum.
-- **Temas de color**: Ámbar, Rojo, Cian, Rosa, Menta, Violeta o "De la portada".
+- **Temas de color**: Plata, Ámbar, Rojo, Cian, Rosa, Menta, Violeta o "De la portada".
 - Sólo Android: **descargas offline**, caché de 3 GB, calidad separada Wi-Fi/datos, controles
   en notificación, pantalla de bloqueo y audífonos.
 - Sólo Windows: motor propio con ffmpeg (FLAC, ALAC, Opus, MP3, AAC, DSD…), salida de 24 bits

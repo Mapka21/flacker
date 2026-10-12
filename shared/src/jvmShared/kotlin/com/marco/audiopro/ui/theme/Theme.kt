@@ -30,6 +30,7 @@ import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.FontResource
 
 enum class AccentTheme(val label: String, val color: Color?) {
+    PLATA("Plata", Color(0xFFE6E6EA)),
     AMBER("Ámbar", Color(0xFFFFB000)),
     APPLE("Rojo", Color(0xFFFA2D48)),
     CYAN("Cian", Color(0xFF3DD9EB)),
@@ -44,7 +45,7 @@ enum class AccentTheme(val label: String, val color: Color?) {
  * El acento es estado observable: al cambiarlo se recompone toda la UI.
  */
 object Hifi {
-    var Accent by mutableStateOf(Color(0xFFFFB000))
+    var Accent by mutableStateOf(Color(0xFFE6E6EA))
 
     /** Fondo de chips/botones seleccionados. */
     val AccentDim: Color get() = lerp(PanelHi, Accent, 0.38f)

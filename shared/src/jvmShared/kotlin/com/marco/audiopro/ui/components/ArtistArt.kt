@@ -74,23 +74,19 @@ fun ArtistImage(
     }
 }
 
-/** Degradados de la portada generada (dos tonos por artista, elegidos por su nombre). */
+/** Tonos de la portada generada: grises de la marca (uno por artista, elegido por su nombre). */
 private val ArtPalettes = listOf(
-    Color(0xFF7F5AF0) to Color(0xFF2CB1BC),
-    Color(0xFFFF4D6D) to Color(0xFF5F27CD),
-    Color(0xFFFFB347) to Color(0xFFFF3C38),
-    Color(0xFF00C9FF) to Color(0xFF6A5BFF),
-    Color(0xFFFC466B) to Color(0xFF3F5EFB),
-    Color(0xFF11998E) to Color(0xFF38EF7D),
-    Color(0xFFEE0979) to Color(0xFFFF6A00),
-    Color(0xFF8E2DE2) to Color(0xFFFF4ECD),
-    Color(0xFF00F5A0) to Color(0xFF00D9F5),
-    Color(0xFFF83600) to Color(0xFFF9D423),
+    Color(0xFF8A8A92) to Color(0xFF1C1C20),
+    Color(0xFF5A5A62) to Color(0xFF2A2A30),
+    Color(0xFFB4B4BC) to Color(0xFF26262B),
+    Color(0xFF6E6E78) to Color(0xFF3A3A42),
+    Color(0xFF4A4A52) to Color(0xFF9A9AA2),
+    Color(0xFFD0D0D6) to Color(0xFF3C3C44),
 )
 
 /**
- * Portada para artistas sin foto: dos luces de color sobre negro, anillos de disco muy tenues,
- * un brillo diagonal y sus iniciales grandes (como los monogramas de Apple Music, pero con color).
+ * Portada para artistas sin foto: dos luces grises sobre negro, la calavera de la marca como
+ * marca de agua, anillos de disco muy tenues, un brillo diagonal y sus iniciales grandes.
  */
 @Composable
 fun GeneratedArtistArt(name: String, modifier: Modifier = Modifier) {
@@ -115,6 +111,8 @@ fun GeneratedArtistArt(name: String, modifier: Modifier = Modifier) {
             drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent), mid, r * 0.45f), r * 0.45f, mid)
             // Surcos de disco, casi invisibles.
             for (i in 1..9) drawCircle(Color.White.copy(alpha = 0.035f), r * 0.07f * i, Offset(w / 2, h / 2), style = Stroke(1f))
+            // La calavera de la marca, como marca de agua.
+            drawSkull(Offset(w * 0.78f, h * 0.74f), h * 0.62f, Color.White.copy(alpha = 0.07f), Color.White.copy(alpha = 0.04f), glow = false)
             // Brillo diagonal tipo vidrio.
             drawRect(
                 Brush.linearGradient(
