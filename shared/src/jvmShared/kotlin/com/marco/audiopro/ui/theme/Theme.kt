@@ -30,17 +30,17 @@ import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.FontResource
 
 enum class AccentTheme(val label: String, val color: Color?) {
-    AMBER("Ámbar VU", Color(0xFFFFB000)),
-    APPLE("Rojo Apple", Color(0xFFFA2D48)),
-    CYAN("Cian estudio", Color(0xFF3DD9EB)),
-    ROSE("Rosa neón", Color(0xFFFF4D8D)),
-    PHOSPHOR("Fósforo", Color(0xFF3CF28E)),
+    AMBER("Ámbar", Color(0xFFFFB000)),
+    APPLE("Rojo", Color(0xFFFA2D48)),
+    CYAN("Cian", Color(0xFF3DD9EB)),
+    ROSE("Rosa", Color(0xFFFF4D8D)),
+    PHOSPHOR("Menta", Color(0xFF3CF28E)),
     VIOLET("Violeta", Color(0xFFA48BFF)),
-    DYNAMIC("Portada", null),
+    DYNAMIC("De la portada", null),
 }
 
 /**
- * Paleta "rack de estudio": grafito con un toque azul y un acento intercambiable.
+ * Paleta: grafito casi negro con un toque azul y un acento intercambiable.
  * El acento es estado observable: al cambiarlo se recompone toda la UI.
  */
 object Hifi {
@@ -84,8 +84,14 @@ private fun variable(res: FontResource, vararg weights: Int) = FontFamily(
     weights.map { w -> Font(res, FontWeight(w), FontStyle.Normal, FontVariation.Settings(FontVariation.weight(w))) },
 )
 
-/** Texto de "display LCD": monoespaciado, espaciado amplio. */
-val Mono: TextStyle get() = TextStyle(fontFamily = Fonts.mono, fontSize = 11.sp, letterSpacing = 1.2.sp)
+/**
+ * Etiquetas chicas y cifras (duraciones, formatos, rótulos en mayúsculas): Inter seminegrita con
+ * números tabulares, como los rótulos de Apple Music. (Antes era monoespaciada estilo terminal.)
+ */
+val Mono: TextStyle get() = TextStyle(
+    fontFamily = Fonts.inter, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp,
+    fontFeatureSettings = "tnum",
+)
 
 /** Titulares grandes estilo iOS ("Large Title"): Inter pesada y apretada, cercana a SF Pro. */
 val Display: TextStyle get() = TextStyle(fontFamily = Fonts.inter, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.7).sp)
@@ -108,7 +114,7 @@ private fun typography() = Typography().run {
         bodySmall = bodySmall.inter(),
         labelLarge = labelLarge.inter().copy(fontWeight = FontWeight.SemiBold),
         labelMedium = labelMedium.inter(),
-        labelSmall = labelSmall.copy(fontFamily = Fonts.mono, letterSpacing = 1.5.sp),
+        labelSmall = labelSmall.copy(fontFamily = Fonts.inter, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp),
     )
 }
 

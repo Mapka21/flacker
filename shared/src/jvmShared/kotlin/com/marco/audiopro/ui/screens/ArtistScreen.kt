@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.ArtistImage
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,6 +66,7 @@ import com.marco.audiopro.ui.components.SectionHeader
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.openAlbum
 import com.marco.audiopro.ui.openArtist
+import com.marco.audiopro.ui.theme.Display
 import com.marco.audiopro.ui.theme.Hifi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -92,23 +94,20 @@ fun ArtistScreen(id: String, nav: NavController) {
 
         LazyVerticalGrid(GridCells.Adaptive(150.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.fillMaxWidth().aspectRatio(1.25f)) {
-                    val img = info.largeImageUrl?.takeIf { it.isNotBlank() }
-                    c.covers.map.collectAsState().value
-                    val custom = c.covers.get(CustomCovers.artist(artist.id))
-                    if (custom != null) {
-                        AsyncImage(custom, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    } else if (img != null) {
-                        AsyncImage(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    } else {
-                        CoverArt(artist.coverArt, Modifier.fillMaxSize(), size = 800, corner = 0.dp)
-                    }
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Hifi.Bg)))
+                // En la PC, cabecera ancha tipo cartel (Apple Music en Mac); en el celular, casi cuadrada.
+                Box(Modifier.fillMaxWidth().aspectRatio(if (c.isDesktop) 2.1f else 1.25f)) {
+                    ArtistImage(artist.id, artist.name, artist.coverArt, Modifier.fillMaxSize(), size = 1200, serverUrl = info.largeImageUrl)
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(0.35f to Color.Transparent, 1f to if (c.isDesktop) Color.Black.copy(alpha = 0.72f) else Hifi.Bg),
+                        ),
+                    )
                     ScreenBackButton(nav, Modifier.statusBarsPadding())
                     CoverEditButton(CustomCovers.artist(artist.id), Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(14.dp))
                     Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
-                        Text(artist.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp)
-                        Text(if (albums.size == 1) "1 álbum" else "${albums.size} álbumes", color = Hifi.TextDim, fontSize = 13.sp)
+                        val big = if (c.isDesktop) 58.sp else 34.sp
+                        Text(artist.name, style = Display.copy(fontSize = big, lineHeight = big * 1.05f, letterSpacing = big * -0.025f, color = Color.White))
+                        Text(if (albums.size == 1) "1 álbum" else "${albums.size} álbumes", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -141,7 +140,7 @@ fun ArtistScreen(id: String, nav: NavController) {
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             rowItems(similar, key = { it.id }) { s ->
                                 Column(Modifier.width(96.dp).clickable { nav.openArtist(s.id) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CoverArt(s.coverArt, Modifier.size(88.dp), size = 200, corner = 44.dp, customKey = CustomCovers.artist(s.id))
+                                    ArtistImage(s.id, s.name, s.coverArt, Modifier.size(88.dp), size = 200, corner = 44.dp)
                                     Spacer(Modifier.height(6.dp))
                                     Text(s.name, fontSize = 12.sp, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
                                 }

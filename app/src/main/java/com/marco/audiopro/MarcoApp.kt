@@ -103,6 +103,7 @@ class AppContainer(private val context: Context) : AppGraph {
     override val discover = com.marco.audiopro.data.discover.DiscoverRepository(http, api, context.filesDir)
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(context.filesDir)
+    override val artistPhotos = com.marco.audiopro.data.ArtistPhotos(http, api, context.filesDir)
     override val versionName: String = BuildConfig.VERSION_NAME
     override val isDesktop = false
 

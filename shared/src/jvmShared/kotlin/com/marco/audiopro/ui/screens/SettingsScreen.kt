@@ -1,5 +1,10 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.AppMenu
+import com.marco.audiopro.ui.components.AppMenuDivider
+import com.marco.audiopro.ui.components.AppMenuItem
+import androidx.compose.material.icons.filled.Check
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +29,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -215,10 +218,12 @@ fun SettingsScreen(nav: NavController) {
             }
         }
 
-        Text(
-            "FLACKER · v${c.versionName}", style = Mono.copy(color = Hifi.TextFaint),
-            modifier = Modifier.fillMaxWidth().padding(28.dp),
-        )
+        Column(Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            com.marco.audiopro.ui.components.FlackerMark(40.dp)
+            Spacer(Modifier.height(10.dp))
+            Text("Flacker", style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 17.sp, color = Hifi.Text))
+            Text("Versión ${c.versionName}", style = Mono.copy(color = Hifi.TextFaint))
+        }
     }
 }
 
@@ -245,9 +250,9 @@ private fun QualityPicker(label: String, value: StreamQuality, onPick: (StreamQu
                 Text(value.label, color = Hifi.Accent, fontSize = 14.sp)
                 Icon(Icons.Default.ArrowDropDown, null, tint = Hifi.Accent)
             }
-            DropdownMenu(open, { open = false }) {
+            AppMenu(open, { open = false }) {
                 StreamQuality.entries.forEach { q ->
-                    DropdownMenuItem(text = { Text(q.label) }, onClick = { onPick(q); open = false })
+                    AppMenuItem(q.label, if (q == value) Icons.Default.Check else null, iconTint = Hifi.Accent) { onPick(q); open = false }
                 }
             }
         }
@@ -259,6 +264,6 @@ private fun KeyField(label: String, value: String, onSave: (String) -> Unit) {
     var text by remember(value) { mutableStateOf(value) }
     OutlinedTextField(
         text, { text = it; onSave(it) }, label = { Text(label) }, singleLine = true,
-        visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
+        visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().textInput(),
     )
 }

@@ -100,7 +100,7 @@ import kotlin.math.hypot
 enum class IpodSize(val label: String, val scale: Float) { S("S", 0.8f), M("M", 1f), L("L", 1.45f) }
 
 /** Lo que muestra la pantalla: la canción o un visualizador (tocar la pantalla cambia). */
-enum class IpodScreen(val preset: VisualPreset?) { INFO(null), NEON(VisualPreset.NEON), HIPER(VisualPreset.HIPER), HALO(VisualPreset.HALO) }
+enum class IpodScreen(val preset: VisualPreset?) { INFO(null), NEON(VisualPreset.NEON), NEXO(VisualPreset.NEXO), HIPER(VisualPreset.HIPER), HALO(VisualPreset.HALO) }
 
 private val BaseSize = DpSize(178.dp, 266.dp)
 

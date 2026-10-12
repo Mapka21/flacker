@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.ArtistImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -148,7 +149,7 @@ fun HomeScreen(nav: NavController) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(date, style = Mono.copy(color = Hifi.TextDim, fontSize = 11.sp, letterSpacing = 1.5.sp))
+                        Text(date, style = Mono.copy(color = Hifi.TextDim, fontSize = 11.sp, letterSpacing = 0.8.sp))
                         Text(greeting, style = Display.copy(fontSize = 36.sp))
                     }
                     // Modo chill: toda tu biblioteca al azar, sin fin.
@@ -296,7 +297,7 @@ private fun FeatureCard(
 @Composable
 private fun ArtistCircle(a: TopArtist, onClick: () -> Unit) {
     Column(Modifier.width(118.dp).bouncyClick(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverArt(a.cover, Modifier.size(110.dp).shadow(14.dp, CircleShape), size = 300, corner = 55.dp, customKey = CustomCovers.artist(a.id))
+        ArtistImage(a.id, a.name, null, Modifier.size(110.dp).shadow(14.dp, CircleShape), size = 300, corner = 55.dp)
         Spacer(Modifier.height(8.dp))
         Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
     }

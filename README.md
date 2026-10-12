@@ -1,6 +1,6 @@
 # Flacker
 
-*FLAC + hacker.* (Antes "Marco Audio Pro".) Cliente personal y audiófilo para Navidrome, en **Android** y **Windows** (el mismo código para las dos).
+Tu música de Navidrome en alta fidelidad, en **Android** y **Windows** (el mismo código para las dos). (Antes "Marco Audio Pro".)
 
 ## Instalar
 
@@ -18,10 +18,14 @@
 3. **Miniplayer iPod nano**: botón ⧉ arriba a la derecha. iPod nano del color de la portada,
    siempre encima; se arrastra desde cualquier parte menos la rueda. Tres tamaños (botón
    S/M/L arriba a la izquierda). Un clic en la pantalla cambia entre la canción y los
-   visualizadores (Neón 360 estilo Xbox 360, Hiperespacio, Halo). Gira la rueda para el
+   visualizadores (Neón 360 estilo Xbox 360, Nexo 2029, Hiperespacio, Halo). Gira la rueda para el
    volumen; MENU, doble clic en la pantalla o la ✕ regresan a la app completa.
-4. Atajos: **Ctrl+Espacio** play/pausa · **Ctrl+→ / Ctrl+←** siguiente/anterior ·
-   **Ctrl+↑ / Ctrl+↓** volumen · **Alt+← / Alt+→** atrás/adelante · teclas multimedia.
+4. Atajos (como Spotify): **Espacio** play/pausa (menos mientras escribes en un campo) ·
+   **Ctrl+→ / Ctrl+←** siguiente/anterior · **Ctrl+↑ / Ctrl+↓** volumen · **Alt+← / Alt+→**
+   atrás/adelante · teclas multimedia (funcionan aunque la app no esté al frente).
+   - **Barra de tareas**: al pasar el mouse por el ícono, la vista previa trae ⏮ ⏯ ⏭.
+   - **Control multimedia de Windows**: lo que suena aparece con portada y barra de avance en
+     el panel de volumen / Configuración rápida y en la pantalla de bloqueo.
 5. Mouse: **clic derecho** en canciones y álbumes abre su menú; **rueda** sobre el reproductor,
    la barra de volumen o el iPod cambia el volumen; los **botones laterales** van atrás/adelante.
 
@@ -29,6 +33,16 @@ Opcional (Ajustes → Reseñas de álbum): API key de Last.fm (gratis) para rese
 y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tiene nada.
 
 ## Qué trae
+
+- **v2.4, diseño nuevo**: logo e ícono nuevos (adiós "HI-FI · HACKER"), tipografía Inter en
+  todos los rótulos, barra de título oscura del color de la app, menús de clic derecho compactos
+  como los de una app de PC, resaltado al pasar el mouse, portada y título que cambian con
+  animación, play/pausa que se transforma y corazón que late al darle Me gusta.
+- **Fotos de artista sin huecos**: si Navidrome sólo tiene su silueta gris, se busca la foto en
+  Deezer; si tampoco hay, se genera una portada con degradado y sus iniciales.
+- **Nexo 2029** (modo visual nuevo): el túnel caleidoscopio del visualizador del Xbox 360 llevado
+  al futuro: vidrios en simetría que salen volando con cada golpe, un disco iridiscente al
+  centro con el espectro alrededor y acabado de tele (barrido y separación de color).
 
 - **Descubrir** (sección aparte; Inicio es sólo tu biblioteca): canciones, artistas y álbumes
   que **no tienes**, parecidos a lo que más escuchas y a tus favoritos, más "Lo que no tienes de …".
@@ -73,7 +87,7 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **Una sola barra de búsqueda** (la de arriba en la PC), como en Spotify.
 - **Modo visual**: el fondo de la app es el visualizador y baila con la música (bajo, medios,
   agudos y golpes). "Portada viva" (la portada derretida fluyendo, como Apple Music), Aurora,
-  Pulso, Halo, Olas, Hiperespacio, Synthwave y Neón 360, con brillo real (blur).
+  Pulso, Halo, Olas, Hiperespacio, Synthwave, Neón 360 y Nexo 2029, con brillo real (blur).
   Botón ✨ para encenderlo/apagarlo y elegir preset viéndolos en vivo.
 - **Letra en su propio módulo** (como Apple Music): en la PC, el reproductor completo pone la
   letra a la derecha y la barra derecha tiene la pestaña "Letra"; en el celular, el botón de
@@ -108,7 +122,7 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **ReplayGain** por pista/álbum, sin pasarse nunca del pico real.
 - **Me gusta** sincronizado con Navidrome, "Radio Me gusta", letras sincronizadas, scrobbling.
 - Reseña del álbum: Last.fm → notas de Navidrome → Wikipedia (español, luego inglés) → Claude. Se guarda una vez por álbum.
-- **Temas de color**: Ámbar VU, Cian estudio, Rosa neón, Fósforo, Violeta o "Portada".
+- **Temas de color**: Ámbar, Rojo, Cian, Rosa, Menta, Violeta o "De la portada".
 - Sólo Android: **descargas offline**, caché de 3 GB, calidad separada Wi-Fi/datos, controles
   en notificación, pantalla de bloqueo y audífonos.
 - Sólo Windows: motor propio con ffmpeg (FLAC, ALAC, Opus, MP3, AAC, DSD…), salida de 24 bits

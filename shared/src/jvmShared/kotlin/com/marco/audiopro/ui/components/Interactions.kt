@@ -35,15 +35,15 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,6 +115,27 @@ fun Modifier.onRightClick(action: (DpOffset) -> Unit): Modifier = composed {
     }
 }
 
+/**
+ * Cuántos campos de texto tienen el foco. En la PC, Espacio pausa como en Spotify salvo mientras
+ * escribes en uno de ellos (búsqueda, nombres de playlist, ajustes…).
+ */
+object TextInputFocus {
+    @Volatile var count = 0
+    val active: Boolean get() = count > 0
+}
+
+/** Marca un campo de texto para [TextInputFocus]. */
+fun Modifier.textInput(): Modifier = composed {
+    val had = remember { booleanArrayOf(false) }
+    DisposableEffect(Unit) { onDispose { if (had[0]) { had[0] = false; TextInputFocus.count-- } } }
+    onFocusChanged { f ->
+        if (f.isFocused != had[0]) {
+            had[0] = f.isFocused
+            TextInputFocus.count += if (f.isFocused) 1 else -1
+        }
+    }
+}
+
 /** Rueda del mouse = volumen (sólo donde el reproductor maneja volumen, o sea en la PC). */
 fun Modifier.volumeWheel(): Modifier = composed {
     val player = LocalApp.current.player
@@ -173,7 +194,7 @@ fun PlaylistNameDialog(title: String, initial: String = "", confirm: String = "C
             name, { name = it }, singleLine = true, placeholder = { Text("Mi playlist") },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { if (name.isNotBlank()) onConfirm(name.trim()) }),
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).textInput(),
         )
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -281,12 +302,9 @@ fun CoverEditButton(key: String, modifier: Modifier = Modifier) {
                 .bouncyClick { if (has) menu = true else pick() },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Default.Edit, "Cambiar imagen", tint = Color.White, modifier = Modifier.size(16.dp)) }
-        DropdownMenu(menu, { menu = false }, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp)) {
-            DropdownMenuItem(text = { Text("Cambiar imagen…") }, leadingIcon = { Icon(Icons.Default.Image, null) }, onClick = { menu = false; pick() })
-            DropdownMenuItem(text = { Text("Usar la original") }, leadingIcon = { Icon(Icons.Default.Delete, null) }, onClick = {
-                menu = false
-                scope.launch { c.covers.clear(key) }
-            })
+        AppMenu(menu, { menu = false }) {
+            AppMenuItem("Cambiar imagen…", Icons.Default.Image) { menu = false; pick() }
+            AppMenuItem("Usar la original", Icons.Default.Delete) { menu = false; scope.launch { c.covers.clear(key) } }
         }
     }
 }
@@ -303,20 +321,19 @@ fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavCo
         onDismiss()
         scope.launch { runCatching { c.api.album(album.id).song }.onSuccess { if (it.isNotEmpty()) block(it) } }
     }
-    DropdownMenu(
-        expanded, onDismiss, offset = offset, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-    ) {
-        DropdownMenuItem(text = { Text("Reproducir") }, leadingIcon = { Icon(Icons.Default.PlayArrow, null) }, onClick = { withSongs { c.player.play(it) } })
-        DropdownMenuItem(text = { Text("Aleatorio") }, leadingIcon = { Icon(Icons.Default.Shuffle, null) }, onClick = { withSongs { c.player.play(it, shuffle = true) } })
-        DropdownMenuItem(text = { Text("Reproducir siguiente") }, leadingIcon = { Icon(Icons.Default.SkipNext, null) }, onClick = { withSongs { c.player.playNext(it) } })
-        DropdownMenuItem(text = { Text("Agregar a la cola") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) }, onClick = { withSongs { c.player.enqueue(it) } })
-        DropdownMenuItem(text = { Text("Agregar a playlist…") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) }, onClick = { withSongs { addTo = it } })
+    AppMenu(expanded, onDismiss, offset) {
+        AppMenuItem("Reproducir", Icons.Default.PlayArrow) { withSongs { c.player.play(it) } }
+        AppMenuItem("Aleatorio", Icons.Default.Shuffle) { withSongs { c.player.play(it, shuffle = true) } }
+        AppMenuDivider()
+        AppMenuItem("Reproducir siguiente", Icons.Default.SkipNext) { withSongs { c.player.playNext(it) } }
+        AppMenuItem("Agregar a la cola", Icons.AutoMirrored.Filled.QueueMusic) { withSongs { c.player.enqueue(it) } }
+        AppMenuItem("Agregar a playlist…", Icons.AutoMirrored.Filled.PlaylistAdd) { withSongs { addTo = it } }
         c.downloads?.let { store ->
-            DropdownMenuItem(text = { Text("Descargar") }, leadingIcon = { Icon(Icons.Default.Download, null) }, onClick = { withSongs { store.download(it) } })
+            AppMenuItem("Descargar", Icons.Default.Download) { withSongs { store.download(it) } }
         }
         if (nav != null && album.artistId != null) {
-            DropdownMenuItem(text = { Text("Ir al artista") }, leadingIcon = { Icon(Icons.Default.Person, null) }, onClick = { onDismiss(); nav.openArtist(album.artistId) })
+            AppMenuDivider()
+            AppMenuItem("Ir al artista", Icons.Default.Person) { onDismiss(); nav.openArtist(album.artistId) }
         }
     }
     addTo?.let { AddToPlaylistDialog(it) { addTo = null } }

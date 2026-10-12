@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +47,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import com.marco.audiopro.platform.supportsBlur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +74,35 @@ fun Modifier.glass(
     .clip(shape)
     .background(fill)
     .border(1.dp, Brush.verticalGradient(listOf(Hifi.GlassStrokeTop, Hifi.GlassStrokeBottom)), shape)
+
+/** Play ↔ pausa con un giro y cambio de escala (en vez de saltar de un ícono a otro). */
+@Composable
+fun PlayPauseIcon(playing: Boolean, tint: Color, size: androidx.compose.ui.unit.Dp) {
+    androidx.compose.animation.AnimatedContent(
+        playing,
+        transitionSpec = {
+            (androidx.compose.animation.fadeIn(tween(180)) + androidx.compose.animation.scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.4f)) togetherWith
+                (androidx.compose.animation.fadeOut(tween(120)) + androidx.compose.animation.scaleOut(tween(120), targetScale = 0.4f))
+        },
+        label = "playPause",
+    ) { p ->
+        androidx.compose.material3.Icon(
+            if (p) androidx.compose.material.icons.Icons.Default.Pause else androidx.compose.material.icons.Icons.Default.PlayArrow,
+            if (p) "Pausa" else "Reproducir", tint = tint, modifier = Modifier.size(size),
+        )
+    }
+}
+
+/** Resaltado de PC al pasar el mouse (y fijo si está elegido), con transición suave. */
+fun Modifier.hoverHighlight(selected: Boolean = false, shape: Shape = RoundedCornerShape(10.dp)): Modifier = composed {
+    val source = remember { MutableInteractionSource() }
+    val hovered by source.collectIsHoveredAsState()
+    val bg by animateColorAsState(
+        when { selected -> Color.White.copy(alpha = 0.10f); hovered -> Color.White.copy(alpha = 0.055f); else -> Color.Transparent },
+        tween(160), label = "hover",
+    )
+    clip(shape).background(bg).hoverable(source)
+}
 
 /** Toque estilo iOS: sin ripple, la pieza se hunde un poco con resorte y se oscurece. */
 fun Modifier.bouncyClick(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {

@@ -1,7 +1,11 @@
 package com.marco.audiopro.ui
 
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -40,6 +44,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
@@ -144,6 +149,8 @@ import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.formatDuration
 import com.marco.audiopro.ui.components.formatMs
 import com.marco.audiopro.ui.components.glass
+import com.marco.audiopro.ui.components.PlayPauseIcon
+import com.marco.audiopro.ui.components.hoverHighlight
 import com.marco.audiopro.ui.components.rememberLoad
 import com.marco.audiopro.ui.screens.AppleBar
 import com.marco.audiopro.ui.theme.Display
@@ -260,20 +267,19 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
     if (creating) NewPlaylistFlow(nav) { creating = false }
 
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
-        FlackerLogo(Modifier.padding(horizontal = 22.dp))
-        SectionLabel("MENÚ")
+        FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp))
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
         SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
         SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
-        SectionLabel("MI BIBLIOTECA")
+        SectionLabel("Biblioteca")
         SidebarItem(Icons.Default.Album, "Álbumes", libTab == 0) { nav.openLibrary(0) }
         SidebarItem(Icons.Default.Person, "Artistas", libTab == 1) { nav.openLibrary(1) }
         SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
         SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { SectionLabel("TUS PLAYLISTS") }
+            Box(Modifier.weight(1f)) { SectionLabel("Tus playlists") }
             Box(
                 Modifier.padding(end = 18.dp, top = 14.dp).size(26.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
                     .bouncyClick { creating = true },
@@ -284,8 +290,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
             items(lists, key = { it.id }) { p ->
                 val sel = dest.isIn(PlaylistRoute::class) && runCatching { entry?.toRoute<PlaylistRoute>()?.id }.getOrNull() == p.id
                 Row(
-                    Modifier.padding(horizontal = 10.dp, vertical = 1.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                        .background(if (sel) Color.White.copy(alpha = 0.10f) else Color.Transparent)
+                    Modifier.padding(horizontal = 10.dp, vertical = 1.dp).fillMaxWidth().hoverHighlight(sel)
                         .bouncyClick { nav.openPlaylist(p.id) }.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -301,26 +306,32 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text, style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp, letterSpacing = 2.sp), modifier = Modifier.padding(start = 24.dp, top = 22.dp, bottom = 6.dp))
+    Text(text, style = Mono.copy(color = Hifi.TextFaint, fontSize = 11.5.sp, letterSpacing = 0.2.sp), modifier = Modifier.padding(start = 24.dp, top = 22.dp, bottom = 6.dp))
 }
 
 @Composable
 private fun SidebarItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val color by animateColorAsState(if (selected) Hifi.Accent else Hifi.TextDim, label = "side")
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    val color by animateColorAsState(if (selected) Hifi.Accent else if (hovered) Hifi.Text else Hifi.TextDim, tween(160), label = "side")
+    val bg by animateColorAsState(
+        when { selected -> Color.White.copy(alpha = 0.09f); hovered -> Color.White.copy(alpha = 0.05f); else -> Color.Transparent }, tween(160), label = "sideBg",
+    )
     Row(
         Modifier.padding(horizontal = 10.dp, vertical = 1.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) Hifi.Accent.copy(alpha = 0.14f) else Color.Transparent)
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .hoverable(hover)
             .bouncyClick(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Rayita de color a la izquierda del seleccionado (como Resso).
-        Box(Modifier.width(3.dp).height(16.dp).clip(CircleShape).background(if (selected) Hifi.Accent else Color.Transparent))
-        Spacer(Modifier.width(9.dp))
         Icon(icon, null, tint = color, modifier = Modifier.size(19.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(label, color = if (selected) Hifi.Text else Hifi.TextDim, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        Spacer(Modifier.width(13.dp))
+        Text(
+            label, color = if (selected || hovered) Hifi.Text else Hifi.TextDim, fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+        )
     }
 }
 
@@ -371,7 +382,7 @@ private fun SearchField(nav: NavHostController, query: MutableState<String>, onS
                 singleLine = true,
                 textStyle = TextStyle(color = Hifi.Text, fontSize = 14.sp, fontFamily = Fonts.inter),
                 cursorBrush = SolidColor(Hifi.Accent),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().textInput()
                     .onFocusChanged {
                         focused = it.isFocused
                         if (it.isFocused && !onSearch) nav.navigate(SearchRoute) { launchSingleTop = true }
@@ -438,7 +449,7 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
                 if (st.remoteName != null) RemoteBadge(st.remoteName)
-                else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 2.sp))
+                else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 0.9.sp))
             }
             Icon(Icons.Default.UnfoldLess, "Hacer mini", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onCollapse))
             Spacer(Modifier.width(12.dp))
@@ -447,19 +458,32 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
             Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() })
         }
         Spacer(Modifier.height(12.dp))
-        CoverArt(
+        // Al cambiar de canción la portada nueva entra creciendo y la vieja se desvanece.
+        AnimatedContent(
             song.coverArt,
-            Modifier.fillMaxWidth().aspectRatio(1f).shadow(26.dp, RoundedCornerShape(18.dp)).bouncyClick { nav.openPlayer() },
-            size = 800, corner = 18.dp,
-        )
+            transitionSpec = { (fadeIn(tween(420)) + scaleIn(tween(420), initialScale = 0.92f)) togetherWith fadeOut(tween(220)) },
+            label = "npCover",
+        ) { art ->
+            CoverArt(
+                art,
+                Modifier.fillMaxWidth().aspectRatio(1f).shadow(26.dp, RoundedCornerShape(18.dp)).bouncyClick { nav.openPlayer() },
+                size = 800, corner = 18.dp,
+            )
+        }
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(song.title, style = Display.copy(fontSize = 19.sp, color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    song.artist ?: "", fontSize = 14.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.bouncyClick { song.artistId?.let(nav::openArtist) },
-                )
+            AnimatedContent(
+                song, Modifier.weight(1f),
+                transitionSpec = { (fadeIn(tween(320, 120)) + slideInVertically(tween(320, 120)) { it / 3 }) togetherWith fadeOut(tween(160)) },
+                contentKey = { it.id }, label = "npTitle",
+            ) { s ->
+                Column {
+                    Text(s.title, style = Display.copy(fontSize = 19.sp, color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        s.artist ?: "", fontSize = 14.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.bouncyClick { s.artistId?.let(nav::openArtist) },
+                    )
+                }
             }
             LikeButton(song, size = 22.dp)
         }
@@ -470,7 +494,7 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
             Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(34.dp).bouncyClick { player.previous() })
             Box(Modifier.size(56.dp).shadow(14.dp, CircleShape).clip(CircleShape).background(Color.White).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
                 if (st.isBuffering) CircularProgressIndicator(Modifier.size(24.dp), color = Color.Black, strokeWidth = 2.dp)
-                else Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", tint = Color.Black, modifier = Modifier.size(30.dp))
+                else PlayPauseIcon(st.isPlaying, Color.Black, 30.dp)
             }
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(34.dp).bouncyClick { player.next() })
             SmallToggle(if (st.repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, st.repeat != RepeatMode.OFF) { player.cycleRepeat() }
@@ -533,7 +557,7 @@ private fun CompactNowPlaying(nav: NavHostController, onHide: () -> Unit, onExpa
             Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.previous() })
             Spacer(Modifier.width(6.dp))
             Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
-                Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", tint = Color.Black, modifier = Modifier.size(22.dp))
+                PlayPauseIcon(st.isPlaying, Color.Black, 22.dp)
             }
             Spacer(Modifier.width(6.dp))
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
@@ -562,7 +586,7 @@ private fun UpNextList() {
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
             items(next, key = { (i, s) -> "$i-${s.id}" }) { (i, s) ->
                 Row(
-                    Modifier.fillMaxWidth().bouncyClick { player.skipToIndex(i) }.padding(horizontal = 14.dp, vertical = 6.dp),
+                    Modifier.padding(horizontal = 6.dp).fillMaxWidth().hoverHighlight().bouncyClick { player.skipToIndex(i) }.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CoverArt(s.coverArt, Modifier.size(40.dp), size = 120, corner = 8.dp)
@@ -609,7 +633,7 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
             Icon(Icons.Default.SkipPrevious, "Anterior", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.previous() })
             Spacer(Modifier.width(8.dp))
             Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White).bouncyClick { player.toggle() }, contentAlignment = Alignment.Center) {
-                Icon(if (st.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, "Reproducir", tint = Color.Black)
+                PlayPauseIcon(st.isPlaying, Color.Black, 24.dp)
             }
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })

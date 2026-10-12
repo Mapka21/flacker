@@ -1,5 +1,8 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.AppMenu
+import com.marco.audiopro.ui.components.AppMenuDivider
+import com.marco.audiopro.ui.components.AppMenuItem
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,8 +22,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -98,9 +99,10 @@ fun PlaylistScreen(id: String, nav: NavController) {
                     DownloadButton(songs)
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Más", tint = Hifi.TextDim) }
-                        DropdownMenu(menu, { menu = false }, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp)) {
-                            DropdownMenuItem(text = { Text("Cambiar nombre") }, leadingIcon = { Icon(Icons.Default.Edit, null) }, onClick = { menu = false; renaming = true })
-                            DropdownMenuItem(text = { Text("Borrar playlist") }, leadingIcon = { Icon(Icons.Default.Delete, null) }, onClick = { menu = false; deleting = true })
+                        AppMenu(menu, { menu = false }) {
+                            AppMenuItem("Cambiar nombre", Icons.Default.Edit) { menu = false; renaming = true }
+                            AppMenuDivider()
+                            AppMenuItem("Borrar playlist", Icons.Default.Delete, destructive = true) { menu = false; deleting = true }
                         }
                     }
                 }

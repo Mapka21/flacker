@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -144,11 +145,11 @@ private fun LastFmSetup(user0: String, key0: String, nav: NavController, canCanc
                 fontSize = 13.sp, color = Hifi.TextDim,
             )
             Spacer(Modifier.height(18.dp))
-            OutlinedTextField(user, { user = it; error = null }, label = { Text("Usuario de Last.fm") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(user, { user = it; error = null }, label = { Text("Usuario de Last.fm") }, singleLine = true, modifier = Modifier.fillMaxWidth().textInput())
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 key, { key = it; error = null }, label = { Text("API key") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().textInput(),
             )
             TextButton(onClick = { uri.openUri("https://www.last.fm/api/account/create") }) {
                 Text("Crear mi API key gratis en last.fm", color = Hifi.Accent)

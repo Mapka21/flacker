@@ -45,6 +45,7 @@ enum class VisualPreset(val label: String, val blurb: String) {
     HIPER("Hiperespacio", "Estrellas que aceleran con los agudos"),
     SYNTH("Synthwave", "Sol neón y rejilla retro al ritmo"),
     NEON("Neón 360", "Psicodelia con estela, como el del Xbox 360"),
+    NEXO("Nexo 2029", "El túnel caleidoscopio del Xbox 360 llevado al futuro: vidrios que salen volando con cada golpe y un disco iridiscente al centro"),
 }
 
 /** Atardecer neón (carmesí, índigo, azul noche, ciruela): colores cuando no hay portada. */
@@ -181,6 +182,7 @@ class VisualScene {
     private val xs = FloatArray(120)
     private val ys = FloatArray(120)
     private val neon = NeonFeedback()
+    private val nexo = NexoTunnel()
     private var dtLast = 0.016f
 
     private fun respawn(s: Star) {
@@ -236,9 +238,11 @@ class VisualScene {
             VisualPreset.HIPER -> hyperspace(v, f)
             VisualPreset.SYNTH -> synthwave(v, f)
             VisualPreset.NEON -> if (glow) neon.drawLast(this) else neon.frame(this, f, time, dtLast)
+            VisualPreset.NEXO -> if (glow) nexo.drawLast(this) else nexo.frame(this, v, f, time, dtLast)
             else -> {}
         }
         drawContext.transform.scale(1f / punch, 1f / punch, center)
+        if (preset == VisualPreset.NEXO && !glow) nexo.finish(this, f, dpScale)
     }
 
     /** Velo para que se lea el texto: más oscuro abajo y según la intensidad pedida. */
@@ -534,5 +538,211 @@ class NeonFeedback(private val maxPx: Int = 420) {
         // Lissajous que sigue vivo aunque esté en pausa.
         drawCircle(c3, 2.5f, Offset(center.x + sin(time * 1.3f) * s * 0.3f, center.y + cos(time * 1.7f) * s * 0.2f))
         if (f.beat > 0.5f) drawCircle(Color.White.copy(alpha = f.beat * 0.5f), s * 0.3f * (1.2f - f.beat), center, style = Stroke(3f))
+    }
+}
+
+/**
+ * "Nexo 2029": el túnel caleidoscopio del visualizador del Xbox 360, más fino. Cada frame vuelve a
+ * pintar el anterior más grande, girado y en espejo (todo parece salir disparado hacia ti), y encima
+ * van vidrios en simetría de 6 que salen del centro con cada golpe, un disco iridiscente que late
+ * con el bajo y el espectro alrededor. Al final, un acabado de tele: líneas de barrido, viñeta y
+ * una separación de color que se abre en los golpes.
+ */
+class NexoTunnel(private val maxPx: Int = 560) {
+    private var a: ImageBitmap? = null
+    private var b: ImageBitmap? = null
+    private var ca: Canvas? = null
+    private var cb: Canvas? = null
+    private val cds = CanvasDrawScope()
+    private val path = Path()
+    private val rnd = Random(2029)
+    private var hue = 0f
+    private var spin = 0f
+    private var lastBeats = 0
+    private var spawnAcc = 0f
+
+    private class Shard {
+        var alive = false
+        var th = 0f; var d = 0f; var v = 0f
+        var rot = 0f; var vr = 0f
+        var size = 0f; var tone = 0
+        var life = 0f
+        val pts = FloatArray(8)
+    }
+    private val shards = Array(110) { Shard() }
+
+    private fun spawn(power: Float) {
+        val s = shards.firstOrNull { !it.alive } ?: return
+        s.alive = true
+        s.th = rnd.nextFloat() * TAU
+        s.d = 0.02f + rnd.nextFloat() * 0.05f
+        s.v = 0.10f + rnd.nextFloat() * 0.25f + 0.5f * power
+        s.rot = rnd.nextFloat() * TAU
+        s.vr = (rnd.nextFloat() - 0.5f) * 5f
+        s.size = 0.012f + rnd.nextFloat() * 0.03f + 0.025f * power
+        s.tone = rnd.nextInt(4)
+        s.life = 1f
+        // Vidrio roto: 4 puntas irregulares alrededor del centro.
+        for (k in 0 until 4) {
+            val ang = k * (TAU / 4) + (rnd.nextFloat() - 0.5f) * 0.9f
+            val r = 0.55f + rnd.nextFloat() * 0.9f * if (k == 0) 1.8f else 1f
+            s.pts[k * 2] = cos(ang) * r
+            s.pts[k * 2 + 1] = sin(ang) * r
+        }
+    }
+
+    fun frame(scope: DrawScope, v: List<Color>, f: AudioFeatures, time: Float, dt: Float) {
+        val w = scope.size.width; val h = scope.size.height
+        if (w < 1f || h < 1f) return
+        val sc = min(1f, maxPx / max(w, h))
+        val bw = max(8, (w * sc).toInt()); val bh = max(8, (h * sc).toInt())
+        if (a?.width != bw || a?.height != bh) {
+            a = ImageBitmap(bw, bh).also { ca = Canvas(it) }
+            b = ImageBitmap(bw, bh).also { cb = Canvas(it) }
+        }
+        step(f, dt)
+        val src = a!!; val dst = b!!
+        // Paleta: la portada empujada hacia magenta y violeta, como en el video del 360.
+        val magenta = Color(0xFFFF2BD6); val violet = Color(0xFF7A5CFF); val ice = Color(0xFF7FF6FF)
+        val drift = Color.hsv(hue, 0.75f, 1f)
+        val tones = arrayOf(lerp(v[0], magenta, 0.55f), lerp(v[1], violet, 0.55f), lerp(v[2], ice, 0.4f), lerp(drift, magenta, 0.35f))
+        cds.draw(Density(1f), LayoutDirection.Ltr, cb!!, Size(bw.toFloat(), bh.toFloat())) {
+            drawRect(Color.Black)
+            val z = 1.035f + 0.05f * f.bass + 0.07f * f.beat
+            val turn = 0.5f + 2.2f * f.mid + 3f * f.beat
+            withTransform({ rotate(turn, center); scale(z, z, center) }) {
+                drawImage(src, alpha = 0.74f + 0.08f * f.level)
+            }
+            // Espejo: la estela se vuelve simétrica y aparece el caleidoscopio. (La suma de las dos
+            // copias queda abajo de 1 para que la estela se apague a negro y no se vuelva neblina.)
+            withTransform({ rotate(-turn * 0.5f, center); scale(-z, z, center) }) {
+                drawImage(src, alpha = 0.16f, blendMode = BlendMode.Screen)
+            }
+            disc(tones, f, time)
+            glass(tones)
+        }
+        a = dst; b = src
+        val t = ca; ca = cb; cb = t
+        drawLast(scope)
+    }
+
+    private fun step(f: AudioFeatures, dt: Float) {
+        hue = (hue + dt * (12f + 60f * f.level)) % 360f
+        spin += dt * (0.6f + 2.5f * f.mid + 4f * f.beat)
+        if (f.beats != lastBeats) {
+            lastBeats = f.beats
+            repeat(5 + (6 * f.bass).toInt()) { spawn(1f) }
+        }
+        spawnAcc += dt * (2.5f + 14f * f.level)
+        while (spawnAcc >= 1f) { spawn(0.2f * f.level); spawnAcc -= 1f }
+        for (s in shards) if (s.alive) {
+            s.v += dt * (0.25f + 0.8f * f.treble)
+            s.d += s.v * dt
+            s.rot += s.vr * dt
+            s.life -= dt * 0.35f
+            if (s.d > 0.9f || s.life <= 0f) s.alive = false
+        }
+    }
+
+    /** Disco al centro (el CD del video): arcoíris girando, surcos, hoyo y aro de espectro. */
+    private fun DrawScope.disc(tones: Array<Color>, f: AudioFeatures, time: Float) {
+        val s = min(size.width, size.height)
+        val r = s * (0.085f + 0.05f * f.bass + 0.03f * f.beat)
+        rotate(spin * 57.3f, center) {
+            drawCircle(
+                Brush.sweepGradient(listOf(tones[0], tones[2], tones[1], Color.White, tones[3], tones[0]), center),
+                r, center, alpha = 0.85f,
+            )
+        }
+        for (i in 1..4) drawCircle(Color.Black.copy(alpha = 0.18f), r * (0.45f + 0.13f * i), center, style = Stroke(1f))
+        drawCircle(Color.Black, r * 0.22f, center)
+        drawCircle(Color.White.copy(alpha = 0.7f), r * 0.22f, center, style = Stroke(1.2f))
+        // Espectro alrededor, en espejo para que cierre.
+        val n = 48
+        for (j in 0 until n) {
+            val u = j.toFloat() / n
+            val m = if (u < 0.5f) u * 2 else (1 - u) * 2
+            val e = f.band(m)
+            if (e < 0.04f) continue
+            val th = u * TAU + spin * 0.4f
+            val r0 = r * 1.25f
+            val r1 = r0 + e * s * 0.16f
+            drawLine(
+                lerp(tones[j % 4], Color.White, 0.25f).copy(alpha = 0.35f + 0.65f * e),
+                Offset(center.x + cos(th) * r0, center.y + sin(th) * r0),
+                Offset(center.x + cos(th) * r1, center.y + sin(th) * r1),
+                strokeWidth = 1.2f + 2.5f * e, cap = StrokeCap.Round,
+            )
+        }
+        if (f.beat > 0.4f) drawCircle(Color.White.copy(alpha = 0.6f * f.beat), r * (1.3f + 2.2f * (1f - f.beat)), center, style = Stroke(2f))
+        // Destellos que giran solos (así se mueve aunque esté en pausa).
+        for (k in 0 until 3) {
+            val th = time * (0.7f + 0.3f * k) + k * 2.1f
+            val d = r * (1.9f + 0.6f * sin(time * 0.8f + k))
+            drawCircle(lerp(tones[k], Color.White, 0.4f), 1.6f + 2f * f.level, Offset(center.x + cos(th) * d, center.y + sin(th) * d))
+        }
+    }
+
+    /** Vidrios en simetría de 6 (con espejo en los brazos impares). */
+    private fun DrawScope.glass(tones: Array<Color>) {
+        val s = min(size.width, size.height)
+        val reach = max(size.width, size.height) * 0.62f
+        for (sh in shards) {
+            if (!sh.alive) continue
+            val dist = sh.d * reach
+            // Perspectiva: más grandes conforme se acercan a la orilla.
+            val sz = s * sh.size * (0.6f + sh.d * 2.4f)
+            val cx = center.x + cos(sh.th) * dist
+            val cy = center.y + sin(sh.th) * dist
+            path.reset()
+            for (k in 0 until 4) {
+                val px = sh.pts[k * 2]; val py = sh.pts[k * 2 + 1]
+                val x = cx + (px * cos(sh.rot) - py * sin(sh.rot)) * sz
+                val y = cy + (px * sin(sh.rot) + py * cos(sh.rot)) * sz
+                if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            val alpha = (sh.life * 1.4f).coerceIn(0f, 1f)
+            val col = tones[sh.tone]
+            val fill = Brush.linearGradient(
+                listOf(lerp(col, Color.White, 0.22f).copy(alpha = 0.95f * alpha), col.copy(alpha = 0.6f * alpha)),
+                Offset(cx - sz, cy - sz), Offset(cx + sz, cy + sz),
+            )
+            for (arm in 0 until 6) {
+                withTransform({
+                    rotate(arm * 60f, center)
+                    if (arm % 2 == 1) scale(1f, -1f, center)
+                }) {
+                    drawPath(path, fill)
+                    drawPath(path, Color.White.copy(alpha = 0.55f * alpha), style = Stroke(0.8f))
+                }
+            }
+        }
+    }
+
+    /** Pinta el último frame sin avanzar (la capa de brillo). */
+    fun drawLast(scope: DrawScope, alpha: Float = 1f, offsetX: Float = 0f, filter: ColorFilter? = null) {
+        val img = a ?: return
+        scope.drawImage(
+            img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),
+            dstOffset = IntOffset(offsetX.toInt(), 0), dstSize = IntSize(scope.size.width.toInt(), scope.size.height.toInt()),
+            alpha = alpha, filterQuality = FilterQuality.Low, blendMode = BlendMode.Screen, colorFilter = filter,
+        )
+    }
+
+    private val redOnly = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f, 0f)))
+    private val blueOnly = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f, 0f)))
+
+    /** Acabado de tele (encima de todo, nítido): separación de color, barrido y viñeta. */
+    fun finish(scope: DrawScope, f: AudioFeatures, dp: Float) = with(scope) {
+        val split = (1.5f + 6f * f.beat + 2f * f.bass) * dp
+        drawLast(this, 0.45f, -split, redOnly)
+        drawLast(this, 0.45f, split, blueOnly)
+        val gap = 3f * dp
+        var y = 0f
+        val line = Color.Black.copy(alpha = 0.10f)
+        while (y < size.height) { drawRect(line, Offset(0f, y), Size(size.width, dp)); y += gap }
+        val r = max(size.width, size.height) * 0.75f
+        drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), center, r))
     }
 }

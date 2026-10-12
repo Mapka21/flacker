@@ -35,8 +35,6 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -164,7 +162,7 @@ fun ErrorBox(message: String, retry: () -> Unit, modifier: Modifier = Modifier) 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("SIN SEÑAL", style = Mono.copy(color = Hifi.LedRed, fontSize = 14.sp))
+        Text("Sin conexión", style = Display.copy(color = Hifi.Text, fontSize = 20.sp))
         Spacer(Modifier.height(8.dp))
         Text(message, color = Hifi.TextDim, fontSize = 13.sp)
         Spacer(Modifier.height(4.dp))
@@ -379,8 +377,18 @@ fun LikeButton(song: Song, modifier: Modifier = Modifier, size: Dp = 24.dp) {
     val likes = LocalApp.current.likes
     val liked = song.id in likes.ids.collectAsState().value
     val tint by animateColorAsState(if (liked) Hifi.Accent else Hifi.TextDim, label = "like")
+    // El corazón "late" al darle Me gusta.
+    val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+    var seen by remember(song.id) { mutableStateOf(liked) }
+    LaunchedEffect(liked) {
+        if (liked && !seen) { pop.snapTo(0.55f); pop.animateTo(1f, spring(dampingRatio = 0.32f, stiffness = 520f)) }
+        seen = liked
+    }
     IconButton(onClick = { likes.toggle(song) }, modifier) {
-        Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Me gusta", tint = tint, modifier = Modifier.size(size))
+        Icon(
+            if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Me gusta", tint = tint,
+            modifier = Modifier.size(size).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+        )
     }
 }
 
@@ -515,67 +523,33 @@ fun TrackRow(
         if (liked) Icon(Icons.Default.Favorite, "Me gusta", tint = Hifi.Accent, modifier = Modifier.size(15.dp))
         IconButton(onClick = { menu = dotsAt() }) { Icon(Icons.Default.MoreVert, null, tint = Hifi.TextFaint) }
     }
-            DropdownMenu(
-                expanded = menu != null, onDismissRequest = { menu = null }, offset = menu ?: DpOffset.Zero,
-                containerColor = Hifi.PanelHi.copy(alpha = 0.96f), shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-            ) {
-                DropdownMenuItem(
-                    text = { Text(if (liked) "Quitar de Me gusta" else "Me gusta") },
-                    leadingIcon = { Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Hifi.Accent) },
-                    onClick = { c.likes.toggle(song); menu = null },
-                )
-                DropdownMenuItem(
-                    text = { Text("Iniciar radio") },
-                    leadingIcon = { Icon(Icons.Default.Radio, null) },
-                    onClick = {
-                        menu = null
-                        // Como la radio de Spotify: esta canción y luego parecidas.
-                        scope.launch { c.player.play(listOf(song) + c.api.similarSongs(song.id).filter { it.id != song.id }) }
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Reproducir siguiente") },
-                    leadingIcon = { Icon(Icons.Default.SkipNext, null) },
-                    onClick = { c.player.playNext(listOf(song)); menu = null },
-                )
-                DropdownMenuItem(
-                    text = { Text("Agregar a la cola") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) },
-                    onClick = { c.player.enqueue(listOf(song)); menu = null },
-                )
-                DropdownMenuItem(
-                    text = { Text("Agregar a playlist…") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) },
-                    onClick = { menu = null; addTo = true },
-                )
-                if (onRemove != null) {
-                    DropdownMenuItem(
-                        text = { Text("Quitar de esta playlist") },
-                        leadingIcon = { Icon(Icons.Default.Delete, null) },
-                        onClick = { menu = null; onRemove() },
-                    )
+            AppMenu(menu != null, { menu = null }, menu ?: DpOffset.Zero) {
+                AppMenuItem(
+                    if (liked) "Quitar de Me gusta" else "Me gusta", if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    iconTint = if (liked) Hifi.Accent else null,
+                ) { c.likes.toggle(song); menu = null }
+                AppMenuItem("Agregar a playlist…", Icons.AutoMirrored.Filled.PlaylistAdd) { menu = null; addTo = true }
+                AppMenuDivider()
+                AppMenuItem("Reproducir siguiente", Icons.Default.SkipNext) { c.player.playNext(listOf(song)); menu = null }
+                AppMenuItem("Agregar a la cola", Icons.AutoMirrored.Filled.QueueMusic) { c.player.enqueue(listOf(song)); menu = null }
+                AppMenuItem("Iniciar radio", Icons.Default.Radio) {
+                    menu = null
+                    // Como la radio de Spotify: esta canción y luego parecidas.
+                    scope.launch { c.player.play(listOf(song) + c.api.similarSongs(song.id).filter { it.id != song.id }) }
                 }
                 val store = c.downloads
                 if (store != null && (offline?.done == true || offline?.active == true)) {
-                    DropdownMenuItem(
-                        text = { Text("Quitar descarga") },
-                        leadingIcon = { Icon(Icons.Default.Delete, null) },
-                        onClick = { store.remove(listOf(song)); menu = null },
-                    )
+                    AppMenuItem("Quitar descarga", Icons.Default.Delete) { store.remove(listOf(song)); menu = null }
                 } else if (store != null) {
-                    DropdownMenuItem(
-                        text = { Text("Descargar") },
-                        leadingIcon = { Icon(Icons.Outlined.Download, null) },
-                        onClick = { store.download(listOf(song)); menu = null },
-                    )
+                    AppMenuItem("Descargar", Icons.Outlined.Download) { store.download(listOf(song)); menu = null }
                 }
                 if (onGoToAlbum != null && song.albumId != null) {
-                    DropdownMenuItem(
-                        text = { Text("Ir al álbum") },
-                        leadingIcon = { Icon(Icons.Default.Album, null) },
-                        onClick = { onGoToAlbum(); menu = null },
-                    )
+                    AppMenuDivider()
+                    AppMenuItem("Ir al álbum", Icons.Default.Album) { onGoToAlbum(); menu = null }
+                }
+                if (onRemove != null) {
+                    AppMenuDivider()
+                    AppMenuItem("Quitar de esta playlist", Icons.Default.Delete, destructive = true) { menu = null; onRemove() }
                 }
             }
     }

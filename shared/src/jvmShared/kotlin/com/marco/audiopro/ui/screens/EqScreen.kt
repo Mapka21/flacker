@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -98,7 +99,7 @@ fun EqScreen() {
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("DSP", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 4.sp))
+                Text("DSP", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 1.sp))
                 Text("Ecualizador", style = Display.copy(fontSize = 30.sp))
             }
             Switch(
@@ -149,7 +150,7 @@ fun EqScreen() {
         AlertDialog(
             onDismissRequest = { saveDialog = false },
             title = { Text("Guardar preset") },
-            text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Nombre") }) },
+            text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Nombre") }, modifier = Modifier.textInput()) },
             confirmButton = {
                 TextButton(enabled = name.isNotBlank(), onClick = { engine.savePreset(name.trim()); saveDialog = false }) { Text("Guardar") }
             },

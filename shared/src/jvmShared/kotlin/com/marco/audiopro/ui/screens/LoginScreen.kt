@@ -1,5 +1,6 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.widthIn
@@ -63,15 +64,15 @@ fun LoginScreen() {
             Spacer(Modifier.height(28.dp))
             OutlinedTextField(
                 url, { url = it }, label = { Text("Servidor") }, placeholder = { Text("https://musica.midominio.com") },
-                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
+                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth().textInput(),
             )
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(user, { user = it }, label = { Text("Usuario") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(user, { user = it }, label = { Text("Usuario") }, singleLine = true, modifier = Modifier.fillMaxWidth().textInput())
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 pass, { pass = it }, label = { Text("Contraseña") }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().textInput(),
             )
             error?.let {
                 Spacer(Modifier.height(10.dp))
@@ -94,7 +95,7 @@ fun LoginScreen() {
                 modifier = Modifier.fillMaxWidth().height(50.dp),
             ) {
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = androidx.compose.ui.graphics.Color.Black)
-                else Text("CONECTAR", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                else Text("Conectar", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(16.dp))
             Text(

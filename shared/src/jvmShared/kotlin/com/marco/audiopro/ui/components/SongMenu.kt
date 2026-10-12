@@ -1,6 +1,5 @@
 package com.marco.audiopro.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -19,8 +18,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,33 +60,30 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
     val liked = song.id in c.likes.ids.collectAsState().value
     var addTo by remember { mutableStateOf(false) }
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
-    DropdownMenu(
-        expanded, onDismiss, offset = offset, containerColor = Hifi.PanelHi.copy(alpha = 0.97f), shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-    ) {
+    AppMenu(expanded, onDismiss, offset) {
         if (!song.isPreview) {
-            DropdownMenuItem(
-                text = { Text(if (liked) "Quitar de Me gusta" else "Me gusta") },
-                leadingIcon = { Icon(if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Hifi.Accent) },
-                onClick = { c.likes.toggle(song); onDismiss() },
-            )
-            DropdownMenuItem(text = { Text("Agregar a playlist…") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) }, onClick = { onDismiss(); addTo = true })
-            DropdownMenuItem(
-                text = { Text("Iniciar radio") }, leadingIcon = { Icon(Icons.Default.Radio, null) },
-                onClick = {
-                    onDismiss()
-                    scope.launch { c.player.play(listOf(song) + c.api.similarSongs(song.id).filter { it.id != song.id }) }
-                },
-            )
+            AppMenuItem(
+                if (liked) "Quitar de Me gusta" else "Me gusta", if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                iconTint = if (liked) Hifi.Accent else null,
+            ) { c.likes.toggle(song); onDismiss() }
+            AppMenuItem("Agregar a playlist…", Icons.AutoMirrored.Filled.PlaylistAdd) { onDismiss(); addTo = true }
+            AppMenuDivider()
         }
-        DropdownMenuItem(text = { Text("Reproducir siguiente") }, leadingIcon = { Icon(Icons.Default.SkipNext, null) }, onClick = { c.player.playNext(listOf(song)); onDismiss() })
-        DropdownMenuItem(text = { Text("Agregar a la cola") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) }, onClick = { c.player.enqueue(listOf(song)); onDismiss() })
+        AppMenuItem("Reproducir siguiente", Icons.Default.SkipNext) { c.player.playNext(listOf(song)); onDismiss() }
+        AppMenuItem("Agregar a la cola", Icons.AutoMirrored.Filled.QueueMusic) { c.player.enqueue(listOf(song)); onDismiss() }
+        if (!song.isPreview) {
+            AppMenuItem("Iniciar radio", Icons.Default.Radio) {
+                onDismiss()
+                scope.launch { c.player.play(listOf(song) + c.api.similarSongs(song.id).filter { it.id != song.id }) }
+            }
+        }
         c.downloads?.takeIf { !song.isPreview }?.let { store ->
-            DropdownMenuItem(text = { Text("Descargar") }, leadingIcon = { Icon(Icons.Outlined.Download, null) }, onClick = { store.download(listOf(song)); onDismiss() })
+            AppMenuItem("Descargar", Icons.Outlined.Download) { store.download(listOf(song)); onDismiss() }
         }
-        if (nav != null) {
-            song.albumId?.let { id -> DropdownMenuItem(text = { Text("Ir al álbum") }, leadingIcon = { Icon(Icons.Default.Album, null) }, onClick = { onDismiss(); nav.openAlbum(id) }) }
-            song.artistId?.let { id -> DropdownMenuItem(text = { Text("Ir al artista") }, leadingIcon = { Icon(Icons.Default.Person, null) }, onClick = { onDismiss(); nav.openArtist(id) }) }
+        if (nav != null && (song.albumId != null || song.artistId != null)) {
+            AppMenuDivider()
+            song.albumId?.let { id -> AppMenuItem("Ir al álbum", Icons.Default.Album) { onDismiss(); nav.openAlbum(id) } }
+            song.artistId?.let { id -> AppMenuItem("Ir al artista", Icons.Default.Person) { onDismiss(); nav.openArtist(id) } }
         }
     }
 }

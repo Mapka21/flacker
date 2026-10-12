@@ -30,6 +30,9 @@ dependencies {
     implementation("org.bytedeco:ffmpeg:$ffmpegVersion")
     implementation("org.bytedeco:ffmpeg:$ffmpegVersion:$nativePlatform")
 
+    // Barra de tareas (botones ⏮ ⏯ ⏭) y controles multimedia de Windows.
+    implementation("net.java.dev.jna:jna:5.15.0")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.9.5")
     testImplementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.9.5")
@@ -42,8 +45,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.3.0"
-            description = "Cliente audiófilo para Navidrome"
+            packageVersion = "2.4.0"
+            description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true
             windows {

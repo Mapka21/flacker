@@ -1,5 +1,7 @@
 package com.marco.audiopro.ui.screens
 
+import com.marco.audiopro.ui.components.ArtistImage
+import com.marco.audiopro.ui.components.textInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -223,10 +225,7 @@ private fun ArtistsGrid(nav: NavController) {
 @Composable
 private fun ArtistTile(a: Artist, onClick: () -> Unit) {
     Column(Modifier.padding(8.dp).bouncyClick(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverArt(
-            a.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(14.dp, CircleShape),
-            size = 300, corner = 200.dp, customKey = CustomCovers.artist(a.id),
-        )
+        ArtistImage(a.id, a.name, a.coverArt, Modifier.fillMaxWidth().aspectRatio(1f).shadow(14.dp, CircleShape), size = 300, corner = 200.dp)
         Spacer(Modifier.height(8.dp))
         Text(a.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         a.albumCount?.let { Text("$it álbum${if (it == 1) "" else "es"}", fontSize = 12.sp, color = Hifi.TextDim) }
@@ -236,7 +235,7 @@ private fun ArtistTile(a: Artist, onClick: () -> Unit) {
 @Composable
 fun ArtistRow(a: Artist, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().bouncyClick(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        CoverArt(a.coverArt, Modifier.size(48.dp), size = 150, corner = 24.dp, customKey = CustomCovers.artist(a.id))
+        ArtistImage(a.id, a.name, a.coverArt, Modifier.size(48.dp), size = 150, corner = 24.dp)
         Spacer(Modifier.width(14.dp))
         Column {
             Text(a.name, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -344,7 +343,7 @@ private fun SongsTable(nav: NavController) {
                         if (filter.isEmpty()) Text("Filtrar ${fmtCount(songs.size)} canciones…", color = Hifi.TextFaint, fontSize = 13.sp)
                         BasicTextField(
                             filter, { filter = it }, singleLine = true, cursorBrush = SolidColor(Hifi.Accent),
-                            textStyle = TextStyle(color = Hifi.Text, fontSize = 13.sp, fontFamily = Fonts.inter), modifier = Modifier.fillMaxWidth(),
+                            textStyle = TextStyle(color = Hifi.Text, fontSize = 13.sp, fontFamily = Fonts.inter), modifier = Modifier.fillMaxWidth().textInput(),
                         )
                     }
                 }

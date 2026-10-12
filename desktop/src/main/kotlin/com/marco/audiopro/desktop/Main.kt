@@ -1,6 +1,7 @@
 package com.marco.audiopro.desktop
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import com.marco.audiopro.player.PlayerController
 import com.marco.audiopro.player.RoutedPlayer
 import com.marco.audiopro.ui.DesktopHistory
 import com.marco.audiopro.ui.DesktopRoot
+import com.marco.audiopro.ui.components.TextInputFocus
 import java.awt.AWTEvent
 import java.awt.Toolkit
 import java.awt.event.MouseEvent
@@ -100,6 +102,7 @@ class DesktopGraph : AppGraph {
     override val discover = com.marco.audiopro.data.discover.DiscoverRepository(http, api, dataDir)
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(dataDir)
+    override val artistPhotos = com.marco.audiopro.data.ArtistPhotos(http, api, dataDir)
     override val lyrics = LyricsRepository(http, api, dataDir)
     override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect = ConnectService(
@@ -111,7 +114,7 @@ class DesktopGraph : AppGraph {
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.3.0"
+    override val versionName = "2.4.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -156,6 +159,8 @@ fun main() {
             onPreviewKeyEvent = { e -> handleShortcut(e, player) },
         ) {
             window.minimumSize = Dimension(1050, 700)
+            // Botones ⏮ ⏯ ⏭ en la barra de tareas y "Reproduciendo" en el control multimedia de Windows.
+            LaunchedEffect(Unit) { WindowsShell.install(window, player, graph.http) { graph.api.coverUrl(it, 400) } }
             CompositionLocalProvider(LocalApp provides graph) {
                 MarcoTheme { DesktopRoot(onMiniPlayer = { mini = true }) }
             }
@@ -166,20 +171,31 @@ fun main() {
     }
 }
 
-/** Atajos: Ctrl+Espacio = play/pausa, Ctrl+→/← = siguiente/anterior, Ctrl+↑/↓ = volumen, Alt+←/→ = atrás/adelante, teclas multimedia. */
+/** Espacio suelto: se ignora la repetición al dejarlo apretado. */
+private var spaceHeld = false
+
+/**
+ * Atajos como Spotify: Espacio (o Ctrl+Espacio) = play/pausa, Ctrl+→/← = siguiente/anterior,
+ * Ctrl+↑/↓ = volumen, Alt+←/→ = atrás/adelante, teclas multimedia. Espacio no pausa mientras
+ * escribes en un campo de texto.
+ */
 fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
+    if (e.key == Key.Spacebar && !e.isAltPressed && (e.isCtrlPressed || !TextInputFocus.active)) {
+        if (e.type == KeyEventType.KeyUp) { spaceHeld = false; return true }
+        if (e.type == KeyEventType.KeyDown && !spaceHeld) { spaceHeld = true; player.toggle() }
+        return true
+    }
     if (e.type != KeyEventType.KeyDown) return false
     return when {
-        e.isCtrlPressed && e.key == Key.Spacebar -> { player.toggle(); true }
         e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
-        e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume((player.volume?.value ?: 0f) + 0.05f); true }
-        e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume((player.volume?.value ?: 0f) - 0.05f); true }
+        e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f)); true }
+        e.isCtrlPressed && e.key == Key.DirectionDown -> { player.setVolume(((player.volume?.value ?: 0f) - 0.05f).coerceIn(0f, 1f)); true }
         e.isAltPressed && e.key == Key.DirectionLeft -> { DesktopHistory.events.tryEmit(false); true }
         e.isAltPressed && e.key == Key.DirectionRight -> { DesktopHistory.events.tryEmit(true); true }
-        e.key == Key.MediaPlayPause -> { player.toggle(); true }
-        e.key == Key.MediaNext -> { player.next(); true }
-        e.key == Key.MediaPrevious -> { player.previous(); true }
+        e.key == Key.MediaPlayPause -> { if (MediaKeyGate.pass(0)) player.toggle(); true }
+        e.key == Key.MediaNext -> { if (MediaKeyGate.pass(1)) player.next(); true }
+        e.key == Key.MediaPrevious -> { if (MediaKeyGate.pass(2)) player.previous(); true }
         else -> false
     }
 }

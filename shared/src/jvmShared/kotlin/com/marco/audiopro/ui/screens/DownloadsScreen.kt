@@ -94,7 +94,7 @@ fun DownloadsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                Text("OFFLINE", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 4.sp))
+                Text("OFFLINE", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 1.sp))
                 Text("Descargas", style = Display.copy(fontSize = 30.sp))
                 Spacer(Modifier.height(4.dp))
                 Text("${songsLabel(done.size)} · ${formatBytes(totalBytes)}", color = Hifi.TextDim, fontSize = 13.sp)
