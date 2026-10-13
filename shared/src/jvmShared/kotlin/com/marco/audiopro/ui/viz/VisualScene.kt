@@ -758,36 +758,48 @@ class NexoTunnel(private val maxPx: Int = 560) {
 
 /**
  * "ASCII 333": la portada convertida en caracteres (" .,:;?iSk$", oscuro → claro) con ondas que salen
- * del centro en cada golpe y el espectro subiendo desde abajo, también en caracteres. Cada carácter
- * se dibuja una vez en una tira (atlas) y luego sólo se copia: miles de celdas por frame sin texto.
+ * del centro en cada golpe y el espectro subiendo desde abajo, también en caracteres.
+ *
+ * Rápido: cada carácter se rasteriza una vez (máscara de alfa) y el cuadro entero se arma en un
+ * arreglo de pixeles en Kotlin, que se manda a la pantalla como UNA imagen, a lo mucho 30 veces por
+ * segundo. (Dibujar miles de glifos sueltos por frame dejaba la app a ~1 fps.)
  */
 class AsciiVision {
     private val ramp = " .,:;?iSk$"
-    private var atlas: ImageBitmap? = null
+    private var masks: Array<IntArray> = emptyArray()
     private var cw = 0
     private var ch = 0
     private var cols = 0
     private var rows = 0
     private var lum = FloatArray(0)
     private var lumFor: ImageBitmap? = null
+    private var buffer: com.marco.audiopro.platform.PixelBuffer? = null
+    private var frame: ImageBitmap? = null
+    private var lastBuild = -1f
 
-    private fun buildAtlas(m: androidx.compose.ui.text.TextMeasurer, cellH: Int) {
+    /** Máscara de alfa (0..255) de cada carácter, del tamaño de una celda. */
+    private fun buildMasks(m: androidx.compose.ui.text.TextMeasurer, cellH: Int) {
         val h = cellH.coerceAtLeast(6)
+        if (masks.isNotEmpty() && ch == h) return
         val w = (h * 0.6f).toInt().coerceAtLeast(4)
-        if (atlas != null && ch == h) return
         ch = h; cw = w
-        val img = ImageBitmap(w * ramp.length, h)
+        val atlas = ImageBitmap(w * ramp.length, h)
         val style = androidx.compose.ui.text.TextStyle(
             fontFamily = com.marco.audiopro.ui.theme.Fonts.mono, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             fontSize = androidx.compose.ui.unit.TextUnit(h * 0.86f, androidx.compose.ui.unit.TextUnitType.Sp), color = Color.White,
         )
-        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(img), Size(img.width.toFloat(), h.toFloat())) {
+        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(atlas), Size(atlas.width.toFloat(), h.toFloat())) {
             for (i in 1 until ramp.length) {
                 val l = m.measure(ramp[i].toString(), style, density = this, layoutDirection = LayoutDirection.Ltr)
                 drawText(l, topLeft = Offset(i * w + (w - l.size.width) / 2f, (h - l.size.height) / 2f))
             }
         }
-        atlas = img
+        val px = IntArray(atlas.width * h)
+        atlas.readPixels(px, 0, 0, atlas.width, h)
+        masks = Array(ramp.length) { c ->
+            IntArray(w * h) { k -> (px[(k / w) * atlas.width + c * w + k % w] ushr 24) and 255 }
+        }
+        buffer = null
     }
 
     /** Brillo de la portada por celda (se recalcula si cambia la portada o la cuadrícula). */
@@ -820,37 +832,66 @@ class AsciiVision {
         scope: DrawScope, m: androidx.compose.ui.text.TextMeasurer, art: ImageBitmap?, tones: List<Color>,
         f: AudioFeatures, time: Float, dp: Float, glow: Boolean,
     ) = with(scope) {
-        buildAtlas(m, (13f * dp).toInt())
-        val a = atlas ?: return@with
-        cols = (size.width / cw).toInt().coerceAtLeast(1)
-        rows = (size.height / ch).toInt().coerceAtLeast(1)
+        if (glow) return@with
+        // Se arma a lo mucho a 1.25x (no a la densidad completa) y se escala: menos pixeles por cuadro.
+        val k = min(dp, 1.25f)
+        buildMasks(m, (13f * k).toInt())
+        if (masks.isEmpty()) return@with
+        val scale = dp / k
+        cols = (size.width / scale / cw).toInt().coerceAtLeast(1)
+        rows = (size.height / scale / ch).toInt().coerceAtLeast(1)
         sample(art)
-        val tint = ColorFilter.tint(lerp(Color.White, tones[0], 0.18f))
-        val ox = ((size.width - cols * cw) / 2).toInt(); val oy = ((size.height - rows * ch) / 2).toInt()
+        val bw = cols * cw; val bh = rows * ch
+        val buf = buffer?.takeIf { it.width == bw && it.height == bh } ?: com.marco.audiopro.platform.PixelBuffer(bw, bh).also { buffer = it; frame = null }
+        if (frame == null || time - lastBuild >= 1f / 30f || time < lastBuild) {
+            lastBuild = time
+            render(buf, art != null, f, time)
+            frame = buf.image()
+        }
+        val img = frame ?: return@with
+        drawImage(
+            img, srcOffset = IntOffset.Zero, srcSize = IntSize(bw, bh),
+            dstOffset = IntOffset(((size.width - bw * scale) / 2).toInt(), ((size.height - bh * scale) / 2).toInt()),
+            dstSize = IntSize((bw * scale).toInt(), (bh * scale).toInt()),
+            filterQuality = FilterQuality.Low, colorFilter = ColorFilter.tint(lerp(Color.White, tones[0], 0.18f), androidx.compose.ui.graphics.BlendMode.Modulate),
+        )
+    }
+
+    /** El cuadro en el arreglo de pixeles: blanco con alfa (sin premultiplicar), el tinte va al dibujarlo. */
+    private fun render(buf: com.marco.audiopro.platform.PixelBuffer, hasArt: Boolean, f: AudioFeatures, time: Float) {
+        val px = buf.pixels
+        java.util.Arrays.fill(px, 0)
+        val w = buf.width
         val specRows = rows * 0.32f
         val cx = cols / 2f; val cy = rows / 2f
         val diag = kotlin.math.sqrt(cx * cx + cy * cy * 4f)
         val last = ramp.length - 1
+        val wave = 0.06f + 0.16f * f.bass
         for (y in 0 until rows) {
             val fromBottom = rows - 1 - y
             for (x in 0 until cols) {
-                var v = if (art != null) lum[y * cols + x] * 0.85f else 0.08f + 0.06f * sin(x * 0.3f + time)
+                var v = if (hasArt) lum[y * cols + x] * 0.85f else 0.08f + 0.06f * sin(x * 0.3f + time)
                 val dx = x - cx; val dy = (y - cy) * 2f
                 val d = kotlin.math.sqrt(dx * dx + dy * dy) / diag
                 // Ondas desde el centro, más fuertes con el bajo y en cada golpe.
-                v += sin(d * 22f - time * 4.5f) * (0.06f + 0.16f * f.bass) + f.beat * 0.3f * (1f - d).coerceAtLeast(0f)
+                v += sin(d * 22f - time * 4.5f) * wave + f.beat * 0.3f * (1f - d).coerceAtLeast(0f)
                 // Espectro: columnas que suben desde abajo.
                 val band = f.band(x / cols.toFloat())
                 if (fromBottom < specRows * band) v = max(v, 0.7f + 0.3f * (1f - fromBottom / (specRows * band + 0.01f)))
                 v = v.coerceIn(0f, 1f)
-                if (glow && v < 0.6f) continue
-                val i = (v * last + 0.25f).toInt().coerceIn(0, last)
-                if (i == 0) continue
-                drawImage(
-                    a, srcOffset = IntOffset(i * cw, 0), srcSize = IntSize(cw, ch),
-                    dstOffset = IntOffset(ox + x * cw, oy + y * ch), dstSize = IntSize(cw, ch),
-                    alpha = 0.25f + 0.75f * v, colorFilter = tint,
-                )
+                val c = (v * last + 0.25f).toInt().coerceIn(0, last)
+                if (c == 0) continue
+                val mask = masks[c]
+                val a = (0.25f + 0.75f * v) * 255f
+                val base = y * ch * w + x * cw
+                for (py in 0 until ch) {
+                    val row = base + py * w
+                    val mr = py * cw
+                    for (pxi in 0 until cw) {
+                        val mv = mask[mr + pxi]
+                        if (mv != 0) px[row + pxi] = ((mv * a / 255f).toInt() shl 24) or 0xFFFFFF
+                    }
+                }
             }
         }
     }

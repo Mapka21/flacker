@@ -137,7 +137,7 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import com.marco.audiopro.ui.components.ConnectGreen
 import com.marco.audiopro.ui.components.DevicesButton
 import com.marco.audiopro.ui.components.RemoteBadge
-import com.marco.audiopro.ui.components.FlackerBanner
+import com.marco.audiopro.ui.components.FlackerLogo
 import com.marco.audiopro.ui.components.LyricsPane
 import com.marco.audiopro.ui.components.SegmentedControl
 import com.marco.audiopro.ui.components.VisualModeButton
@@ -273,8 +273,8 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
     if (creating) NewPlaylistFlow(nav) { creating = false }
 
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
-        // La calavera ASCII y FLACKER 333 (también sirve para arrastrar la ventana).
-        FlackerBanner(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 12.dp).windowDragArea())
+        // El logo también sirve para arrastrar la ventana.
+        FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp).windowDragArea())
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
         SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }

@@ -118,7 +118,7 @@ class DesktopGraph : AppGraph {
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.7.0"
+    override val versionName = "2.7.1"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -163,6 +163,7 @@ fun main() {
             onPreviewKeyEvent = { e -> handleShortcut(e, player) },
         ) {
             window.minimumSize = Dimension(1050, 700)
+            LaunchedEffect(Unit) { window.useFlackerIcons() }
             // Botones ⏮ ⏯ ⏭ en la barra de tareas, "Reproduciendo" en el control multimedia de Windows
             // y la barra de título propia (como Discord): si se pudo, la app dibuja sus botones.
             val maximized = remember { derivedStateOf { windowState.placement == WindowPlacement.Maximized } }
@@ -218,4 +219,15 @@ fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
         e.key == Key.MediaPrevious -> { if (MediaKeyGate.pass(2)) player.previous(); true }
         else -> false
     }
+}
+
+/**
+ * La calavera ASCII en todos los tamaños (16 a 256 px, hechos con tools/brand/make_icons.py): así la
+ * barra de tareas usa la versión chica nítida en vez de encoger la grande.
+ */
+fun java.awt.Window.useFlackerIcons() {
+    val imgs = listOf(16, 20, 24, 32, 40, 48, 64, 128, 256).mapNotNull { n ->
+        DesktopGraph::class.java.getResource("/icons/flacker-$n.png")?.let { runCatching { javax.imageio.ImageIO.read(it) }.getOrNull() }
+    }
+    if (imgs.isNotEmpty()) iconImages = imgs
 }

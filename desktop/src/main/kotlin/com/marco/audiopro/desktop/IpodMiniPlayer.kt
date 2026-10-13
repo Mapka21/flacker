@@ -123,6 +123,7 @@ fun IpodWindow(graph: DesktopGraph, onExpand: () -> Unit, onKey: (KeyEvent) -> B
         alwaysOnTop = true,
         onPreviewKeyEvent = onKey,
     ) {
+        androidx.compose.runtime.LaunchedEffect(Unit) { window.useFlackerIcons() }
         CompositionLocalProvider(LocalApp provides graph) {
             MarcoTheme(background = false) {
                 IpodBody(

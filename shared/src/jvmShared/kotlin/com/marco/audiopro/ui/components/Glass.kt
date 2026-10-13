@@ -159,6 +159,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
             if (reactive) LiveAudio.update(c.engine.tap, t, playing, offset)
             scene.step(dt, if (reactive) LiveAudio.features else LiveAudio.quiet)
             tick.longValue = t
+            if (FpsLog.on) FpsLog.frame(t, mode.name)
         }
     }
     val feats = { if (reactive) LiveAudio.features else LiveAudio.quiet }
@@ -169,7 +170,8 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
         // Sin blur (Android < 12) la portada se vería tal cual: ahí van las manchas de color.
         val useArt = if (supportsBlur) art else null
         scene.art = art
-        Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
+        // En ASCII el fondo es liso: no vale la pena difuminarlo cada frame.
+        if (mode != VisualPreset.ASCII) Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
             Canvas(Modifier.fillMaxSize().blur(big, BlurredEdgeTreatment.Rectangle)) {
                 tick.longValue
                 scene.drawBase(this, mode, cols, img, feats())
@@ -178,7 +180,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
         if (scene.hasFx(mode)) {
             // Brillo (bloom) de las figuras y luego las figuras nítidas.
             // (Las olas son rellenos grandes: su brillo deja manchas, así que van sin él.)
-            if (supportsBlur && mode != VisualPreset.OLAS) Canvas(Modifier.fillMaxSize().blur(big / 5, BlurredEdgeTreatment.Unbounded).graphicsLayer { alpha = 0.9f }) {
+            if (supportsBlur && mode != VisualPreset.OLAS && mode != VisualPreset.ASCII) Canvas(Modifier.fillMaxSize().blur(big / 5, BlurredEdgeTreatment.Unbounded).graphicsLayer { alpha = 0.9f }) {
                 tick.longValue
                 scene.drawFx(this, mode, cols, feats(), glow = true)
             }
@@ -237,3 +239,18 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
 
 /** Tarjeta de vidrio para agrupar ajustes (reemplaza a los paneles grises opacos). */
 fun Modifier.glassCard(): Modifier = this.glass(RoundedCornerShape(20.dp), Color.Black.copy(alpha = 0.22f))
+
+/** -Dflacker.debugFps=true: imprime los cuadros por segundo del fondo cada 2 s (para cazar lentitud). */
+private object FpsLog {
+    val on = runCatching { System.getProperty("flacker.debugFps") == "true" }.getOrDefault(false)
+    private var start = 0L
+    private var frames = 0
+    fun frame(t: Long, what: String) {
+        if (start == 0L) start = t
+        frames++
+        if (t - start >= 2_000_000_000L) {
+            println("FPS $what: %.1f".format(frames * 1e9 / (t - start)))
+            start = t; frames = 0
+        }
+    }
+}

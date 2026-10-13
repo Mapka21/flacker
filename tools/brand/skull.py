@@ -115,9 +115,10 @@ def preview(n=512):
     return im.resize((n, n), Image.LANCZOS)
 
 
-preview().save(os.path.join(os.environ["TEMP"], "skull-preview.png"))
-with open(os.path.join(os.environ["TEMP"], "skull-paths.kt"), "w", encoding="utf-8") as f:
-    f.write(f'    const val SKULL = "{skull}"\n')
-    f.write(f'    const val EYE = "{eye}"\n')
-    f.write("    val BONES = listOf(\n" + "".join(f'        "{b}",\n' for b in bones) + "    )\n")
-print("ok")
+if __name__ == "__main__":
+    preview().save(os.path.join(os.environ["TEMP"], "skull-preview.png"))
+    with open(os.path.join(os.environ["TEMP"], "skull-paths.kt"), "w", encoding="utf-8") as f:
+        f.write(f'    const val SKULL = "{skull}"\n')
+        f.write(f'    const val EYE = "{eye}"\n')
+        f.write("    val BONES = listOf(\n" + "".join(f'        "{b}",\n' for b in bones) + "    )\n")
+    print("ok")

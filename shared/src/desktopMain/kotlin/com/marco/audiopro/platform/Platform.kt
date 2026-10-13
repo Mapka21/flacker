@@ -38,7 +38,7 @@ fun coilImageToImageBitmap(image: Image): ImageBitmap = image.toBitmap().asCompo
 class PixelBuffer(val width: Int, val height: Int) {
     val pixels = IntArray(width * height)
     private val bytes = ByteBuffer.allocate(width * height * 4).order(ByteOrder.LITTLE_ENDIAN)
-    private val info = ImageInfo.makeN32(width, height, ColorAlphaType.PREMUL)
+    private val info = ImageInfo.makeN32(width, height, ColorAlphaType.UNPREMUL)
 
     fun image(): ImageBitmap {
         bytes.clear()

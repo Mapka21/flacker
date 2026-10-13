@@ -39,11 +39,13 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
     minimizar, maximizar y cerrar; se arrastra desde arriba, la barra de búsqueda o el logo, con
     doble clic para maximizar y acoplar a los lados. `-Dflacker.nativeTitle=true` regresa la barra
     de Windows.
-  - **Logo en arte ASCII**: la calavera hecha de caracteres (`tools/brand/ascii_skull.py`) en la barra
-    lateral, el inicio de sesión, Ajustes y "sin letra"; también es el ícono en tamaños grandes (en
-    los chicos queda la calavera sólida para que se lea).
+  - **Ícono en arte ASCII** (v2.7.1): la calavera hecha de caracteres en todos los tamaños de ícono
+    (barra de tareas, escritorio, ventana, Android), con cuadrículas más gruesas en los chicos para que
+    se lea (`tools/brand/make_icons.py`). Dentro de la app la barra lateral lleva la calavera sólida; el
+    arte ASCII queda en el inicio de sesión, Ajustes y "sin letra".
   - **Modo visual "ASCII 333"**: tu portada y la música dibujadas con caracteres, con ondas en cada
-    golpe y el espectro subiendo.
+    golpe y el espectro subiendo. Desde la v2.7.1 se arma en un arreglo de pixeles y se manda como una
+    sola imagen (antes, miles de glifos por cuadro dejaban la app a ~1 fps; ahora va a 60).
   - **EQ para tu música**: presets paramétricos Rock pesado, Rock, Pop, Trap / Rap, Corridos,
     Batería al frente, Guitarras al frente y Lo-Fi / Chill (quitan lodo en vez de sólo subir todo), y
     **✦ Auto por género**: cada canción suena con el preset de su género.
