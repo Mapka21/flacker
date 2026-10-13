@@ -46,6 +46,8 @@ object WindowsShell {
     private var installed = false
     private var thumbBar: ThumbBar? = null
     private var media: MediaControls? = null
+    /** Referencia fuerte: si el GC se lleva el callback de JNA, Windows llama a memoria liberada. */
+    private var customFrame: CustomFrame? = null
     /** Para las pruebas: (botones de la barra, control multimedia) quedaron activos. */
     internal val active get() = (thumbBar != null) to (media != null)
 
@@ -97,6 +99,7 @@ object WindowsShell {
         }
         // Al final, para quedar primero en la cadena de mensajes de la ventana, y sólo ya que la
         // ventana se ve: si se cambia el marco antes, Compose nunca llega a mostrarla.
+        customFrame = frame
         frame?.let { f ->
             if (window.isShowing) f.start(window)
             else window.addComponentListener(object : java.awt.event.ComponentAdapter() {
@@ -188,6 +191,7 @@ private interface User32Lib : Library {
     fun IsZoomed(hwnd: Pointer): Boolean
     fun ScreenToClient(hwnd: Pointer, point: Pointer): Boolean
     fun GetClientRect(hwnd: Pointer, rect: Pointer): Boolean
+    fun EnumChildWindows(parent: Pointer, proc: EnumProc, lParam: Pointer?): Boolean
     fun GetDpiForWindow(hwnd: Pointer): Int
     fun GetSystemMetricsForDpi(index: Int, dpi: Int): Int
     fun CreateIconIndirect(info: Pointer): Pointer?
@@ -412,6 +416,8 @@ private class MediaControls(hwnd: Pointer, onButton: (Int) -> Unit, onSeek: (Lon
 
 // ------------------------------------------------------------------ botones en la vista previa de la barra de tareas
 
+private interface EnumProc : Callback { fun callback(hwnd: Pointer, lParam: Pointer?): Boolean }
+
 private interface WndProc : Callback { fun callback(hwnd: Pointer?, msg: Int, wParam: Pointer?, lParam: Pointer?): Pointer? }
 
 private class ThumbBar(private val hwnd: Pointer, private val onClick: (Int) -> Unit) {
@@ -546,11 +552,16 @@ private class ThumbBar(private val hwnd: Pointer, private val onClick: (Int) -> 
  * - WM_NCCALCSIZE: el área de la app empieza hasta arriba (maximizada, se respeta el borde que
  *   Windows saca de la pantalla).
  * - WM_NCHITTEST: el borde de arriba cambia el tamaño y las zonas de arrastre de la UI son "barra".
+ * - El contenido de Compose vive en una ventana hija (SunAwtCanvas) que recibe el mouse antes que
+ *   el marco: en esas zonas responde HTTRANSPARENT para que Windows le pregunte al marco.
  */
 private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Float, Float) -> Boolean) {
     companion object {
+        private const val WM_SIZE = 0x0005
         private const val WM_NCCALCSIZE = 0x0083
         private const val WM_NCHITTEST = 0x0084
+        private const val WM_PARENTNOTIFY = 0x0210
+        private const val HTTRANSPARENT = -1L
         private const val HTCLIENT = 1L
         private const val HTCAPTION = 2L
         private const val HTTOP = 12L
@@ -561,6 +572,8 @@ private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Fl
 
     /** El procedimiento anterior; se lee ANTES de engancharse (llegan mensajes en otro hilo). */
     @Volatile private var oldProc: Pointer? = null
+    /** Procedimientos originales de las ventanas hijas enganchadas (por HWND). */
+    private val childOld = java.util.concurrent.ConcurrentHashMap<Long, Pointer>()
     private val point = Memory(8)
     private val rect = Memory(16)
 
@@ -569,6 +582,22 @@ private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Fl
         val dpi = runCatching { User32Lib.I.GetDpiForWindow(hwnd) }.getOrDefault(96).takeIf { it > 0 } ?: 96
         return runCatching { User32Lib.I.GetSystemMetricsForDpi(33, dpi) + User32Lib.I.GetSystemMetricsForDpi(92, dpi) }
             .getOrDefault(8) // SM_CYFRAME + SM_CXPADDEDBORDER
+    }
+
+    /** Qué le toca a un punto de pantalla (en el área de la app): borde de arriba, barra o nada. */
+    private fun special(lParam: Pointer): Long? {
+        val lp = Pointer.nativeValue(lParam)
+        point.setInt(0, (lp and 0xFFFF).toShort().toInt())
+        point.setInt(4, ((lp shr 16) and 0xFFFF).toShort().toInt())
+        User32Lib.I.ScreenToClient(hwnd, point)
+        val x = point.getInt(0); val y = point.getInt(4)
+        val edge = frameThickness()
+        if (!User32Lib.I.IsZoomed(hwnd) && y < edge) {
+            User32Lib.I.GetClientRect(hwnd, rect)
+            val w = rect.getInt(8)
+            return if (x < edge * 2) HTTOPLEFT else if (x > w - edge * 2) HTTOPRIGHT else HTTOP
+        }
+        return if (isDragArea(x.toFloat(), y.toFloat())) HTCAPTION else null
     }
 
     private val proc = object : WndProc {
@@ -597,18 +626,12 @@ private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Fl
                 if (msg == WM_NCHITTEST && lParam != null) {
                     val r = User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
                     if (r == null || Pointer.nativeValue(r) != HTCLIENT) return r
-                    val lp = Pointer.nativeValue(lParam)
-                    point.setInt(0, (lp and 0xFFFF).toShort().toInt())
-                    point.setInt(4, ((lp shr 16) and 0xFFFF).toShort().toInt())
-                    User32Lib.I.ScreenToClient(this@CustomFrame.hwnd, point)
-                    val x = point.getInt(0); val y = point.getInt(4)
-                    val edge = frameThickness()
-                    if (!User32Lib.I.IsZoomed(this@CustomFrame.hwnd) && y < edge) {
-                        User32Lib.I.GetClientRect(this@CustomFrame.hwnd, rect)
-                        val w = rect.getInt(8)
-                        return Pointer(if (x < edge * 2) HTTOPLEFT else if (x > w - edge * 2) HTTOPRIGHT else HTTOP)
-                    }
-                    if (isDragArea(x.toFloat(), y.toFloat())) return Pointer(HTCAPTION)
+                    return special(lParam)?.let { Pointer(it) } ?: r
+                }
+                // Si Compose crea o cambia su ventana hija, también se engancha.
+                if (msg == WM_SIZE || msg == WM_PARENTNOTIFY) {
+                    val r = User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
+                    hookChildren()
                     return r
                 }
             } catch (_: Throwable) {}
@@ -616,10 +639,38 @@ private class CustomFrame(private val hwnd: Pointer, private val isDragArea: (Fl
         }
     }
 
+    /** Ventanas hijas (el lienzo de Compose): transparentes al mouse en el borde de arriba y en la barra. */
+    private val childProc = object : WndProc {
+        override fun callback(hwnd: Pointer?, msg: Int, wParam: Pointer?, lParam: Pointer?): Pointer? {
+            val old = hwnd?.let { childOld[Pointer.nativeValue(it)] } ?: return null
+            try {
+                if (msg == WM_NCHITTEST && lParam != null && special(lParam) != null) return Pointer(HTTRANSPARENT)
+            } catch (_: Throwable) {}
+            return User32Lib.I.CallWindowProcW(old, hwnd, msg, wParam, lParam)
+        }
+    }
+
+    private val enumChild = object : EnumProc {
+        override fun callback(hwnd: Pointer, lParam: Pointer?): Boolean {
+            val key = Pointer.nativeValue(hwnd)
+            if (!childOld.containsKey(key)) {
+                val prev = User32Lib.I.GetWindowLongPtrW(hwnd, -4)
+                if (prev != null) {
+                    childOld[key] = prev
+                    User32Lib.I.SetWindowLongPtrW(hwnd, -4, CallbackReference.getFunctionPointer(childProc))
+                }
+            }
+            return true
+        }
+    }
+
+    private fun hookChildren() { runCatching { User32Lib.I.EnumChildWindows(hwnd, enumChild, null) } }
+
     /** Engancha el procedimiento y hace que Windows y AWT recalculen el marco. */
     fun start(window: Window) {
         oldProc = User32Lib.I.GetWindowLongPtrW(hwnd, -4)
         User32Lib.I.SetWindowLongPtrW(hwnd, -4, CallbackReference.getFunctionPointer(proc))
+        hookChildren()
         // SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
         User32Lib.I.SetWindowPos(hwnd, null, 0, 0, 0, 0, 0x20 or 0x2 or 0x1 or 0x4 or 0x10)
         // Un empujoncito de tamaño para que AWT vuelva a leer los márgenes (ya sin barra).

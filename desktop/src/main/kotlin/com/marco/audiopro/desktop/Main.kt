@@ -52,6 +52,7 @@ import com.marco.audiopro.ui.theme.MarcoTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
 import org.jetbrains.compose.resources.painterResource
@@ -118,7 +119,7 @@ class DesktopGraph : AppGraph {
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.7.1"
+    override val versionName = "2.7.2"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -173,6 +174,11 @@ fun main() {
                     // -Dflacker.nativeTitle=true deja la barra de título de Windows (por si algo falla).
                     isDragArea = if (System.getProperty("flacker.nativeTitle") == "true") null else { x, y -> WindowChrome.isDragArea(x, y) },
                 )
+                // -Dflacker.debugWindow=true: maximiza a los 8 s y restaura a los 16 s (para probar el marco propio).
+                if (System.getProperty("flacker.debugWindow") == "true") launch {
+                    kotlinx.coroutines.delay(8000); repeat(3) { System.gc() }; windowState.placement = WindowPlacement.Maximized
+                    kotlinx.coroutines.delay(8000); windowState.placement = WindowPlacement.Floating
+                }
                 if (custom) WindowChrome.controls = WindowControls(
                     minimize = { windowState.isMinimized = true },
                     toggleMaximize = {

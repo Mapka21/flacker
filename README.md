@@ -37,8 +37,8 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 - **v2.7**:
   - **PC sin la barra de título de Windows** (como Discord o Claude): la app dibuja sus botones de
     minimizar, maximizar y cerrar; se arrastra desde arriba, la barra de búsqueda o el logo, con
-    doble clic para maximizar y acoplar a los lados. `-Dflacker.nativeTitle=true` regresa la barra
-    de Windows.
+    doble clic para maximizar y acoplar a los lados, y cambia de tamaño desde cualquier orilla
+    (también la de arriba). `-Dflacker.nativeTitle=true` regresa la barra de Windows.
   - **Ícono en arte ASCII** (v2.7.1): la calavera hecha de caracteres en todos los tamaños de ícono
     (barra de tareas, escritorio, ventana, Android), con cuadrículas más gruesas en los chicos para que
     se lea (`tools/brand/make_icons.py`). Dentro de la app la barra lateral lleva la calavera sólida; el

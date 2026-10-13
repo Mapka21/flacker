@@ -45,7 +45,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.7.1"
+            packageVersion = "2.7.2"
             description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true
@@ -68,7 +68,7 @@ tasks.withType<Test> {
 // ./gradlew :desktop:run -Pmarco.profile=dev → ajustes separados de los reales.
 afterEvaluate {
     tasks.withType<JavaExec>().configureEach {
-        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps").forEach { k ->
+        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps", "flacker.debugWindow").forEach { k ->
             (project.findProperty(k) as String?)?.let { systemProperty(k, it) }
         }
     }
