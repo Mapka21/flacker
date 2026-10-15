@@ -36,6 +36,8 @@ data class EqConfig(
     val bands: List<EqBand> = EqPresets.flatBands(),
     /** Cambia solo de preset según el género de cada canción ([EqPresets.forGenre]). */
     val autoGenre: Boolean = false,
+    /** Volumen parejo (nivelador de sonoridad); funciona aunque el EQ esté apagado. */
+    val leveler: LevelMode = LevelMode.OFF,
 ) {
     /** Pre-amp efectivo: con auto, baja lo justo para que el pico de la curva no pase de 0 dB. */
     fun effectivePreampDb(): Float =

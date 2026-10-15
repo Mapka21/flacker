@@ -38,6 +38,7 @@ import com.marco.audiopro.download.Downloads
 import com.marco.audiopro.player.PlayerConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
@@ -81,6 +82,21 @@ class AppContainer(private val context: Context) : AppGraph {
     val appScope = MainScope()
 
     override val api = SubsonicApi(http) { settings.account.value }
+    /** Scrobbles sin pérdida: los que se escuchan sin red se guardan y se mandan al volver la conexión. */
+    val scrobbles = com.marco.audiopro.data.ScrobbleQueue(api, context.filesDir, appScope).also { q ->
+        api.offlineQueue = q
+        q.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" }
+        // En cuanto Android avisa que hay red (Wi-Fi o datos), se mandan los pendientes.
+        runCatching {
+            context.getSystemService(android.net.ConnectivityManager::class.java)?.registerDefaultNetworkCallback(
+                object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) {
+                        appScope.launch { kotlinx.coroutines.delay(1500); q.flush() }
+                    }
+                },
+            )
+        }
+    }
     val tap = AnalyzerTap()
     override val engine = AudioEngine(settings, tap)
     val eqProcessor = ParametricEqProcessor(engine.eq)

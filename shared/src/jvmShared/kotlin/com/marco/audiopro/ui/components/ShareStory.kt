@@ -380,10 +380,9 @@ fun renderLyricStory(measurer: TextMeasurer, d: StoryData, lines: List<String>, 
     text(measurer, d.song.artist ?: "", tx, cy + pad + 70f, tw, 32f, FontWeight.Medium, Color.White.copy(alpha = 0.72f))
     // Los versos.
     drawText(lyric, topLeft = Offset(cx + pad, cy + pad + head + 60f))
-    // Pie: la calavera y FLACKER.
+    // Pie: el álbum (y el año), sin marca.
     val fy = cy + cardH - pad - 58f
-    drawFlackerMark(Offset(cx + pad, fy), 58f)
-    text(measurer, "FLACKER", cx + pad + 76f, fy + 12f, 400f, 30f, FontWeight.Black, spacing = 4f)
+    subtitle(d.song).takeIf { it.isNotEmpty() }?.let { text(measurer, it, cx + pad, fy + 12f, cw - pad * 2, 30f, FontWeight.SemiBold, Color.White.copy(alpha = 0.6f)) }
 }
 
 private val saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.5f) })
@@ -442,12 +441,6 @@ private fun DrawScope.cover(art: ImageBitmap?, x: Float, y: Float, s: Float, cor
     drawRoundRect(Color.White.copy(alpha = 0.12f), Offset(x, y), Size(s, s), CornerRadius(corner), style = Stroke(2f))
 }
 
-/** "Escuchando en Flacker" con la calavera. */
-private fun DrawScope.header(m: TextMeasurer, x: Float, y: Float) {
-    drawFlackerMark(Offset(x, y), 70f)
-    text(m, "Escuchando en Flacker", x + 92f, y + 14f, 700f, 34f, FontWeight.SemiBold, Color.White.copy(alpha = 0.92f))
-}
-
 /** Pastilla de calidad en blanco: "FLAC · 24/96 · HI-RES". */
 private fun DrawScope.qualityPill(m: TextMeasurer, song: Song, cx: Float?, x: Float, y: Float) {
     if (song.suffix == null || song.isPreview) return
@@ -468,7 +461,6 @@ private fun subtitle(song: Song) = listOfNotNull(song.album?.takeIf { it.isNotBl
 private fun DrawScope.aura(m: TextMeasurer, d: StoryData, sw: List<Color>) {
     meltedArt(d.art, sw)
     drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.25f to Color.Black.copy(alpha = 0.05f), 0.6f to Color.Black.copy(alpha = 0.25f), 1f to Color.Black.copy(alpha = 0.7f)))
-    header(m, 108f, 150f)
     val s = 864f
     cover(d.art, (W - s) / 2, 330f, s, 46f, sw)
     var y = 330f + s + 80f
@@ -482,7 +474,6 @@ private fun DrawScope.vinyl(m: TextMeasurer, d: StoryData, sw: List<Color>) {
     drawRect(Brush.verticalGradient(listOf(lerp(sw[0], Color.Black, 0.45f), lerp(sw[1], Color.Black, 0.8f), Color.Black)))
     val disc = Offset(700f, 820f)
     drawCircle(Brush.radialGradient(listOf(sw[2].copy(alpha = 0.45f), Color.Transparent), disc, 620f), 620f, disc)
-    header(m, 96f, 150f)
     // El disco que se asoma detrás de la portada.
     val r = 410f
     drawCircle(Color(0xFF0A0A0C), r, disc)
@@ -518,8 +509,4 @@ private fun DrawScope.poster(m: TextMeasurer, d: StoryData, sw: List<Color>) {
     y += text(m, d.song.artist ?: "", 80f, y, 920f, 50f, FontWeight.Bold, lerp(sw[0], Color.White, 0.55f)).size.height + 6f
     subtitle(d.song).takeIf { it.isNotEmpty() }?.let { y += text(m, it, 80f, y, 920f, 34f, FontWeight.Medium, Color.White.copy(alpha = 0.6f)).size.height }
     qualityPill(m, d.song, null, 80f, min(y + 36f, 1600f))
-    drawRect(Color.White.copy(alpha = 0.15f), Offset(80f, 1730f), Size(920f, 2f))
-    drawFlackerMark(Offset(80f, 1766f), 64f)
-    text(m, "FLACKER", 166f, 1780f, 400f, 34f, FontWeight.Black, spacing = 5f)
-    text(m, "escuchando ahora", 580f, 1784f, 420f, 30f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), align = TextAlign.End)
 }

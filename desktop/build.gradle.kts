@@ -45,7 +45,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.7.2"
+            packageVersion = "2.8.0"
             description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true

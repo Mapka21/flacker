@@ -72,6 +72,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.marco.audiopro.ui.components.GestureCover
 import com.marco.audiopro.ui.components.rememberTick
 import com.marco.audiopro.ui.components.SwipeToSkip
 import kotlinx.coroutines.launch
@@ -231,6 +232,8 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
     val c = LocalApp.current
     val st by c.player.state.collectAsState()
     var stage by rememberSaveable { mutableStateOf(Stage.COVER) }
+    // Controles por gestos (Ajustes → Reproductor); de fábrica, encendidos.
+    val gestures = remember { c.settings.getString("gesture_player") != "0" }
     // Jalar hacia abajo (desde arriba o desde la portada) cierra el reproductor, como en Spotify.
     val drop = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -266,10 +269,19 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
         AnimatedContent(stage, Modifier.weight(1f), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "stage") { s ->
             when (s) {
                 Stage.COVER -> Column(Modifier.fillMaxSize()) {
-                    // La portada se desliza a los lados para cambiar de canción.
                     Box(Modifier.weight(1f).fillMaxWidth().then(dismissDrag).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        SwipeToSkip(onNext = { c.player.next() }, onPrevious = { c.player.previous() }) {
-                            BreathingCover(song, st.isPlaying, Modifier)
+                        if (gestures) {
+                            // Sin botones: la portada es el control (toque, deslizar, mantener y arrastrar).
+                            GestureCover(
+                                playing = st.isPlaying, durationMs = st.durationMs, position = { c.player.positionMs() },
+                                onToggle = { c.player.toggle() }, onNext = { c.player.next() }, onPrevious = { c.player.previous() },
+                                onSeek = { c.player.seekTo(it) },
+                            ) { BreathingCover(song, st.isPlaying, Modifier) }
+                        } else {
+                            // La portada se desliza a los lados para cambiar de canción.
+                            SwipeToSkip(onNext = { c.player.next() }, onPrevious = { c.player.previous() }) {
+                                BreathingCover(song, st.isPlaying, Modifier)
+                            }
                         }
                     }
                     Column(Modifier.padding(horizontal = 24.dp)) {
@@ -290,14 +302,19 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
         }
         Column(Modifier.padding(horizontal = 24.dp)) {
             SeekBar(st.durationMs)
-            Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
+            if (gestures) GestureHint(st.isPlaying, stage == Stage.COVER) else Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
             VolumeRow()
             st.error?.let { Text(it, color = Hifi.LedRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 StageToggle(Icons.Default.Lyrics, "Letra", stage == Stage.LYRICS) { stage = if (stage == Stage.LYRICS) Stage.COVER else Stage.LYRICS }
                 StageToggle(Icons.Default.Equalizer, "DSP", false) { nav.navigate(DspRoute) }
+                if (gestures) {
+                    // Sin la fila de botones, aleatorio y repetir viven aquí abajo.
+                    StageToggle(Icons.Default.Shuffle, "Aleatorio", st.shuffle) { c.player.toggleShuffle() }
+                    StageToggle(if (st.repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, "Repetir", st.repeat != RepeatMode.OFF) { c.player.cycleRepeat() }
+                }
                 DevicesButton(size = 22)
-                StageToggle(Icons.Default.Route, "Señal", false, onPath)
+                if (!gestures) StageToggle(Icons.Default.Route, "Señal", false, onPath)
                 StageToggle(Icons.AutoMirrored.Filled.QueueMusic, "Cola", stage == Stage.QUEUE) { stage = if (stage == Stage.QUEUE) Stage.COVER else Stage.QUEUE }
             }
         }
@@ -675,5 +692,21 @@ private fun SignalPathSheet(song: Song, engine: AudioEngine) {
             fontSize = 11.sp, color = Hifi.TextFaint,
         )
         Meters()
+    }
+}
+
+/**
+ * En lugar de los botones: el estado y cómo se usa la portada (lo de abajo se ve sobre todo en pausa,
+ * para que se aprenda sin estorbar).
+ */
+@Composable
+private fun GestureHint(playing: Boolean, onCover: Boolean) {
+    val alpha by animateFloatAsState(if (playing) 0.45f else 0.85f, tween(400), label = "hint")
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).graphicsLayer { this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            if (onCover) "Toca la portada para ${if (playing) "pausar" else "reproducir"}" else "Regresa a la portada para controlar con gestos",
+            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+        )
+        if (onCover) Text("Desliza ← → para cambiar · mantén y arrastra para adelantar · ↓ para cerrar", fontSize = 11.sp, color = Hifi.OnArt, textAlign = TextAlign.Center)
     }
 }

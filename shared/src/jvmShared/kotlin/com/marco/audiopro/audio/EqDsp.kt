@@ -23,7 +23,10 @@ class EqDsp {
     private var state: Array<DoubleArray> = emptyArray()
     private var gain = 1.0
     private var active = false
+    private var eqOn = false
+    private var level = LevelMode.OFF
     private var ditherOn = true
+    val leveler = Leveler()
 
     /** Contador de muestras recortadas (LED de CLIP). */
     @Volatile var clipCount = 0L; private set
@@ -39,6 +42,7 @@ class EqDsp {
         this.channels = channels
         applied = null
         state = emptyArray()
+        leveler.reset()
     }
 
     private fun ensureFilters() {
@@ -50,8 +54,10 @@ class EqDsp {
             state = Array(newCoefs.size) { DoubleArray(channels * 2) }
         }
         coefs = newCoefs
-        gain = 10.0.pow(cfg.effectivePreampDb() / 20.0)
-        active = cfg.enabled
+        eqOn = cfg.enabled
+        level = cfg.leveler
+        gain = if (eqOn) 10.0.pow(cfg.effectivePreampDb() / 20.0) else 1.0
+        active = eqOn || level != LevelMode.OFF
         ditherOn = cfg.dither
         applied = cfg
         appliedRate = sampleRate
@@ -65,29 +71,35 @@ class EqDsp {
     fun process(buf: FloatArray, frames: Int) {
         ensureFilters()
         if (!active) { outputPeak = 0f; return }
-        val nb = coefs.size
         val ch = channels
+        if (eqOn) {
+            val nb = coefs.size
+            var i = 0
+            for (f in 0 until frames) {
+                for (c in 0 until ch) {
+                    var x = buf[i] * gain
+                    for (b in 0 until nb) {
+                        val k = coefs[b]
+                        val s = state[b]
+                        val j = c * 2
+                        val y = k[0] * x + s[j]
+                        s[j] = k[1] * x - k[3] * y + s[j + 1]
+                        s[j + 1] = k[2] * x - k[4] * y
+                        x = y
+                    }
+                    buf[i] = x.toFloat()
+                    i++
+                }
+            }
+        }
+        // Volumen parejo después del EQ (así también nivela lo que el EQ subió).
+        leveler.process(buf, frames, ch, sampleRate, level)
         var peak = 0f
         var clips = 0
-        var i = 0
-        for (f in 0 until frames) {
-            for (c in 0 until ch) {
-                var x = buf[i] * gain
-                for (b in 0 until nb) {
-                    val k = coefs[b]
-                    val s = state[b]
-                    val j = c * 2
-                    val y = k[0] * x + s[j]
-                    s[j] = k[1] * x - k[3] * y + s[j + 1]
-                    s[j + 1] = k[2] * x - k[4] * y
-                    x = y
-                }
-                val ax = abs(x).toFloat()
-                if (ax > peak) peak = ax
-                if (ax > 1f) { clips++; x = if (x > 0) 1.0 else -1.0 }
-                buf[i] = x.toFloat()
-                i++
-            }
+        for (i in 0 until frames * ch) {
+            val ax = abs(buf[i])
+            if (ax > peak) peak = ax
+            if (ax > 1f) { clips++; buf[i] = if (buf[i] > 0) 1f else -1f }
         }
         outputPeak = peak
         if (clips > 0) clipCount += clips

@@ -96,6 +96,8 @@ class DesktopGraph : AppGraph {
 
     override val settings = Settings(PrefsStore(Preferences.userRoot().node("marco-audio-pro$profileSuffix")))
     override val api = SubsonicApi(http) { settings.account.value }
+    /** Scrobbles que se guardan si no hay red y se mandan después. */
+    val scrobbles = com.marco.audiopro.data.ScrobbleQueue(api, dataDir, scope).also { api.offlineQueue = it }
     /** El motor de audio de esta PC (atajos e iPod usan [player], que puede ser remoto). */
     val desktopPlayer = DesktopPlayer(api, settings, scope)
     override val engine = AudioEngine(settings, desktopPlayer.tap).also { e ->
@@ -117,9 +119,11 @@ class DesktopGraph : AppGraph {
     override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
+
+    init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.7.2"
+    override val versionName = "2.8.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()

@@ -156,8 +156,13 @@ fun <T> LoadBox(loader: Loader<T>, modifier: Modifier = Modifier, content: @Comp
     }
 }
 
+/** Abre "Sin conexión" (tus descargas); lo pone la cáscara del celular. */
+val LocalOpenOffline = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+
 @Composable
 fun ErrorBox(message: String, retry: () -> Unit, modifier: Modifier = Modifier) {
+    val openOffline = LocalOpenOffline.current
+    val hasOffline = LocalApp.current.downloads?.items?.collectAsState()?.value?.values?.any { it.done } == true
     Column(
         modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -169,6 +174,12 @@ fun ErrorBox(message: String, retry: () -> Unit, modifier: Modifier = Modifier) 
         Spacer(Modifier.height(4.dp))
         Text("Tus descargas siguen disponibles sin conexión.", color = Hifi.TextFaint, fontSize = 12.sp)
         TextButton(onClick = retry) { Text("Reintentar", color = Hifi.Accent) }
+        if (openOffline != null && hasOffline) {
+            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier.clip(RoundedCornerShape(50)).background(Color.White).bouncyClick(onClick = openOffline).padding(horizontal = 20.dp, vertical = 11.dp),
+            ) { Text("Escuchar mis descargas", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+        }
     }
 }
 

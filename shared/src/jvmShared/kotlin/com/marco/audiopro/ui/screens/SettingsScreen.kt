@@ -89,6 +89,14 @@ fun SettingsScreen(nav: NavController) {
         Card {
             Text(account?.url ?: "", style = Mono.copy(color = Hifi.Cream, fontSize = 12.sp))
             Text("Usuario: ${account?.user}", color = Hifi.TextDim, fontSize = 13.sp)
+            // Scrobbles que se escucharon sin red y esperan para mandarse.
+            c.api.offlineQueue?.let { q ->
+                val pending by q.pending.collectAsState()
+                Text(
+                    if (pending == 0) "Scrobbles al día" else "$pending scrobble${if (pending == 1) "" else "s"} esperando conexión (se mandan solos con su hora original)",
+                    color = if (pending == 0) Hifi.TextFaint else Hifi.Cream, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { c.settings.saveAccount(null) }) { Text("Cerrar sesión", color = Hifi.LedRed) }
         }
@@ -138,6 +146,26 @@ fun SettingsScreen(nav: NavController) {
             }
             Hint("Las descargas se guardan en la memoria del teléfono y suenan sin conexión, aunque tu servidor esté apagado.")
         }
+
+        if (!c.isDesktop) {
+            SectionHeader("Reproductor")
+            Card {
+                var gestures by remember { mutableStateOf(c.settings.getString("gesture_player") != "0") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Controles por gestos", fontSize = 15.sp)
+                        Text("Sin botones: toca la portada para pausar, desliza para cambiar, mantén y arrastra para adelantar.", fontSize = 12.sp, color = Hifi.TextDim)
+                    }
+                    androidx.compose.material3.Switch(
+                        gestures, { on -> gestures = on; c.settings.putString("gesture_player", if (on) "1" else "0") },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
+                    )
+                }
+            }
+        }
+
+        SectionHeader("Volumen parejo")
+        com.marco.audiopro.ui.components.LevelerCard(Modifier.padding(horizontal = 16.dp))
 
         SectionHeader("ReplayGain")
         Card {

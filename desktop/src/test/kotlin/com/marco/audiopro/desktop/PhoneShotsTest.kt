@@ -52,7 +52,22 @@ class PhoneShotsTest {
         System.setProperty("marco.profile", "dev")
         val desktop = DesktopGraph()
         // La misma app, pero como celular (sin volumen digital: el del sistema).
-        val graph: AppGraph = object : AppGraph by desktop { override val isDesktop = false }
+        // Descargas de mentira (las canciones del servidor de prueba "ya bajadas" y una bajándose).
+        val fakeSongs = runBlocking { desktop.api.album("al1").song }
+        val store = object : com.marco.audiopro.download.OfflineStore {
+            override val items = kotlinx.coroutines.flow.MutableStateFlow(
+                fakeSongs.associate { it.id to com.marco.audiopro.download.OfflineSong(it, com.marco.audiopro.download.OfflineStatus.DONE, 100f, 48_000_000) } +
+                    ("x" to com.marco.audiopro.download.OfflineSong(fakeSongs.first().copy(id = "x", title = "Bajándose…"), com.marco.audiopro.download.OfflineStatus.DOWNLOADING, 42f, 0)),
+            )
+            override fun download(songs: List<com.marco.audiopro.data.subsonic.Song>) {}
+            override fun remove(songs: List<com.marco.audiopro.data.subsonic.Song>) {}
+            override fun pollProgress() {}
+            override fun freeBytes() = 40_000_000_000L
+        }
+        val graph: AppGraph = object : AppGraph by desktop {
+            override val isDesktop = false
+            override val downloads = store
+        }
         SingletonImageLoader.setSafe { ctx ->
             ImageLoader.Builder(ctx).components { add(OkHttpNetworkFetcherFactory(callFactory = { desktop.http })) }.build()
         }
@@ -90,6 +105,8 @@ class PhoneShotsTest {
         ui { nav!!.navigate(DiscoverRoute) }; shot("p11-discover", 12000)
         ui { nav!!.navigate(SettingsRoute) }; shot("p12-settings", 2000)
         ui { nav!!.navigate(PlayerRoute) }; shot("p13-player", 3500)
+        ui { nav!!.popBackStack() }
+        ui { nav!!.navigate(com.marco.audiopro.ui.DownloadsRoute) }; shot("p14-downloads", 3000)
         ui { scene.close() }
         desktop.shutdown()
     }

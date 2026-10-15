@@ -34,6 +34,21 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.8**:
+  - **Volumen parejo** (Ecualizador y Ajustes): Parejo (−14 LUFS, como Spotify) o **Fuerte**
+    (−8 LUFS, para la regadera). Mide la sonoridad en vivo, sube o baja despacio para no bombear y
+    un limitador con saturación suave evita que truene. Funciona con el EQ apagado.
+  - **Reproductor por gestos en el celular** (Ajustes → Reproductor para regresar los botones):
+    tocar la portada pausa, deslizar cambia de canción, **mantener y arrastrar "raya el disco"**
+    para adelantar (vibra cada 5 s y muestra el tiempo), jalar hacia abajo cierra.
+  - **Scrobbles sin pérdida**: lo que escuchas sin red se guarda con su hora y se manda solo al
+    volver la conexión (Android avisa cuando hay Wi-Fi/datos; también se reintenta cada 2 min).
+    En Ajustes → Servidor ves cuántos esperan.
+  - **"Sin conexión"** (Descargas) como otra biblioteca: buscador, Álbumes en cuadrícula, Artistas
+    y Canciones, cada álbum con su página; lo que se baja va plegado arriba. Sin red, la pantalla de
+    error ofrece "Escuchar mis descargas".
+  - **Historias sin marca**: sólo la portada, la canción, el artista y el álbum.
+
 - **v2.7**:
   - **PC sin la barra de título de Windows** (como Discord o Claude): la app dibuja sus botones de
     minimizar, maximizar y cerrar; se arrastra desde arriba, la barra de búsqueda o el logo, con

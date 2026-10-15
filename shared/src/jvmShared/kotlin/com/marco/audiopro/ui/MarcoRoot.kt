@@ -336,7 +336,10 @@ private fun PhoneShell(nav: NavHostController) {
     ) { pad ->
         Box(Modifier.fillMaxSize()) {
             AmbientBackground(playback.current?.coverArt, intensity = intensity)
-            AppNavHost(nav, Modifier.padding(pad))
+            // Sin red, la pantalla de error ofrece ir directo a tus descargas.
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.marco.audiopro.ui.components.LocalOpenOffline provides { nav.navigate(DownloadsRoute) { launchSingleTop = true } },
+            ) { AppNavHost(nav, Modifier.padding(pad)) }
             ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
         }
     }

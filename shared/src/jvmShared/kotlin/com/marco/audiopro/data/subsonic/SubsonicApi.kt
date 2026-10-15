@@ -147,10 +147,22 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
 
     suspend fun star(id: String, starred: Boolean) { call(if (starred) "star" else "unstar", mapOf("id" to id)) }
 
+    /**
+     * Cola de scrobbles sin pérdida ([com.marco.audiopro.data.ScrobbleQueue]); si está puesta, los
+     * scrobbles completos pasan por ella (se guardan si no hay red).
+     */
+    var offlineQueue: com.marco.audiopro.data.ScrobbleQueue? = null
+
     suspend fun scrobble(id: String, submission: Boolean) {
         if (id.startsWith("dz:")) return // muestras de Descubrir: no son de tu servidor
+        val q = offlineQueue
+        if (submission && q != null) { q.submit(id); return }
         runCatching { call("scrobble", mapOf("id" to id, "submission" to submission, "time" to System.currentTimeMillis())) }
     }
+
+    /** Scrobble completo con su hora original (ms). true si el servidor lo recibió. */
+    suspend fun scrobbleAt(id: String, timeMs: Long): Boolean =
+        runCatching { call("scrobble", mapOf("id" to id, "submission" to true, "time" to timeMs)) }.isSuccess
 
     fun coverUrl(coverArt: String?, size: Int = 600): String? =
         // Las muestras de Descubrir ya traen la URL de su portada.

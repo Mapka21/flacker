@@ -108,6 +108,8 @@ fun EqScreen() {
             )
         }
         Spacer(Modifier.height(12.dp))
+        com.marco.audiopro.ui.components.LevelerCard(Modifier.padding(horizontal = 12.dp))
+        Spacer(Modifier.height(12.dp))
         EqGraph(cfg, engine, selected, onSelect = { selected = it }, Modifier.padding(horizontal = 12.dp).fillMaxWidth().height(250.dp))
 
         // Selector de banda

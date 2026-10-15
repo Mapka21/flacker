@@ -46,6 +46,9 @@ class AudioEngine(private val settings: Settings, val tap: SampleSource) {
 
     fun applyPreset(p: EqPreset) = update { it.copy(bands = p.bands, presetName = p.name, enabled = true, autoGenre = false) }
 
+    /** Volumen parejo: Apagado, Parejo o Fuerte. */
+    fun setLeveler(mode: LevelMode) = update { it.copy(leveler = mode) }
+
     /** "Auto por género": encendido, cada canción pone el preset de su género. */
     fun setAutoGenre(on: Boolean, currentGenre: String?) {
         if (!on) { update { it.copy(autoGenre = false) }; return }
