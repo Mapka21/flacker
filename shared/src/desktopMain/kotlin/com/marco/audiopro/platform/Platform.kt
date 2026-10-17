@@ -34,18 +34,36 @@ import java.nio.ByteOrder
 
 fun coilImageToImageBitmap(image: Image): ImageBitmap = image.toBitmap().asComposeImageBitmap()
 
-/** Bitmap ARGB que se puede reescribir cada frame (espectrograma). */
+/**
+ * Bitmap ARGB que se puede reescribir cada frame (espectrograma, modo ASCII). Se crea UNA vez y los
+ * pixeles se copian directo a su memoria nativa: antes cada frame creaba un bitmap nuevo de varios MB
+ * y el recolector de basura congelaba la app segundos enteros.
+ */
 class PixelBuffer(val width: Int, val height: Int) {
     val pixels = IntArray(width * height)
-    private val bytes = ByteBuffer.allocate(width * height * 4).order(ByteOrder.LITTLE_ENDIAN)
     private val info = ImageInfo.makeN32(width, height, ColorAlphaType.UNPREMUL)
+    private val bmp = Bitmap().apply { allocPixels(info) }
+    private val img = bmp.asComposeImageBitmap()
+    private val pixmap = bmp.peekPixels()
+    private val direct: java.nio.IntBuffer? = runCatching {
+        // N32 en Windows/x86 = BGRA little-endian = ARGB como int.
+        org.jetbrains.skia.impl.BufferUtil.getByteBufferFromPointer(pixmap!!.addr, width * height * 4)
+            .order(ByteOrder.LITTLE_ENDIAN).asIntBuffer()
+    }.getOrNull()
+    private val bytes by lazy { ByteBuffer.allocate(width * height * 4).order(ByteOrder.LITTLE_ENDIAN) }
 
     fun image(): ImageBitmap {
+        val d = direct
+        if (d != null) {
+            d.clear(); d.put(pixels)
+            bmp.notifyPixelsChanged()
+            return img
+        }
         bytes.clear()
-        bytes.asIntBuffer().put(pixels) // N32 en Windows/x86 = BGRA little-endian = ARGB como int
-        val bmp = Bitmap()
-        bmp.installPixels(info, bytes.array(), width * 4)
-        return bmp.asComposeImageBitmap()
+        bytes.asIntBuffer().put(pixels)
+        val b = Bitmap()
+        b.installPixels(info, bytes.array(), width * 4)
+        return b.asComposeImageBitmap()
     }
 }
 
@@ -115,3 +133,26 @@ fun rememberStoryShare(): (png: ByteArray, name: String, instagram: Boolean) -> 
         "Copiada y guardada en ${dir.path}"
     }
 }
+
+/** Modo inmersivo: en la PC la pantalla completa la maneja la ventana (Main.kt). */
+@Composable
+fun ImmersiveSystem(on: Boolean, onBack: () -> Unit) {}
+
+/** Modo sin servidor: elegir una carpeta de música (devuelve su ruta, o null si se canceló). */
+@Composable
+fun rememberLocalMusicPicker(onPicked: (String?) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            val ch = javax.swing.JFileChooser().apply {
+                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                dialogTitle = "Elige tu carpeta de música"
+                currentDirectory = File(System.getProperty("user.home"), "Music").takeIf { it.isDirectory } ?: File(System.getProperty("user.home"))
+            }
+            callback(if (ch.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) ch.selectedFile.absolutePath else null)
+        }
+    }
+}
+
+/** En la PC se eligen carpetas; en el celular, toda la música del teléfono. */
+val localMusicIsFolders: Boolean = true

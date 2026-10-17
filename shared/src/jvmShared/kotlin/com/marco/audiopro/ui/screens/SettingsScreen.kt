@@ -42,6 +42,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +87,11 @@ fun SettingsScreen(nav: NavController) {
             Text("Ajustes", style = Display.copy(fontSize = 30.sp), modifier = Modifier.padding(start = if (c.isDesktop) 20.dp else 0.dp))
         }
 
+        val lib = c.localLibrary
+        if (lib != null && com.marco.audiopro.data.local.LocalMode.isOn(c.settings)) {
+            SectionHeader("Tu música (sin servidor)")
+            Card { LocalLibraryCard(lib) }
+        } else {
         SectionHeader("Servidor")
         Card {
             Text(account?.url ?: "", style = Mono.copy(color = Hifi.Cream, fontSize = 12.sp))
@@ -99,6 +106,7 @@ fun SettingsScreen(nav: NavController) {
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { c.settings.saveAccount(null) }) { Text("Cerrar sesión", color = Hifi.LedRed) }
+        }
         }
 
         SectionHeader("Apariencia")
@@ -294,4 +302,42 @@ private fun KeyField(label: String, value: String, onSave: (String) -> Unit) {
         text, { text = it; onSave(it) }, label = { Text(label) }, singleLine = true,
         visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().textInput(),
     )
+}
+
+/** Biblioteca local: cuántas canciones, carpetas (PC), volver a escanear y salir del modo. */
+@Composable
+private fun LocalLibraryCard(lib: com.marco.audiopro.data.local.LocalLibrary) {
+    val c = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val count by lib.count.collectAsState()
+    val scanning by lib.scanning.collectAsState()
+    var folders by remember { mutableStateOf(com.marco.audiopro.data.local.LocalMode.folders(c.settings)) }
+    val isFolders = com.marco.audiopro.platform.localMusicIsFolders
+    val add = com.marco.audiopro.platform.rememberLocalMusicPicker { picked ->
+        if (picked != null && isFolders) {
+            com.marco.audiopro.data.local.LocalMode.addFolder(c.settings, picked)
+            folders = com.marco.audiopro.data.local.LocalMode.folders(c.settings)
+            scope.launch { lib.rescan() }
+        }
+    }
+    Text(if (scanning != null) "Leyendo… ${scanning} canciones" else "$count canciones", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    Text(if (isFolders) "Carpetas de tu PC" else lib.source.label, color = Hifi.TextDim, fontSize = 13.sp)
+    if (isFolders) folders.forEach { path ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(path, style = Mono.copy(color = Hifi.Cream, fontSize = 12.sp), modifier = Modifier.weight(1f))
+            TextButton(onClick = {
+                com.marco.audiopro.data.local.LocalMode.removeFolder(c.settings, path)
+                folders = com.marco.audiopro.data.local.LocalMode.folders(c.settings)
+                scope.launch { lib.rescan() }
+            }) { Text("Quitar", color = Hifi.TextDim) }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (isFolders) OutlinedButton(onClick = add, enabled = scanning == null) { Text("Agregar carpeta") }
+        OutlinedButton(onClick = { scope.launch { lib.rescan() } }, enabled = scanning == null) { Text("Volver a leer") }
+    }
+    Hint("Lo nuevo o cambiado se lee solo al volver a leer. Me gusta, playlists y cuántas veces pones cada canción se guardan en este dispositivo.")
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(onClick = { com.marco.audiopro.data.local.LocalMode.disable(c.settings) }) { Text("Usar un servidor Navidrome", color = Hifi.LedRed) }
 }

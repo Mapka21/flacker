@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.window.WindowPlacement
 import com.marco.audiopro.ui.WindowChrome
+import com.marco.audiopro.ui.Immersive
 import com.marco.audiopro.ui.WindowControls
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,6 +111,9 @@ class DesktopGraph : AppGraph {
     override val playlists = com.marco.audiopro.data.PlaylistStore(api)
     override val covers = com.marco.audiopro.data.CustomCovers(dataDir)
     override val artistPhotos = com.marco.audiopro.data.ArtistPhotos(http, api, dataDir)
+    override val localLibrary = com.marco.audiopro.data.local.LocalLibrary(
+        dataDir, FolderSource { com.marco.audiopro.data.local.LocalMode.folders(settings).map(::File) },
+    ).also { com.marco.audiopro.data.local.LocalMode.resume(it, settings) }
     override val lyrics = LyricsRepository(http, api, dataDir)
     override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect = ConnectService(
@@ -123,7 +127,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.8.0"
+    override val versionName = "2.9.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -169,6 +173,27 @@ fun main() {
         ) {
             window.minimumSize = Dimension(1050, 700)
             LaunchedEffect(Unit) { window.useFlackerIcons() }
+            // Pantalla completa de verdad para el modo inmersivo: la ventana tapa todo el monitor.
+            LaunchedEffect(Unit) {
+                var saved: java.awt.Rectangle? = null
+                var wasMax = false
+                androidx.compose.runtime.snapshotFlow { Immersive.on }.collect { on ->
+                    if (on && saved == null) {
+                        wasMax = windowState.placement == WindowPlacement.Maximized
+                        if (wasMax) { windowState.placement = WindowPlacement.Floating; kotlinx.coroutines.delay(150) }
+                        saved = window.bounds
+                        val b = window.graphicsConfiguration.bounds
+                        val ins = window.insets
+                        // Los bordes invisibles de Windows quedan fuera: el área de la app = el monitor exacto.
+                        window.setBounds(b.x - ins.left, b.y - ins.top, b.width + ins.left + ins.right, b.height + ins.top + ins.bottom)
+                        window.toFront()
+                    } else if (!on && saved != null) {
+                        window.bounds = saved
+                        saved = null
+                        if (wasMax) windowState.placement = WindowPlacement.Maximized
+                    }
+                }
+            }
             // Botones ⏮ ⏯ ⏭ en la barra de tareas, "Reproduciendo" en el control multimedia de Windows
             // y la barra de título propia (como Discord): si se pudo, la app dibuja sus botones.
             val maximized = remember { derivedStateOf { windowState.placement == WindowPlacement.Maximized } }
@@ -178,6 +203,8 @@ fun main() {
                     // -Dflacker.nativeTitle=true deja la barra de título de Windows (por si algo falla).
                     isDragArea = if (System.getProperty("flacker.nativeTitle") == "true") null else { x, y -> WindowChrome.isDragArea(x, y) },
                 )
+                // -Dflacker.debugImmersive=true: entra a pantalla completa a los 6 s (para probarla).
+                if (System.getProperty("flacker.debugImmersive") == "true") launch { kotlinx.coroutines.delay(6000); Immersive.on = true }
                 // -Dflacker.debugWindow=true: maximiza a los 8 s y restaura a los 16 s (para probar el marco propio).
                 if (System.getProperty("flacker.debugWindow") == "true") launch {
                     kotlinx.coroutines.delay(8000); repeat(3) { System.gc() }; windowState.placement = WindowPlacement.Maximized
@@ -218,6 +245,8 @@ fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
     }
     if (e.type != KeyEventType.KeyDown) return false
     return when {
+        e.key == Key.F11 -> { Immersive.on = !Immersive.on; true }
+        e.key == Key.Escape && Immersive.on -> { Immersive.on = false; true }
         e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
         e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f)); true }

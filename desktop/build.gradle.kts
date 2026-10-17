@@ -32,6 +32,8 @@ dependencies {
 
     // Barra de tareas (botones ⏮ ⏯ ⏭) y controles multimedia de Windows.
     implementation("net.java.dev.jna:jna:5.15.0")
+    // Biblioteca local sin servidor: lee tags, calidad, portada y letra de los archivos.
+    implementation("net.jthink:jaudiotagger:3.0.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.9.5")
@@ -45,7 +47,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.8.0"
+            packageVersion = "2.9.0"
             description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true
@@ -61,14 +63,14 @@ compose.desktop {
 }
 
 tasks.withType<Test> {
-    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
+    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR", "MARCO_LOCAL_DIRS", "MARCO_LIVE", "MARCO_BENCH").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
     testLogging { events("passed", "failed", "skipped"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 
 // ./gradlew :desktop:run -Pmarco.profile=dev → ajustes separados de los reales.
 afterEvaluate {
     tasks.withType<JavaExec>().configureEach {
-        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps", "flacker.debugWindow").forEach { k ->
+        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps", "flacker.debugWindow", "flacker.debugImmersive").forEach { k ->
             (project.findProperty(k) as String?)?.let { systemProperty(k, it) }
         }
     }

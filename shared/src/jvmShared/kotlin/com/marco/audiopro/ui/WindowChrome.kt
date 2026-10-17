@@ -56,7 +56,7 @@ object WindowChrome {
     /** Zonas para arrastrar, en pixeles de la ventana. */
     private val dragRects = ConcurrentHashMap<Any, Rect>()
 
-    fun isDragArea(x: Float, y: Float): Boolean = dragRects.values.any { it.contains(Offset(x, y)) }
+    fun isDragArea(x: Float, y: Float): Boolean = !Immersive.on && dragRects.values.any { it.contains(Offset(x, y)) }
 
     internal fun put(key: Any, r: Rect) { dragRects[key] = r }
     internal fun remove(key: Any) { dragRects.remove(key) }

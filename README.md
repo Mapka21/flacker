@@ -11,6 +11,8 @@ Tu música de Navidrome en alta fidelidad, en **Android** y **Windows** (el mism
 2. Pon la URL de tu Navidrome, tu usuario y tu contraseña.
    - Para escucharlo fuera de casa, el servidor tiene que ser accesible desde internet:
      un dominio con HTTPS, un reverse proxy o una VPN tipo Tailscale (la más fácil).
+   - **¿No tienes servidor?** Toca "Usar la música de este celular" (o en la PC "Usar mi música de
+     una carpeta") y escucha tus archivos con todo lo demás igual.
 
 ### Windows
 1. Descomprime `Flacker-Windows.zip` donde quieras (por ejemplo en `C:\Programas`).
@@ -33,6 +35,24 @@ Opcional (Ajustes → Reseñas de álbum): API key de Last.fm (gratis) para rese
 y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tiene nada.
 
 ## Qué trae
+
+- **v2.9**:
+  - **Sin servidor**: en el inicio de sesión, "¿Sin servidor?" → **Usar mi música de una carpeta**
+    (PC) o **Usar la música de este celular** (Android). Lee tus archivos (FLAC, MP3, M4A, ALAC, OGG,
+    WAV, DSD…) con etiquetas, portadas (incrustadas o `cover.jpg`/`folder.jpg`), calidad y letras
+    (`.lrc` al lado o en la etiqueta). Por dentro levanta un "Navidrome de bolsillo" en `127.0.0.1`,
+    así que todo funciona igual: álbumes, artistas, buscar, me gusta, playlists, radio, letras, EQ e
+    historias. En Ajustes → Tu música agregas o quitas carpetas, vuelves a leer o regresas a un
+    servidor. Me gusta, playlists y conteos se guardan en el dispositivo (sin Last.fm en este modo).
+  - **Pantalla completa** (botón ⛶ arriba, en el reproductor, o **F11**; **Esc** o doble clic para
+    salir): mezcla dos efectos a la vez (Nexo, Neón 360, Hiperespacio, Halo, Pulso, Olas, Synth, ASCII)
+    que cambian cada 12 s o en un golpe fuerte, cámara que late con el bajo, destellos y la **letra
+    animada** palabra por palabra con estilos que cambian por línea. En el celular esconde las barras
+    del sistema y no deja que se apague la pantalla.
+  - **ASCII 333 v2**: cada cuadro nuevo a 60 fps, colores de tu portada por renglón, lluvia tipo
+    Matrix que se acelera con los agudos, glitch en los golpes y zoom con el bajo.
+  - **Más fluido**: los efectos de pixeles ya no crean una imagen nueva por cuadro (eso trababa la
+    app segundos enteros con el recolector de basura); medido a 60 fps en pantalla completa.
 
 - **v2.8**:
   - **Volumen parejo** (Ecualizador y Ajustes): Parejo (−14 LUFS, como Spotify) o **Fuerte**

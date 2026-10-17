@@ -24,6 +24,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -103,6 +108,51 @@ fun LoginScreen() {
                     "(dominio con HTTPS, reverse proxy o una VPN como Tailscale).",
                 color = Hifi.TextFaint, fontSize = 12.sp,
             )
+            Spacer(Modifier.height(28.dp))
+            LocalMusicOption()
         }
     }
+}
+
+/** ¿Sin servidor? Tu música de una carpeta (PC) o la del celular, con todo lo demás igual. */
+@Composable
+private fun LocalMusicOption() {
+    val c = LocalApp.current
+    val lib = c.localLibrary ?: return
+    val scope = rememberCoroutineScope()
+    val scanning by lib.scanning.collectAsState()
+    var msg by remember { mutableStateOf<String?>(null) }
+    val folders = com.marco.audiopro.platform.localMusicIsFolders
+    val pick = com.marco.audiopro.platform.rememberLocalMusicPicker { picked ->
+        if (picked == null) { if (!folders) msg = "Sin permiso para leer tu música."; return@rememberLocalMusicPicker }
+        if (folders) com.marco.audiopro.data.local.LocalMode.addFolder(c.settings, picked)
+        msg = null
+        scope.launch {
+            val n = runCatching { com.marco.audiopro.data.local.LocalMode.enable(lib, c.settings) }.getOrElse { msg = "No se pudo leer: ${it.message}"; -1 }
+            if (n == 0) msg = if (folders) "No encontré canciones en esa carpeta (FLAC, MP3, M4A, OGG, WAV…)." else "No encontré canciones en el celular."
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).height(1.dp).background(Hifi.Line))
+        Text("  ¿Sin servidor?  ", color = Hifi.TextFaint, fontSize = 12.sp)
+        Box(Modifier.weight(1f).height(1.dp).background(Hifi.Line))
+    }
+    Spacer(Modifier.height(16.dp))
+    OutlinedButton(onClick = pick, enabled = scanning == null, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+        Text(if (folders) "Usar mi música de una carpeta" else "Usar la música de este celular", fontWeight = FontWeight.Bold, color = Hifi.Text)
+    }
+    Spacer(Modifier.height(8.dp))
+    scanning?.let { n ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Hifi.Accent)
+            Spacer(Modifier.width(8.dp))
+            Text("Leyendo tu música… $n canciones", color = Hifi.Text, fontSize = 13.sp)
+        }
+    }
+    msg?.let { Text(it, color = Hifi.LedRed, fontSize = 13.sp) }
+    Text(
+        if (folders) "Lee tus archivos (FLAC, MP3, M4A, ALAC, OGG, WAV, DSD…) con sus portadas, calidad y letras (.lrc). Después puedes agregar más carpetas en Ajustes."
+        else "Usa las canciones guardadas en el celular, con sus portadas. Todo lo demás (letras, EQ, historias, me gusta, playlists) funciona igual.",
+        color = Hifi.TextFaint, fontSize = 12.sp,
+    )
 }

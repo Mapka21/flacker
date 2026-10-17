@@ -115,6 +115,24 @@ class DesignShotsTest {
         shot(viz2, "d8b-ascii", 4000)
         ui { viz2.close() }
 
+        // Pantalla completa: efectos mezclados + letra.
+        val imm = ui { ImageComposeScene(1380, 860, Density(1f)) {
+            CompositionLocalProvider(LocalLifecycleOwner provides DesignOwner, LocalViewModelStoreOwner provides DesignOwner, LocalApp provides graph) {
+                MarcoTheme { com.marco.audiopro.ui.ImmersiveScreen {} }
+            }
+        } }
+        graph.player.seekTo(4000)
+        shot(imm, "d12-immersive", 5000)
+        ui { imm.close() }
+
+        val login = ui { ImageComposeScene(1380, 860, Density(1f)) {
+            CompositionLocalProvider(LocalLifecycleOwner provides DesignOwner, LocalViewModelStoreOwner provides DesignOwner, LocalApp provides graph) {
+                MarcoTheme { com.marco.audiopro.ui.screens.LoginScreen() }
+            }
+        } }
+        shot(login, "d13-login", 1500)
+        ui { login.close() }
+
         val gen = ui { ImageComposeScene(900, 300, Density(1f)) {
             MarcoTheme {
                 androidx.compose.foundation.layout.Row {

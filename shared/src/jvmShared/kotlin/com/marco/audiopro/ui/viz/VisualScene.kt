@@ -828,6 +828,24 @@ class AsciiVision {
         for (i in lum.indices) lum[i] = ((lum[i] - lo) / span).coerceIn(0f, 1f)
     }
 
+    // ---- vida: lluvia tipo Matrix, renglones con "glitch" y caracteres que titilan
+    private var dropY = FloatArray(0)
+    private var dropSpeed = FloatArray(0)
+    private var glitchFrames = 0
+    private var glitchShift = IntArray(0)
+    private var lastBeats = 0
+    private var lastTime = 0f
+    private var frameNo = 0
+    private val rnd = java.util.Random(333)
+    private val rowColor = IntArray(512)
+
+    private fun ensureRain() {
+        if (dropY.size == cols) return
+        dropY = FloatArray(cols) { -rnd.nextFloat() * rows * 2 }
+        dropSpeed = FloatArray(cols) { 6f + rnd.nextFloat() * 14f }
+        glitchShift = IntArray(rows)
+    }
+
     fun draw(
         scope: DrawScope, m: androidx.compose.ui.text.TextMeasurer, art: ImageBitmap?, tones: List<Color>,
         f: AudioFeatures, time: Float, dp: Float, glow: Boolean,
@@ -841,55 +859,108 @@ class AsciiVision {
         cols = (size.width / scale / cw).toInt().coerceAtLeast(1)
         rows = (size.height / scale / ch).toInt().coerceAtLeast(1)
         sample(art)
+        ensureRain()
         val bw = cols * cw; val bh = rows * ch
         val buf = buffer?.takeIf { it.width == bw && it.height == bh } ?: com.marco.audiopro.platform.PixelBuffer(bw, bh).also { buffer = it; frame = null }
-        if (frame == null || time - lastBuild >= 1f / 30f || time < lastBuild) {
+        // Cada cuadro (60 fps): el armado en Kotlin es barato; lo caro era dibujar glifo por glifo.
+        if (frame == null || time != lastBuild) {
+            val dt = if (lastTime == 0f || time < lastTime) 0.016f else (time - lastTime).coerceIn(0f, 0.1f)
+            lastTime = time
             lastBuild = time
-            render(buf, art != null, f, time)
+            render(buf, art != null, tones, f, time, dt)
             frame = buf.image()
         }
         val img = frame ?: return@with
+        // Golpe = "zoom" de cámara.
+        val z = 1f + 0.06f * f.beat
+        val dw = bw * scale * z; val dh = bh * scale * z
         drawImage(
             img, srcOffset = IntOffset.Zero, srcSize = IntSize(bw, bh),
-            dstOffset = IntOffset(((size.width - bw * scale) / 2).toInt(), ((size.height - bh * scale) / 2).toInt()),
-            dstSize = IntSize((bw * scale).toInt(), (bh * scale).toInt()),
-            filterQuality = FilterQuality.Low, colorFilter = ColorFilter.tint(lerp(Color.White, tones[0], 0.18f), androidx.compose.ui.graphics.BlendMode.Modulate),
+            dstOffset = IntOffset(((size.width - dw) / 2).toInt(), ((size.height - dh) / 2).toInt()),
+            dstSize = IntSize(dw.toInt(), dh.toInt()), filterQuality = FilterQuality.Low,
         )
     }
 
-    /** El cuadro en el arreglo de pixeles: blanco con alfa (sin premultiplicar), el tinte va al dibujarlo. */
-    private fun render(buf: com.marco.audiopro.platform.PixelBuffer, hasArt: Boolean, f: AudioFeatures, time: Float) {
+    private fun mix(a: Color, b: Color, t: Float): Int {
+        val r = (a.red + (b.red - a.red) * t) * 255; val g = (a.green + (b.green - a.green) * t) * 255; val bl = (a.blue + (b.blue - a.blue) * t) * 255
+        return (r.toInt().coerceIn(0, 255) shl 16) or (g.toInt().coerceIn(0, 255) shl 8) or bl.toInt().coerceIn(0, 255)
+    }
+
+    /** Hash barato por celda para que titilen sin pedir números al azar en cada una. */
+    private fun hash(x: Int, y: Int, t: Int): Int {
+        var h = x * 374761393 + y * 668265263 + t * 2147483647
+        h = (h xor (h ushr 13)) * 1274126177
+        return h xor (h ushr 16)
+    }
+
+    /** El cuadro en el arreglo de pixeles, ya con color (sin premultiplicar). */
+    private fun render(buf: com.marco.audiopro.platform.PixelBuffer, hasArt: Boolean, tones: List<Color>, f: AudioFeatures, time: Float, dt: Float) {
         val px = buf.pixels
         java.util.Arrays.fill(px, 0)
         val w = buf.width
+        frameNo++
+        // Color por renglón: degradado entre los tonos de la portada que se va desplazando.
+        for (y in 0 until min(rows, rowColor.size)) {
+            val t = ((y.toFloat() / rows + time * 0.05f) % 1f) * 3f
+            val i0 = t.toInt().coerceIn(0, 2)
+            rowColor[y] = mix(lerp(tones[i0], Color.White, 0.35f), lerp(tones[i0 + 1], Color.White, 0.35f), t - i0)
+        }
+        // Lluvia: cada columna tiene una gota; el bajo y los agudos la aceleran, un golpe suelta más.
+        val hit = f.beats != lastBeats
+        lastBeats = f.beats
+        val accel = 1f + 2.5f * f.treble + 3f * f.beat
+        for (x in 0 until cols) {
+            dropY[x] += dropSpeed[x] * dt * accel
+            if (dropY[x] > rows + 14) { dropY[x] = -rnd.nextFloat() * rows * (if (hit) 0.2f else 1.2f); dropSpeed[x] = 6f + rnd.nextFloat() * 14f }
+        }
+        if (hit) for (n in 0 until cols / 6) { val x = rnd.nextInt(cols); if (dropY[x] < 0) dropY[x] = rnd.nextFloat() * 4f }
+        // Glitch: en golpes fuertes unos renglones se corren unos cuadros.
+        if (hit && f.beat > 0.6f) {
+            glitchFrames = 7
+            for (y in glitchShift.indices) glitchShift[y] = if (rnd.nextFloat() < 0.12f) rnd.nextInt(9) - 4 else 0
+        }
+        if (glitchFrames > 0) glitchFrames--
         val specRows = rows * 0.32f
         val cx = cols / 2f; val cy = rows / 2f
         val diag = kotlin.math.sqrt(cx * cx + cy * cy * 4f)
         val last = ramp.length - 1
-        val wave = 0.06f + 0.16f * f.bass
+        val wave = 0.07f + 0.2f * f.bass
+        val flicker = 0.03f + 0.3f * f.treble
+        val tick = frameNo / 3
         for (y in 0 until rows) {
             val fromBottom = rows - 1 - y
+            val shift = if (glitchFrames > 0) glitchShift[y] else 0
+            val color = rowColor[min(y, rowColor.size - 1)]
             for (x in 0 until cols) {
-                var v = if (hasArt) lum[y * cols + x] * 0.85f else 0.08f + 0.06f * sin(x * 0.3f + time)
+                val sx = (x + shift).coerceIn(0, cols - 1)
+                var v = if (hasArt) lum[y * cols + sx] * 0.8f else 0.06f + 0.05f * sin(x * 0.3f + time * 2f)
                 val dx = x - cx; val dy = (y - cy) * 2f
                 val d = kotlin.math.sqrt(dx * dx + dy * dy) / diag
-                // Ondas desde el centro, más fuertes con el bajo y en cada golpe.
-                v += sin(d * 22f - time * 4.5f) * wave + f.beat * 0.3f * (1f - d).coerceAtLeast(0f)
+                // Ondas desde el centro (más rápidas que antes), más fuertes con el bajo y en cada golpe.
+                v += sin(d * 26f - time * 7f) * wave + f.beat * 0.35f * (1f - d).coerceAtLeast(0f)
+                // Gota de lluvia: cabeza brillante y cola que se apaga.
+                val dist = dropY[x] - y
+                var head = false
+                if (dist >= 0 && dist < 14) { v = max(v, 1f - dist / 14f); head = dist < 1f }
                 // Espectro: columnas que suben desde abajo.
                 val band = f.band(x / cols.toFloat())
                 if (fromBottom < specRows * band) v = max(v, 0.7f + 0.3f * (1f - fromBottom / (specRows * band + 0.01f)))
                 v = v.coerceIn(0f, 1f)
-                val c = (v * last + 0.25f).toInt().coerceIn(0, last)
+                var c = (v * last + 0.25f).toInt().coerceIn(0, last)
                 if (c == 0) continue
+                // Los caracteres titilan (más con los agudos).
+                val hsh = hash(x, y, tick)
+                if ((hsh and 1023) < flicker * 1024) c = (c + (hsh shr 10 and 3) - 1).coerceIn(1, last)
                 val mask = masks[c]
-                val a = (0.25f + 0.75f * v) * 255f
+                val a = (0.3f + 0.7f * v) * 255f
+                val rgb = if (head) 0xFFFFFF else color
                 val base = y * ch * w + x * cw
                 for (py in 0 until ch) {
                     val row = base + py * w
                     val mr = py * cw
                     for (pxi in 0 until cw) {
                         val mv = mask[mr + pxi]
-                        if (mv != 0) px[row + pxi] = ((mv * a / 255f).toInt() shl 24) or 0xFFFFFF
+                        if (mv != 0) px[row + pxi] = ((mv * a / 255f).toInt() shl 24) or rgb
                     }
                 }
             }

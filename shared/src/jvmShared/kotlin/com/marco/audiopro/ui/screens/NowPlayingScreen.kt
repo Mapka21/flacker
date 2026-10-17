@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -179,6 +180,7 @@ private fun WidePlayer(song: Song, nav: NavController, width: Dp, onPath: () -> 
             Spacer(Modifier.weight(1f))
             Row(Modifier.glass(RoundedCornerShape(50), Color.Black.copy(alpha = 0.25f)).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VisualModeButton(size = 20)
+                StageToggle(Icons.Default.Fullscreen, "Pantalla completa (F11)", false) { com.marco.audiopro.ui.Immersive.on = true }
                 ShareStoryButton(song, size = 19)
                 StageToggle(Icons.Default.Lyrics, "Letra", side == Stage.LYRICS) { side = if (side == Stage.LYRICS) Stage.COVER else Stage.LYRICS }
                 StageToggle(Icons.AutoMirrored.Filled.QueueMusic, "Cola", side == Stage.QUEUE) { side = if (side == Stage.QUEUE) Stage.COVER else Stage.QUEUE }
@@ -262,6 +264,9 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
                 if (st.remoteName != null) RemoteBadge(st.remoteName)
                 else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 9.sp))
                 Text(song.album ?: "", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            }
+            Box(Modifier.size(44.dp).bouncyClick { com.marco.audiopro.ui.Immersive.on = true }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Fullscreen, "Pantalla completa", tint = Color.White, modifier = Modifier.size(24.dp))
             }
             ShareStoryButton(song, size = 21, tint = Color.White)
             VisualModeButton()

@@ -127,7 +127,11 @@ fun Modifier.bouncyClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
  * @param preset fuerza un preset (vistas previas del selector).
  */
 @Composable
-fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensity: Float = 1f, preset: VisualPreset? = null) {
+fun AmbientBackground(
+    coverArt: String?, modifier: Modifier = Modifier, intensity: Float = 1f, preset: VisualPreset? = null,
+    /** Sólo las figuras sobre negro (sin la portada de fondo ni el velo): para mezclar efectos encima de otro. */
+    figuresOnly: Boolean = false,
+) {
     val c = LocalApp.current
     val ctx = LocalPlatformContext.current
     val prefs by c.settings.prefs.collectAsState()
@@ -164,14 +168,14 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
     }
     val feats = { if (reactive) LiveAudio.features else LiveAudio.quiet }
     val cols = listOf(c0, c1, c2, c3)
-    BoxWithConstraints(modifier.fillMaxSize().background(Hifi.Bg)) {
+    BoxWithConstraints(modifier.fillMaxSize().background(if (figuresOnly) Color.Black else Hifi.Bg)) {
         // Difuminado proporcional al tamaño (en las vistas previas chicas también se ve igual).
         val big = (minOf(maxWidth, maxHeight) * 0.16f).coerceIn(14.dp, 90.dp)
         // Sin blur (Android < 12) la portada se vería tal cual: ahí van las manchas de color.
         val useArt = if (supportsBlur) art else null
         scene.art = art
         // En ASCII el fondo es liso: no vale la pena difuminarlo cada frame.
-        if (mode != VisualPreset.ASCII) Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
+        if (mode != VisualPreset.ASCII && !figuresOnly) Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
             Canvas(Modifier.fillMaxSize().blur(big, BlurredEdgeTreatment.Rectangle)) {
                 tick.longValue
                 scene.drawBase(this, mode, cols, img, feats())
@@ -180,7 +184,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
         if (scene.hasFx(mode)) {
             // Brillo (bloom) de las figuras y luego las figuras nítidas.
             // (Las olas son rellenos grandes: su brillo deja manchas, así que van sin él.)
-            if (supportsBlur && mode != VisualPreset.OLAS && mode != VisualPreset.ASCII) Canvas(Modifier.fillMaxSize().blur(big / 5, BlurredEdgeTreatment.Unbounded).graphicsLayer { alpha = 0.9f }) {
+            if (supportsBlur && !figuresOnly && mode != VisualPreset.OLAS && mode != VisualPreset.ASCII) Canvas(Modifier.fillMaxSize().blur(big / 5, BlurredEdgeTreatment.Unbounded).graphicsLayer { alpha = 0.9f }) {
                 tick.longValue
                 scene.drawFx(this, mode, cols, feats(), glow = true)
             }
@@ -189,7 +193,7 @@ fun AmbientBackground(coverArt: String?, modifier: Modifier = Modifier, intensit
                 scene.drawFx(this, mode, cols, feats(), glow = false)
             }
         }
-        Canvas(Modifier.fillMaxSize()) { scene.drawVeil(this, intensity) }
+        if (!figuresOnly) Canvas(Modifier.fillMaxSize()) { scene.drawVeil(this, intensity) }
     }
 }
 
@@ -245,12 +249,18 @@ private object FpsLog {
     val on = runCatching { System.getProperty("flacker.debugFps") == "true" }.getOrDefault(false)
     private var start = 0L
     private var frames = 0
-    fun frame(t: Long, what: String) {
+    private var lastT = 0L
+    private val modes = LinkedHashSet<String>()
+    /** Cuenta cuadros reales (varios fondos a la vez comparten el mismo tiempo de cuadro). */
+    @Synchronized fun frame(t: Long, what: String) {
+        modes += what
+        if (t == lastT) return
+        lastT = t
         if (start == 0L) start = t
         frames++
         if (t - start >= 2_000_000_000L) {
-            println("FPS $what: %.1f".format(frames * 1e9 / (t - start)))
-            start = t; frames = 0
+            println("FPS ${modes.joinToString("+")}: %.1f".format(frames * 1e9 / (t - start)))
+            start = t; frames = 0; modes.clear()
         }
     }
 }

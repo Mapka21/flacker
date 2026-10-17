@@ -320,7 +320,7 @@ private fun PhoneShell(nav: NavHostController) {
         containerColor = Hifi.Bg,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            if (!onPlayer) {
+            if (!onPlayer && !Immersive.on) {
                 // Abajo: degradado para que el contenido se pierda detrás, y la barra casi negra.
                 Column(
                     Modifier.background(
@@ -335,12 +335,13 @@ private fun PhoneShell(nav: NavHostController) {
         },
     ) { pad ->
         Box(Modifier.fillMaxSize()) {
-            AmbientBackground(playback.current?.coverArt, intensity = intensity)
+            if (!Immersive.on) AmbientBackground(playback.current?.coverArt, intensity = intensity)
             // Sin red, la pantalla de error ofrece ir directo a tus descargas.
             androidx.compose.runtime.CompositionLocalProvider(
                 com.marco.audiopro.ui.components.LocalOpenOffline provides { nav.navigate(DownloadsRoute) { launchSingleTop = true } },
             ) { AppNavHost(nav, Modifier.padding(pad)) }
             ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
+            if (Immersive.on) ImmersiveScreen { Immersive.on = false }
         }
     }
     // La PC mandó una canción para compartirla en historias desde el celular.

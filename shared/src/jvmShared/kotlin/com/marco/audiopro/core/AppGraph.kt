@@ -40,6 +40,8 @@ interface AppGraph {
     val playlists: PlaylistStore
     /** Portadas propias de playlists, "Me gusta" y artistas. */
     val covers: CustomCovers
+    /** Tu música sin servidor (carpetas en la PC, la música del celular); null donde no aplica. */
+    val localLibrary: com.marco.audiopro.data.local.LocalLibrary?
     /** Fotos de artista (Navidrome, Deezer o generadas). */
     val artistPhotos: com.marco.audiopro.data.ArtistPhotos
     /** Descargas offline; `null` donde no aplican (PC). */

@@ -79,6 +79,7 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lyrics
@@ -220,7 +221,7 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     CompositionLocalProvider(LocalSearchQuery provides search) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
-        AmbientBackground(playback.current?.coverArt, intensity = intensity)
+        if (!Immersive.on) AmbientBackground(playback.current?.coverArt, intensity = intensity)
         // Con barra de título propia, la tira de arriba (botones de ventana) hace de margen superior.
         val chrome = WindowChrome.controls != null
         Column(Modifier.fillMaxSize()) {
@@ -252,6 +253,10 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp),
         ) { PillPlayer(nav, onShowPanel = if (wide) ({ setRightHidden(false) }) else null) }
         ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp))
+        // Pantalla completa (efectos mezclados + letra) encima de todo.
+        androidx.compose.animation.AnimatedVisibility(Immersive.on, enter = fadeIn(tween(500)), exit = fadeOut(tween(300))) {
+            ImmersiveScreen { Immersive.on = false }
+        }
     }
     }
 }
@@ -356,6 +361,8 @@ private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: M
         RoundGlass(Icons.Default.Shuffle, "Aleatorio de toda tu música") { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }
+        Spacer(Modifier.width(10.dp))
+        RoundGlass(Icons.Default.Fullscreen, "Pantalla completa (F11)") { Immersive.on = true }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { DevicesButton() }
         if (onMiniPlayer != null && playing) {

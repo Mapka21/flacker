@@ -109,3 +109,37 @@ fun rememberStoryShare(): (png: ByteArray, name: String, instagram: Boolean) -> 
         }
     }
 }
+
+/** Modo inmersivo: esconde las barras del sistema, deja la pantalla prendida y "atrás" sale. */
+@Composable
+fun ImmersiveSystem(on: Boolean, onBack: () -> Unit) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.activity.compose.BackHandler(enabled = on, onBack = onBack)
+    androidx.compose.runtime.DisposableEffect(on) {
+        var ctx = view.context
+        while (ctx is android.content.ContextWrapper && ctx !is android.app.Activity) ctx = ctx.baseContext
+        val window = (ctx as? android.app.Activity)?.window
+        val ctl = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        if (on) {
+            ctl?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            ctl?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            ctl?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+}
+
+/** Modo sin servidor: pide permiso para leer la música del celular ("device" si lo dio, null si no). */
+@Composable
+fun rememberLocalMusicPicker(onPicked: (String?) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    val perm = if (Build.VERSION.SDK_INT >= 33) android.Manifest.permission.READ_MEDIA_AUDIO else android.Manifest.permission.READ_EXTERNAL_STORAGE
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> callback(if (ok) "device" else null) }
+    return { launcher.launch(perm) }
+}
+
+/** En la PC se eligen carpetas; en el celular, toda la música del teléfono. */
+val localMusicIsFolders: Boolean = false
