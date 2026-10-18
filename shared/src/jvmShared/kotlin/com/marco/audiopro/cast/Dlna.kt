@@ -89,14 +89,19 @@ internal class DlnaSession(override val device: CastDevice, http: OkHttpClient) 
 }
 
 /**
- * Teles y aparatos Roku: con su control por red (ECP, puerto 8060) se abre el "Roku Media Player"
- * con la dirección de la canción. Roku no deja adelantar a un segundo exacto ni fijar el volumen por
- * red: eso se hace con el control de la tele.
+ * Teles y aparatos Roku, con la app "Flacker" de la tele ([RokuChannel]): se abre con la canción
+ * (/launch/dev) y, ya abierta, se le mandan las siguientes y las órdenes (/input) por el control de
+ * red (ECP, puerto 8060). La posición y el estado salen de /query/media-player. El volumen se maneja
+ * con el control de la tele.
  */
 internal class RokuSession(override val device: CastDevice, http: OkHttpClient) : CastSession {
-    private val http = http.newBuilder().callTimeout(6, TimeUnit.SECONDS).build()
+    private val http = http.newBuilder().callTimeout(8, TimeUnit.SECONDS).build()
     private val base = "http://${device.host}:${device.port}"
-    private var playing = false
+
+    private suspend fun get(path: String): String = withContext(Dispatchers.IO) {
+        http.newCall(Request.Builder().url(base + path).build()).execute().use { it.body?.string().orEmpty() }
+            .also { if (it.contains("Limited mode", ignoreCase = true)) throw RokuLimitedException() }
+    }
 
     private suspend fun post(path: String) = withContext(Dispatchers.IO) {
         http.newCall(Request.Builder().url(base + path).post(ByteArray(0).toRequestBody(null)).build()).execute().use {
@@ -106,39 +111,55 @@ internal class RokuSession(override val device: CastDevice, http: OkHttpClient) 
         }
     }
 
-    override suspend fun load(url: String, mime: String, meta: CastMeta, startMs: Long) {
-        fun e(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
-        val fmt = mime.substringAfter('/').let { if (it == "mpeg") "mp3" else if (it == "mp4" || it == "x-m4a") "aac" else it }
-        val q = buildString {
-            append("t=a&u=").append(e(url)).append("&songname=").append(e(meta.title)).append("&songformat=").append(e(fmt))
-            meta.artist?.let { append("&artistname=").append(e(it)) }
-            meta.coverUrl?.let { append("&albumarturl=").append(e(it)) }
-        }
-        post("/launch/2213?$q")
-        playing = true
+    private fun e(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+
+    /** Antes de empezar: control por red permitido y la app instalada. */
+    suspend fun check() {
+        val apps = get("/query/apps")
+        if (!(apps.contains("id=\"dev\"") && apps.contains(">Flacker<"))) throw RokuNeedsAppException()
     }
 
-    override suspend fun play() { if (!playing) { post("/keypress/Play"); playing = true } }
-    override suspend fun pause() { if (playing) { post("/keypress/Play"); playing = false } }
-    override suspend fun seek(ms: Long) {}
+    override suspend fun load(url: String, mime: String, meta: CastMeta, startMs: Long) {
+        val fmt = when (mime.substringAfter('/').lowercase()) {
+            "flac" -> "flac"; "mpeg", "mp3" -> "mp3"; "wav", "x-wav" -> "wav"; "x-ms-wma" -> "wma"; else -> "mp4"
+        }
+        val q = buildString {
+            append("contentId=").append(e(url)).append("&format=").append(fmt).append("&title=").append(e(meta.title))
+            meta.artist?.let { append("&artist=").append(e(it)) }
+            meta.album?.let { append("&album=").append(e(it)) }
+            meta.coverUrl?.let { append("&art=").append(e(it)) }
+            if (meta.durationMs > 0) append("&duration=").append(meta.durationMs / 1000)
+            if (startMs > 1000) append("&position=").append(startMs / 1000)
+        }
+        // Si ya está abierta, la canción entra sin volver a abrir la app (sin parpadeo).
+        val open = runCatching { get("/query/active-app") }.getOrDefault("").contains("id=\"dev\"")
+        post(if (open) "/input?$q" else "/launch/dev?$q")
+    }
+
+    override suspend fun play() = post("/input?cmd=resume")
+    override suspend fun pause() = post("/input?cmd=pause")
+    override suspend fun seek(ms: Long) = post("/input?cmd=seek&position=${ms / 1000}")
     override suspend fun setVolume(v: Float) {}
 
-    override suspend fun poll(): CastStatus = withContext(Dispatchers.IO) {
-        val xml = http.newCall(Request.Builder().url("$base/query/media-player").build()).execute().use { it.body?.string().orEmpty() }
-        if (xml.contains("Limited mode", ignoreCase = true)) throw RokuLimitedException()
+    override suspend fun poll(): CastStatus {
+        val xml = get("/query/media-player")
         fun ms(tag: String) = Regex("<$tag>(\\d+) ms</$tag>").find(xml)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val st = Regex("state=\"(\\w+)\"").find(xml)?.groupValues?.get(1)
-        val state = when (st) {
-            "play" -> CastState.PLAYING
-            "pause" -> CastState.PAUSED
-            "buffer", "startup" -> CastState.LOADING
+        val ours = xml.contains("id=\"dev\"")
+        val state = when {
+            !ours && st != null && st != "none" && st != "close" -> CastState.IDLE
+            st == "play" -> CastState.PLAYING
+            st == "pause" -> CastState.PAUSED
+            st == "buffer" || st == "startup" -> CastState.LOADING
+            st == "finished" -> CastState.FINISHED
             else -> CastState.IDLE
         }
-        playing = state == CastState.PLAYING || state == CastState.LOADING
-        CastStatus(state, ms("position"), ms("duration"), null)
+        return CastStatus(state, ms("position"), ms("duration"), null)
     }
 
-    override suspend fun close(stopApp: Boolean) { if (stopApp) runCatching { post("/keypress/Home") } }
+    override suspend fun close(stopApp: Boolean) {
+        if (stopApp) runCatching { post("/input?cmd=stop"); post("/keypress/Home") }
+    }
 }
 
 /** La Roku tiene el "Control por apps móviles" en Limitado: no acepta que otra app le mande música. */

@@ -94,4 +94,21 @@ class MetaLiveTest {
         assertEquals("Hola mundo cruel", l.single().value)
         assertEquals(listOf(12000L, 12400L, 13100L), l.single().words)
     }
+
+    /** Sólo lectura: revisa una carpeta grande de verdad (MARCO_FIX_SCAN) sin escribir nada. */
+    @Test fun reviewsBigLibraryReadOnly(): Unit = runBlocking {
+        val dir = System.getenv("MARCO_FIX_SCAN"); assumeTrue(dir != null)
+        val work = Files.createTempDirectory("fixscan").toFile()
+        val api = SubsonicApi(http) { ServerAccount("http://127.0.0.1:9", "x", "x", "x") }
+        val fixer = MetadataFixer(MusicBrainz(http), JaudioTagIO(), LyricsRepository(http, api, work), work)
+        val t0 = System.currentTimeMillis()
+        val albums = fixer.scanFolders(listOf(dir!!))
+        println("META escaneo: ${albums.size} discos, ${albums.sumOf { it.tracks.size }} canciones en ${(System.currentTimeMillis() - t0) / 1000} s; con ID de MusicBrainz: ${albums.count { it.mbReleaseId != null }}")
+        for (a in albums.shuffled(java.util.Random(3)).take(6)) {
+            val t1 = System.currentTimeMillis()
+            val p = runCatching { fixer.propose(a) }.getOrNull()
+            println("META  ${a.artist} — ${a.album} (${a.tracks.size}) → " + (p?.let { "${it.release.title} ${it.release.year} conf=${"%.2f".format(it.confidence)} géneros=${it.genres} cambios=${it.renamedTracks} limpio=${it.clean}" } ?: "no encontrado") + " [${System.currentTimeMillis() - t1} ms]")
+        }
+        work.deleteRecursively()
+    }
 }

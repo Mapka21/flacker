@@ -133,7 +133,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.12.0"
+    override val versionName = "2.12.1"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()

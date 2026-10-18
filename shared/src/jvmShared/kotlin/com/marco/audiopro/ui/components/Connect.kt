@@ -215,7 +215,15 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                     }),
                 )
             }
-            castError?.let { Text(it, color = Hifi.LedRed, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
+            val setup by c.cast.rokuSetup.collectAsState()
+            setup?.let { d ->
+                RokuSetupCard(d) {
+                    c.cast.rokuSetup.value = null
+                    castError = null; busy = d.id
+                    scope.launch { val err = routed?.castTo(d); busy = null; if (err == null) onDismiss() else castError = err }
+                }
+            }
+            castError?.takeIf { setup == null }?.let { Text(it, color = Hifi.LedRed, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
             // Volumen de donde suena (aquí, el dispositivo controlado o la tele).
             val castVol = if (tv != null && c.player.volume == null) c.cast.player.volume.collectAsState().value else null
             if (castVol != null) {
@@ -348,5 +356,59 @@ fun ConnectToast(modifier: Modifier = Modifier) {
             Icon(Icons.Default.Devices, null, tint = ConnectGreen, modifier = Modifier.size(16.dp))
             Text(notice ?: "", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.widthIn(max = 520.dp))
         }
+    }
+}
+
+/**
+ * Instalar la app de Flacker en una Roku (una sola vez). Roku no deja que otras apps manden música a
+ * su reproductor, así que la tele usa la suya; se sube con el "modo desarrollador" de la tele.
+ */
+@Composable
+private fun RokuSetupCard(d: com.marco.audiopro.cast.CastDevice, onInstalled: () -> Unit) {
+    val c = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var dev by remember { mutableStateOf<Boolean?>(null) }
+    var pass by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf(false) }
+    LaunchedEffect(d.id) { dev = c.cast.rokuDevMode(d) }
+    Column(
+        Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.06f)).padding(14.dp),
+    ) {
+        Text("Instalar Flacker en ${d.name}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(
+            "Roku no deja que otras apps le manden música a su reproductor, así que tu tele necesita la app de Flacker. Se instala una sola vez:",
+            fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+        )
+        if (dev != true) {
+            Text(
+                "1. Con el control de la tele presiona:  Inicio ×3, Arriba ×2, Derecha, Izquierda, Derecha, Izquierda, Derecha.\n" +
+                    "2. Elige \"Enable installer and restart\", acepta, escribe una contraseña (la que quieras) y deja que la tele se reinicie.\n" +
+                    "3. Escribe aquí esa misma contraseña.",
+                fontSize = 12.sp, color = Hifi.Text,
+            )
+        } else Text("El modo desarrollador ya está prendido. Escribe su contraseña:", fontSize = 12.sp, color = Hifi.Text)
+        Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedTextField(
+                pass, { pass = it }, Modifier.weight(1f).textInput(), singleLine = true,
+                label = { Text("Contraseña del modo desarrollador") },
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (working) "Instalando…" else "Instalar", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.Black,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = if (pass.isNotBlank() && !working) 1f else 0.4f))
+                    .bouncyClick {
+                        if (pass.isBlank() || working) return@bouncyClick
+                        working = true; msg = null
+                        scope.launch {
+                            val err = c.cast.installRoku(d, pass)
+                            working = false
+                            if (err == null) onInstalled() else { msg = err; dev = c.cast.rokuDevMode(d) }
+                        }
+                    }.padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
+        msg?.let { Text(it, color = Hifi.LedRed, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
     }
 }

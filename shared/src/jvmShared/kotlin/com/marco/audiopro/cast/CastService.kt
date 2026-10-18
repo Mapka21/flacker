@@ -42,6 +42,12 @@ class CastService(
     /** Último aviso para mostrar ("Tu Roku no deja…", "Se dejó de transmitir"). */
     val notice = MutableStateFlow<String?>(null)
     val player = CastPlayer()
+    /** Una Roku a la que le falta la app de Flacker (la UI muestra cómo instalarla). */
+    val rokuSetup = MutableStateFlow<CastDevice?>(null)
+
+    suspend fun rokuDevMode(d: CastDevice) = RokuChannel.devMode(http, d.host)
+    /** Instala la app de Flacker en la Roku (modo desarrollador). null = se instaló. */
+    suspend fun installRoku(d: CastDevice, password: String): String? = RokuChannel.install(http, d.host, password)
 
     private var session: CastSession? = null
     private var lanIp = ""
@@ -65,7 +71,7 @@ class CastService(
             relay.start()
             val s = when (d.kind) {
                 CastDevice.Kind.CHROMECAST -> ChromecastSession(d, scope).also { it.connect() }
-                CastDevice.Kind.ROKU -> RokuSession(d, http).also { it.poll() } // si está en modo limitado, avisa aquí
+                CastDevice.Kind.ROKU -> RokuSession(d, http).also { it.check() } // modo limitado o sin la app: avisa aquí
                 CastDevice.Kind.DLNA -> DlnaSession(d, http)
             }
             session = s
@@ -74,6 +80,7 @@ class CastService(
             player.begin(d, s, queue, index, positionMs)
         }
         result.exceptionOrNull()?.let { e ->
+            if (e is RokuNeedsAppException) rokuSetup.value = d
             stopSession()
             return@withLock e.message ?: "No se pudo conectar con ${d.name}"
         }

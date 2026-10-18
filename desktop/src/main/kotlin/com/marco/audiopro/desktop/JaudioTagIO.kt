@@ -17,7 +17,9 @@ import java.util.logging.Logger
 
 /** Etiquetas en la PC con jaudiotagger (FLAC, MP3, M4A/ALAC, OGG, WAV, AIFF, DSF…). */
 class JaudioTagIO : TagIO {
-    init { Logger.getLogger("org.jaudiotagger").level = Level.OFF }
+    // Hay que guardar el logger: si no, Java lo suelta y vuelve a imprimir una línea por cada bloque de cada archivo.
+    private companion object { val quiet: Logger = Logger.getLogger("org.jaudiotagger").apply { level = Level.OFF } }
+    init { quiet.level = Level.OFF }
 
     private fun Tag?.get(k: FieldKey): String? = runCatching { this?.getFirst(k) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     private fun Tag?.all(k: FieldKey): List<String> = runCatching { this?.getAll(k) }.getOrNull().orEmpty().map { it.trim() }.filter { it.isNotEmpty() }
@@ -59,6 +61,7 @@ class JaudioTagIO : TagIO {
                 durationMs = af.audioHeader.preciseTrackLength.times(1000).toLong(),
                 hasCover = runCatching { tag?.firstArtwork != null }.getOrDefault(false),
                 hasLyrics = lrc || tag.get(FieldKey.LYRICS) != null, format = f.extension.uppercase(),
+                mbReleaseId = tag.get(FieldKey.MUSICBRAINZ_RELEASEID),
             )
         }.getOrDefault(FixTrack(path = f.absolutePath, title = f.nameWithoutExtension, album = f.parentFile?.name, format = f.extension.uppercase(), hasLyrics = lrc))
     }

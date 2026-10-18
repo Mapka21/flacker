@@ -47,7 +47,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.12.0"
+            packageVersion = "2.12.1"
             description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true
@@ -63,7 +63,7 @@ compose.desktop {
 }
 
 tasks.withType<Test> {
-    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR", "MARCO_LOCAL_DIRS", "MARCO_LIVE", "MARCO_BENCH", "MARCO_CAST_SCAN", "MARCO_CAST_DEVICE", "MARCO_CAST_URL", "MARCO_FIX_DIR").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
+    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR", "MARCO_LOCAL_DIRS", "MARCO_LIVE", "MARCO_BENCH", "MARCO_CAST_SCAN", "MARCO_CAST_DEVICE", "MARCO_CAST_URL", "MARCO_FIX_DIR", "MARCO_FIX_SCAN").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
     testLogging { events("passed", "failed", "skipped"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 

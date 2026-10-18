@@ -28,6 +28,8 @@ data class FixTrack(
     val hasCover: Boolean = false,
     val hasLyrics: Boolean = false,
     val format: String? = null,
+    /** Si el archivo ya trae el disco de MusicBrainz (Picard, etc.): no hay que buscarlo. */
+    val mbReleaseId: String? = null,
 )
 
 /** Un disco: las canciones de una carpeta con el mismo álbum. */
@@ -36,6 +38,7 @@ data class FixAlbum(val folder: String, val artist: String, val album: String, v
     val year: Int? get() = tracks.mapNotNull { it.year }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
     val genre: String? get() = tracks.mapNotNull { it.genre }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
     val hasCover: Boolean get() = tracks.any { it.hasCover }
+    val mbReleaseId: String? get() = tracks.mapNotNull { it.mbReleaseId }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
 }
 
 /** Lo que se va a escribir en un archivo. */
@@ -140,9 +143,10 @@ class MetadataFixer(private val mb: MusicBrainz, private val io: TagIO, private 
 
     /** Arma la propuesta: el mejor disco de MusicBrainz (o el elegido) y cómo cuadra cada canción. */
     suspend fun propose(a: FixAlbum, releaseId: String? = null): Proposal? {
-        val hits = if (releaseId != null) emptyList() else candidates(a)
-        // Se prueban los mejores 3 y se queda el que mejor cuadra en canciones y duraciones.
-        val ids = releaseId?.let { listOf(it) } ?: hits.sortedByDescending { h ->
+        val known = releaseId ?: a.mbReleaseId
+        val hits = if (known != null) emptyList() else candidates(a)
+        // Se prueba el mejor; sólo si no cuadra bien se prueban otros dos (cada consulta tarda 1 s).
+        val ids = known?.let { listOf(it) } ?: hits.sortedByDescending { h ->
             h.score + (if (h.trackCount == a.tracks.size) 30 else 0) + (if (h.status == "Official") 5 else 0) + (if (h.format?.contains("Digital") == true || h.format == "CD") 3 else 0)
         }.take(3).map { it.id }
         var best: Proposal? = null
@@ -150,7 +154,7 @@ class MetadataFixer(private val mb: MusicBrainz, private val io: TagIO, private 
             val r = mb.release(id) ?: continue
             val p = match(a, r, hits.firstOrNull { it.id == id }?.score ?: 100)
             if (best == null || p.confidence > best.confidence) best = p
-            if (p.confidence > 0.95f) break
+            if (p.confidence > 0.85f) break
         }
         return best
     }

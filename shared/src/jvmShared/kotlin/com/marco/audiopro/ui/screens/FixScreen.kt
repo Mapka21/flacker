@@ -81,6 +81,10 @@ object FixSession {
     var status by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
     private var job: Job? = null
+    /** Vive lo que vive la app: si te vas a otra sección (o la pantalla se rearma), sigue trabajando. */
+    private val appScope = kotlinx.coroutines.MainScope()
+
+    fun stop() { job?.cancel(); busy = false; status = "Detenido. Lo que ya se revisó sigue aquí." }
 
     fun folders(c: AppGraph): List<String> =
         (c.settings.getString("fix_folders")?.split("\n").orEmpty() + LocalMode.folders(c.settings)).filter { it.isNotBlank() }.distinct()
@@ -89,17 +93,20 @@ object FixSession {
     fun removeFolder(c: AppGraph, path: String) = c.settings.putString("fix_folders", folders(c).filter { it != path }.joinToString("\n"))
 
     /** Lee los discos y los busca uno por uno en MusicBrainz (una consulta por segundo). */
+    @Suppress("UNUSED_PARAMETER")
     fun review(c: AppGraph, scope: CoroutineScope) {
         val fixer = c.fixer ?: return
         if (busy) return
-        job = scope.launch {
+        job = appScope.launch {
             busy = true
             status = "Leyendo tus archivos…"
             val found = runCatching { fixer.scanFolders(folders(c)) { n -> status = "Leyendo tus archivos… $n canciones" } }.getOrElse { status = "No se pudo leer: ${it.message}"; busy = false; return@launch }
             albums.clear(); albums += found
             states.clear(); found.forEach { states[it.key] = FixState.Waiting }
+            val t0 = System.currentTimeMillis()
             found.forEachIndexed { i, a ->
-                status = "Buscando en MusicBrainz… ${i + 1} de ${found.size}"
+                val left = if (i > 2) ((System.currentTimeMillis() - t0) / i * (found.size - i) / 60_000).toInt() else null
+                status = "Buscando en MusicBrainz… ${i + 1} de ${found.size}" + (left?.let { " · faltan ~${it + 1} min (ya puedes aplicar los que estén listos)" } ?: "")
                 states[a.key] = FixState.Looking
                 states[a.key] = runCatching { fixer.propose(a)?.let { FixState.Ready(it) } ?: FixState.NotFound }.getOrElse { FixState.Failed(it.message ?: "error") }
             }
@@ -109,19 +116,21 @@ object FixSession {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun apply(c: AppGraph, scope: CoroutineScope, p: Proposal, o: FixOptions) {
         val fixer = c.fixer ?: return
-        scope.launch {
+        appScope.launch {
             states[p.album.key] = FixState.Applying
             states[p.album.key] = runCatching { FixState.Done(fixer.apply(p, o) { status = it }) }.getOrElse { FixState.Failed(it.message ?: "error") }
             afterChange(c)
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun applySafe(c: AppGraph, scope: CoroutineScope) {
         val fixer = c.fixer ?: return
-        val list = states.values.filterIsInstance<FixState.Ready>().map { it.p }.filter { it.safe }
-        scope.launch {
+        val list = states.values.filterIsInstance<FixState.Ready>().map { it.p }.filter { it.safe && !it.clean }
+        appScope.launch {
             busy = true
             list.forEachIndexed { i, p ->
                 status = "Arreglando ${i + 1} de ${list.size}: ${p.release.title}"
@@ -199,8 +208,9 @@ fun FixScreen() {
                     fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.padding(top = 6.dp),
                 )
                 Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PillButton("Revisar mis discos", filled = true, enabled = !FixSession.busy && folders.isNotEmpty()) { FixSession.review(c, scope) }
-                    if (safe > 0) PillButton("Aplicar los seguros ($safe)", enabled = !FixSession.busy) { FixSession.applySafe(c, scope) }
+                    if (FixSession.busy) PillButton("Detener", filled = true) { FixSession.stop() }
+                    else PillButton(if (FixSession.albums.isEmpty()) "Revisar mis discos" else "Revisar otra vez", filled = true, enabled = folders.isNotEmpty()) { FixSession.review(c, scope) }
+                    if (safe > 0) PillButton("Aplicar los seguros ($safe)") { FixSession.applySafe(c, scope) }
                     undoName?.let { n ->
                         PillButton("Deshacer: ${n.take(40)}", enabled = !FixSession.busy) {
                             scope.launch { fixer.undoLast()?.let { FixSession.status = "Se regresó \"$it\" a como estaba" }; undoName = fixer.lastChange() }

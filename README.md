@@ -36,6 +36,16 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.12.1**:
+  - **Roku de verdad**: el "Roku Media Player" no acepta música de otras apps (Roku nunca abrió eso),
+    así que Flacker trae su propia app para la tele (`cast/RokuChannel.kt`, SceneGraph): se instala
+    una vez con el modo desarrollador (Flacker la sube con la contraseña, Digest) y recibe cada canción
+    por ECP (`/launch/dev`, luego `/input` sin reabrir), con portada, nombre y avance en la tele.
+  - **Arreglar metadatos**: la revisión ya no se cancela al cambiar de sección ("rememberCoroutineScope
+    left the composition"); corre aparte, con **Detener** y tiempo restante, y se pueden aplicar los
+    listos mientras sigue. Los discos que ya traen ID de MusicBrainz (Picard) no se buscan; una sola
+    consulta por disco si cuadra. jaudiotagger ya no llena la consola (el logger se soltaba).
+
 - **v2.12**:
   - **Modo Xbox 360** (el fondo de arranque en pantalla completa): las piezas del visualizador "Neon" de
     Jeff Minter según su manual (minotaurproject.co.uk): túnel en la GPU con dos texturas que ruedan y

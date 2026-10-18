@@ -333,21 +333,22 @@ story += [P("Toca el botón de <b>dispositivos</b> (en el reproductor, en la bar
             "Play, pausa, siguiente, la cola y el volumen se manejan desde Flacker. Para regresarla, toca <b>Este dispositivo</b>.")]
 story += table(["Aparato", "Funciona", "Notas"], [
     ["Chromecast / tele con Chromecast (Google TV, Android TV)", "Sí", "Se abre el reproductor de Google con la portada y la canción."],
-    ["Roku / tele Roku", "Sí", "Primero hay que darle permiso (ver abajo). Roku no deja adelantar a un segundo exacto ni subir el volumen "
-                              "por red: eso va con el control de la tele."],
+    ["Roku / tele Roku", "Sí", "Con la app de Flacker en la tele (se instala una vez, ver abajo). El volumen va con el control de la tele."],
     ["Teles y bocinas DLNA (Samsung, LG, Sony, Denon, Yamaha, Kodi…)", "Sí", "Si una canción no le gusta, Flacker la manda convertida a MP3 "
                                                                             "(con servidor Navidrome)."],
     ["AirPlay (Apple TV, HomePod)", "Todavía no", "Está en la lista."],
 ], [2.4 * inch, 0.9 * inch, W - 2 * M - 3.3 * inch])
 story += [H2("Si tu tele es Roku")]
-story += [P("Las Roku vienen con el control por red en <b>Limitado</b> y así no aceptan que una app les mande música. En la tele:")]
+story += [P("Roku no deja que otras apps le manden música a su reproductor, así que la tele usa una app de Flacker. Se hace una sola vez:")]
 story += NUM([
-    "<b>Configuración</b> → <b>Sistema</b> → <b>Configuración avanzada del sistema</b>.",
-    "<b>Control por apps móviles</b> → <b>Acceso a la red</b> → <b>Predeterminado</b>.",
+    "En la tele: <b>Configuración → Sistema → Configuración avanzada del sistema → Control por apps móviles → Acceso a la red → "
+    "Predeterminado</b>.",
+    "Con el control presiona: <b>Inicio ×3, Arriba ×2, Derecha, Izquierda, Derecha, Izquierda, Derecha</b>. Sale la pantalla de "
+    "\"Developer Settings\": elige <b>Enable installer and restart</b>, acepta, escribe una contraseña (la que quieras) y deja que se reinicie.",
+    "En Flacker toca tu Roku en <b>Transmitir a la tele</b>, escribe esa contraseña y toca <b>Instalar</b>. Listo: la música entra "
+    "a la tele con la portada, el nombre y el avance. Play/pausa y adelantar también funcionan con el control de la tele.",
 ])
-story += tip("La tele tiene que estar prendida y en el <b>mismo Wi-Fi</b>. El audio sale de tu cel o PC hacia la tele, así que ese "
-             "dispositivo debe quedarse en la red mientras suena (en el cel verás el aviso “Transmitiendo a …”). "
-             "Si la tele no aparece, toca la flechita circular para buscar otra vez.")
+story += tip("La tele debe estar prendida y en el <b>mismo Wi-Fi</b>; el audio sale de tu cel o PC hacia la tele. ¿No aparece? Toca la flechita circular.")
 story += [H2("Flacker Connect")]
 story += [P("Con Flacker abierto en tu cel y en tu PC (misma red), cada uno ve al otro en el mismo botón: puedes pasar la música de "
             "uno a otro o usar el cel como control remoto de la PC.")]
@@ -358,7 +359,7 @@ story += table(["Pasa esto", "Prueba esto"], [
     ["Windows no deja abrir la app", "SmartScreen: <b>Más información → Ejecutar de todas formas</b>."],
     ["No aparece la tele / el otro dispositivo", "Misma red Wi-Fi; en Windows permite Flacker en el firewall para redes privadas; "
                                                   "toca la flechita para buscar otra vez. Las VPN (Tailscale, etc.) pueden estorbar."],
-    ["La Roku dice que no deja", "Pon <b>Control por apps móviles → Acceso a la red → Predeterminado</b>."],
+    ["La Roku dice que no deja", "Pon <b>Control por apps móviles → Acceso a la red → Predeterminado</b> e instala la app de Flacker (página de la tele)."],
     ["Faltan discos o salen como “Desconocido”", "Revisa las etiquetas de los archivos y toca <b>Ajustes → Tu música → Volver a leer</b>."],
     ["No salen portadas", "Que el archivo traiga portada o que haya un <font name='Mono'>cover.jpg</font> en la carpeta del disco."],
     ["La letra va desfasada", "Muévela en la pantalla de letra, o en pantalla completa con <b>[</b> y <b>]</b>. Con bocinas Bluetooth, "

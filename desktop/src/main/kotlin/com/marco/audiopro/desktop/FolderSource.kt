@@ -18,7 +18,9 @@ import java.util.logging.Logger
  * .lrc al lado. Si un archivo no tiene tags, usa el nombre del archivo y de sus carpetas.
  */
 class FolderSource(private val folders: () -> List<File>) : LocalSource {
-    init { Logger.getLogger("org.jaudiotagger").level = Level.OFF }
+    // Hay que guardar el logger: si no, Java lo suelta y vuelve a imprimir una línea por cada bloque de cada archivo.
+    private companion object { val quiet: Logger = Logger.getLogger("org.jaudiotagger").apply { level = Level.OFF } }
+    init { quiet.level = Level.OFF }
 
     override val label: String get() = folders().joinToString(" · ") { it.path }
 
