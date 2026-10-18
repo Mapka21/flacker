@@ -186,7 +186,7 @@ fun AmbientBackground(
         val useArt = if (supportsBlur) art else null
         scene.art = art
         // En ASCII el fondo es liso: no vale la pena difuminarlo cada frame.
-        if (mode != VisualPreset.ASCII && !figuresOnly) Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
+        if (mode != VisualPreset.ASCII && mode != VisualPreset.N360 && !figuresOnly) Crossfade(useArt, animationSpec = tween(1200), label = "art") { img ->
             Canvas(Modifier.fillMaxSize().blur(big, BlurredEdgeTreatment.Rectangle)) {
                 tick.longValue
                 scene.drawBase(this, mode, cols, img, feats())

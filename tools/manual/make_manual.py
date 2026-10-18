@@ -208,7 +208,8 @@ story += [PageBreak()] + section("Lo de todos los días", "03 · uso")
 story += LI([
     "<b>Inicio</b>: lo que escuchas seguido, discos recientes y recomendaciones de tu propia biblioteca.",
     "<b>Buscar</b>: canciones, discos y artistas mientras escribes.",
-    "<b>Biblioteca</b>: álbumes, artistas, playlists y tus <b>Me gusta</b>.",
+    "<b>Biblioteca</b>: álbumes, artistas, <b>géneros</b>, canciones, playlists, tus <b>Me gusta</b> y la <b>radio</b> "
+    "(en el cel, Géneros y Radio están arriba en Biblioteca).",
     "<b>Clic derecho</b> (PC) o <b>mantener presionado</b> (cel) en una canción o disco: reproducir después, agregar a playlist, "
     "ir al artista, me gusta…",
 ])
@@ -223,6 +224,7 @@ story += keys([
     ("L", "En pantalla completa: cambia entre Letra, Solo visual y Portada"),
     ("← → / ↑ ↓", "En pantalla completa: girar / acercar los visuales (también la rueda del mouse)"),
     ("+ / −  ·  F  ·  A", "Velocidad de los visuales · forma de las ondas · otro efecto"),
+    ("N  ·  RePág / AvPág", "Siguiente / anterior escena del Xbox 360 (0 las regresa a cambiar solas)"),
     ("[ / ]", "Mover la letra 0.1 s (si va adelantada o atrasada)"),
     ("Teclas multimedia", "Funcionan aunque la app esté minimizada"),
 ])
@@ -262,26 +264,30 @@ story += table(["Modo", "Qué ves"], [
     ["<b>Portada</b>", "La portada en grande latiendo con el bajo, con la canción y su avance. Ideal para dejarla en la tele."],
 ], [1.3 * inch, W - 2 * M - 1.3 * inch])
 story += [P("Arriba a la derecha (mueve el mouse o toca la pantalla) eliges el modo, <b>Fondo: Mezcla</b> o uno fijo, y el botón "
-            "para transmitir. Hay dos homenajes a la Xbox: <b>Xbox 2001</b> (las ondas verde y azul del reproductor de CD de la primera "
-            "Xbox) y <b>Neón 360</b> (como el \"Neon\" de Jeff Minter: todo en espejo, partículas y arcos que explotan con el bajo).")]
+            "para transmitir. El fondo de arranque es <b>Xbox 360</b>: las piezas del visualizador \"Neon\" de Jeff Minter que traía el 360 "
+            "(túneles con texturas que se doblan, la flor elástica \"Boingy\", las pirámides \"Star\", trazos en espejo y retroalimentación "
+            "en cuadrantes, horizonte o espejo), combinadas en 32 escenas que cambian solas con la música. También están <b>Xbox 2001</b> "
+            "(las ondas verde y azul de la primera Xbox) y <b>Neón 360</b>.")]
+story += [KeepTogether([Image(os.path.join(IMG, "n360.png"), width=W - 2 * M, height=(W - 2 * M) * 540 / 1280), P("Algunas de las 32 escenas del modo Xbox 360.", "cap")])]
 xb = Table([[Image(os.path.join(IMG, "v-geiss.png"), width=2.9 * inch, height=2.9 * inch * 9 / 16), Image(os.path.join(IMG, "v-neon.png"), width=2.9 * inch, height=2.9 * inch * 9 / 16)]], colWidths=[3.05 * inch, 3.05 * inch])
 story += [KeepTogether([xb, P("Xbox 2001 y Neón 360.", "cap")])]
 story += [H2("Con el control de Xbox (PC)")]
 story += [P("Conecta un control de Xbox (cable, inalámbrico o Bluetooth) y, con Flacker al frente, manejas los visuales como en la consola:")]
 story += keys([
+    ("Cruceta", "Recorrer las escenas del Xbox 360 (como en la consola); Back las regresa a cambiar solas"),
     ("Stick izquierdo", "Girar y acercar"),
-    ("Stick derecho", "Hacia dónde se va la estela"),
+    ("Stick derecho", "Hacia dónde se va la estela y hacia dónde se dobla el túnel"),
     ("Gatillos RT / LT", "Más rápido / más lento"),
     ("X  ·  A", "Forma de las ondas · cambiar de efecto"),
     ("Y  ·  B", "Pantalla completa (otra vez: cambia el modo) · salir"),
     ("LB / RB  ·  Start", "Anterior / siguiente · play / pausa"),
-    ("Cruceta ↑ ↓  ·  Back", "Volumen · regresar los visuales a como estaban"),
+    ("Back", "Regresar los visuales a como estaban"),
 ])
 story += shot("d12-immersive-portada", "Pantalla completa en modo Portada.", width=4.6 * inch)
 
 # 7 · Letras e Instagram
 story += [PageBreak()] + section("Radio y géneros", "05 · explorar")
-story += [P("<b>Radio</b> (barra lateral en la PC; en el cel, desde Inicio → Explora): estaciones en vivo de todo el mundo. Hay nichos "
+story += [P("<b>Radio</b> (en la PC, en la barra lateral junto a Álbumes y Artistas; en el cel, en Biblioteca, arriba): estaciones en vivo de todo el mundo. Hay nichos "
             "armados a mano (Groove ruso, Techno francés, French touch, Italo disco, Post-punk y darkwave, Shoegaze, City pop, Phonk, "
             "Rare groove…) y un buscador por género o por nombre. El corazón guarda la estación en <b>Tus estaciones</b>.")]
 story += [P("<b>Géneros</b>: las etiquetas de los archivos muchas veces dicen \"Rock\" a todo. Flacker revisa cada disco en "

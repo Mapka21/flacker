@@ -143,6 +143,52 @@ half4 main(float2 fc) {
 }
 """
 
+    /** Túnel del 360: dos texturas mezcladas que ruedan, curvas que viajan por el túnel, redondo o cuadrado. */
+    private const val TUNNEL360 = """
+uniform float4 iP0;
+uniform float4 iP1;
+uniform float4 iP2;
+uniform float4 iP3;
+float pat(float k, float2 p) {
+    if (k < 0.5) { float2 g = floor(p); return mod(g.x + g.y, 2.0); }
+    if (k < 1.5) { return 0.5 + 0.5 * sin(p.y * 6.2831853); }
+    if (k < 2.5) { return 0.5 + 0.5 * sin(p.x * 12.566 + sin(p.y * 3.0) * 2.5); }
+    if (k < 3.5) { float2 g = abs(fract(p) - 0.5); return smoothstep(0.40, 0.5, max(g.x, g.y)); }
+    if (k < 4.5) { return fract(p.x + p.y * 0.5); }
+    return 0.5 + 0.25 * sin(p.x * 3.1 + p.y * 1.7) + 0.25 * sin(p.y * 2.3 - p.x * 1.3);
+}
+half4 main(float2 fc) {
+    float bass = iAudio.x; float mid = iAudio.y; float tre = iAudio.z; float beat = iAudio.w;
+    float2 uv = (fc - 0.5 * iRes) / iRes.y;
+    float r0 = length(uv);
+    float d = clamp(r0 * 2.2, 0.0, 1.0);
+    float t = d * 3.0;
+    float bxv = t < 1.0 ? mix(iP2.x, iP2.y, t) : (t < 2.0 ? mix(iP2.y, iP2.z, t - 1.0) : mix(iP2.z, iP2.w, t - 2.0));
+    float byv = t < 1.0 ? mix(iP3.x, iP3.y, t) : (t < 2.0 ? mix(iP3.y, iP3.z, t - 1.0) : mix(iP3.z, iP3.w, t - 2.0));
+    uv -= float2(bxv, byv) * (1.0 - d) * 0.6;
+    float r = iP0.w > 0.5 ? max(abs(uv.x), abs(uv.y)) : length(uv);
+    r = max(r, 0.0005);
+    float a = atan(uv.y, uv.x);
+    float z = 0.38 / r + iP1.x;
+    float u = (a / 6.2831853 + iP1.y) * iP1.w;
+    float2 p = float2(u, z);
+    float ta = pat(iP0.x, p);
+    float tb = pat(iP0.y, p * float2(1.0, 0.5) + float2(iTime * 0.05, iFlow * 0.0));
+    float t2 = mix(ta, tb, iP0.z);
+    float3 col = c0 * t2 * t2 + c1 * pow(t2, 4.0) * (0.7 + bass);
+    float edge = abs(fract(z) - 0.5);
+    col += c2 * smoothstep(0.05, 0.0, abs(edge - 0.47)) * (0.8 + beat);
+    col *= clamp(r * 3.2, 0.0, 1.0);
+    col *= 0.75 + 0.5 * mid;
+    col += float3(iP1.z);
+    col += c1 * 0.05 / (r + 0.05) * tre;
+    return half4(half3(tone(col)), 1.0);
+}
+"""
+
+    /** El túnel del 360 ya con lo común (lo usa [Neon360]). */
+    val TUNNEL360_SOURCE: String get() = PRELUDE + TUNNEL360
+
     fun source(p: VisualPreset): String? = when (p) {
         VisualPreset.CALEIDO -> CALEIDO
         VisualPreset.PLASMA -> PLASMA

@@ -99,6 +99,10 @@ class PhoneShotsTest {
         ui { nav!!.navigate(LibraryRoute(1)) }; shot("p04-library-artists", 2500)
         ui { nav!!.navigate(LibraryRoute(2)) }; shot("p05-library-songs", 2500)
         ui { nav!!.navigate(LibraryRoute(3)) }; shot("p06-library-playlists", 2500)
+        ui { nav!!.navigate(com.marco.audiopro.ui.GenresRoute) }; shot("p15-genres", 3000)
+        graph.genres.state.value.genres.firstOrNull()?.let { g -> ui { nav!!.navigate(com.marco.audiopro.ui.GenreRoute(g.name)) }; shot("p16-genre", 3000) }
+        ui { nav!!.navigate(com.marco.audiopro.ui.RadioRoute()) }; shot("p17-radio", 2000)
+        ui { nav!!.navigate(com.marco.audiopro.ui.RadioRoute("synthwave")) }; shot("p18-radio-list", 6000)
         ui { nav!!.navigate(AlbumRoute("al1")) }; shot("p07-album", 3000)
         ui { nav!!.navigate(ArtistRoute("ar1")) }; shot("p08-artist", 3000)
         ui { nav!!.navigate(LikedRoute) }; shot("p09-liked", 2500)

@@ -117,9 +117,10 @@ enum class ImmersiveMode(val label: String) { LETRA("Letra"), VISUAL("Solo visua
 
 /** Fondos completos (abajo): los de shader y los que llenan la pantalla. */
 private val BasePool = listOf(
+    VisualPreset.N360, VisualPreset.N360, VisualPreset.N360,
     VisualPreset.CALEIDO, VisualPreset.PLASMA, VisualPreset.TUNEL, VisualPreset.FRACTAL, VisualPreset.ESTALLIDO,
     VisualPreset.NEXO, VisualPreset.NEON, VisualPreset.XBOX, VisualPreset.SYNTH, VisualPreset.ASCII, VisualPreset.HIPER,
-).filter { it in VisualPreset.available }
+).filter { it in VisualPreset.available }.distinct().let { l -> l + List(2) { VisualPreset.N360 } }
 
 /** Figuras que se suman encima con luz (null = el fondo solo, para que respire). */
 private val TopPool: List<VisualPreset?> = listOf(
@@ -154,9 +155,10 @@ fun ImmersiveScreen(onExit: () -> Unit) {
         c.settings.putString("immersive_mode", Immersive.mode.name)
         c.settings.putString("immersive_fx", Immersive.pinned?.name ?: "")
     }
-    var base by remember { mutableStateOf(BasePool.filter { it.gpu }.ifEmpty { BasePool }.random()) }
+    // Arranca con los del Xbox 360 (la mezcla completa ya trae sus propias escenas).
+    var base by remember { mutableStateOf(VisualPreset.N360) }
     LaunchedEffect(Immersive.pinned) { Immersive.pinned?.let { base = it } }
-    var top by remember { mutableStateOf<VisualPreset?>(VisualPreset.HALO) }
+    var top by remember { mutableStateOf<VisualPreset?>(null) }
     var swaps by remember { mutableIntStateOf(0) }
     val flash = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -170,16 +172,18 @@ fun ImmersiveScreen(onExit: () -> Unit) {
             if (since > every || strongBeat || (swapNow && since > 1_500)) {
                 swaps++
                 if (changeTop || Immersive.pinned != null) {
-                    top = TopPool.filter { it != top && it != base }.random()
+                    // Los del 360 ya son una escena completa: encima no va nada.
+                    top = if (base == VisualPreset.N360) null else TopPool.filter { it != top && it != base }.random()
                 } else {
                     base = BasePool.filter { it != base && it != top }.random()
+                    if (base == VisualPreset.N360) top = null
                     if (base == VisualPreset.ASCII && top == VisualPreset.ASCII) top = null
                 }
                 changeTop = !changeTop
                 launch { flash.snapTo(if (swapNow || strongBeat) 0.55f else 0.25f); flash.animateTo(0f, tween(700)) }
                 Immersive.swapNow = false
                 since = 0
-                every = Random.nextLong(9_000, 16_000)
+                every = if (base == VisualPreset.N360) Random.nextLong(40_000, 70_000) else Random.nextLong(9_000, 16_000)
             }
         }
     }
@@ -266,7 +270,7 @@ fun ImmersiveScreen(onExit: () -> Unit) {
         }
         AnimatedVisibility(controls && com.marco.audiopro.ui.viz.VizControl.pad, Modifier.align(Alignment.BottomEnd), enter = fadeIn(), exit = fadeOut()) {
             Text(
-                "CONTROL  ·  stick izq: girar y acercar  ·  stick der: mover  ·  gatillos: velocidad  ·  X: forma  ·  A: otro efecto  ·  Y: modo  ·  B: salir",
+                "CONTROL  ·  cruceta: escenas del 360  ·  stick izq: girar y acercar  ·  stick der: mover y doblar el túnel  ·  gatillos: velocidad  ·  X: forma  ·  A: otro efecto  ·  Y: modo  ·  B: salir",
                 fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f),
                 modifier = Modifier.padding(24.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.5f)).padding(horizontal = 12.dp, vertical = 8.dp),
             )

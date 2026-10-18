@@ -133,7 +133,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.11.0"
+    override val versionName = "2.12.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -294,10 +294,12 @@ private fun immersiveKey(e: KeyEvent): Boolean {
         Key.Equals, Key.Plus, Key.NumPadAdd -> { vc.speed = (vc.speed * 1.25f).coerceAtMost(4f); Immersive.toast = "Velocidad ×%.1f".format(vc.speed) }
         Key.Minus, Key.NumPadSubtract -> { vc.speed = (vc.speed / 1.25f).coerceAtLeast(0.25f); Immersive.toast = "Velocidad ×%.1f".format(vc.speed) }
         Key.F -> vc.shape++
+        Key.N, Key.PageDown -> { com.marco.audiopro.ui.viz.Neon360Control.move(1, 0); Immersive.toast = "Escena del 360: ${com.marco.audiopro.ui.viz.Neon360Control.scene + 1}" }
+        Key.PageUp -> { com.marco.audiopro.ui.viz.Neon360Control.move(-1, 0); Immersive.toast = "Escena del 360: ${com.marco.audiopro.ui.viz.Neon360Control.scene + 1}" }
         Key.A -> Immersive.swapNow = true
         Key.LeftBracket -> Immersive.nudgeLyrics(-100)
         Key.RightBracket -> Immersive.nudgeLyrics(100)
-        Key.Zero -> { vc.reset(); Immersive.toast = "Visuales como estaban" }
+        Key.Zero -> { vc.reset(); com.marco.audiopro.ui.viz.Neon360Control.manual = false; Immersive.toast = "Visuales como estaban (escenas solas)" }
         else -> return false
     }
     return true

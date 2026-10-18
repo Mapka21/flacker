@@ -46,6 +46,7 @@ enum class VisualPreset(val label: String, val blurb: String, val gpu: Boolean =
     HIPER("Hiperespacio", "Estrellas que aceleran con los agudos"),
     SYNTH("Synthwave", "Sol neón y rejilla retro al ritmo"),
     NEON("Neón 360", "Como el \"Neon\" de Jeff Minter en el Xbox 360: arcos parabólicos y chorros de partículas en espejo que explotan con el bajo"),
+    N360("Xbox 360", "Los del visualizador del Xbox 360 (Neon de Jeff Minter): túneles que se doblan, la flor elástica, pirámides y retroalimentación; cambian solos con la música o con la cruceta"),
     XBOX("Xbox 2001", "El de la primera Xbox (tipo Geiss): ondas verde neón y azul flotando sobre negro, con una estela que crece y gira"),
     ASCII("ASCII 333", "Tu portada y la música dibujadas con caracteres, como arte ASCII: ondas en cada golpe y el espectro subiendo"),
     NEXO("Nexo 2029", "El túnel caleidoscopio del Xbox 360 llevado al futuro: vidrios que salen volando con cada golpe y un disco iridiscente al centro"),
@@ -197,6 +198,7 @@ class VisualScene {
     private val ys = FloatArray(120)
     private val neon = MinterNeon()
     private val geiss = GeissFeedback()
+    private val n360 = Neon360()
     private val nexo = NexoTunnel()
     private val ascii = AsciiVision()
     /** Para el modo ASCII: la portada nítida y quien mide el texto (los pone el fondo cada frame). */
@@ -262,7 +264,7 @@ class VisualScene {
         dpScale = density
         drawRect(Hifi.Bg)
         // ASCII: fondo casi negro, los caracteres son toda la imagen.
-        if (preset == VisualPreset.ASCII) return@clipRect
+        if (preset == VisualPreset.ASCII || preset == VisualPreset.N360) return@clipRect
         val v = List(4) { cols[it].vivid(DuskPalette[it]) }
         val k = if (hasFx(preset)) 0.6f else 1f
         if (art != null && preset != VisualPreset.AURORA) artwork(art, f, k) else blobs(cols, v, f, k)
@@ -282,6 +284,7 @@ class VisualScene {
             VisualPreset.SYNTH -> synthwave(v, f)
             VisualPreset.NEON -> if (glow) neon.drawLast(this) else neon.frame(this, f, time, dtLast)
             VisualPreset.XBOX -> if (glow) geiss.drawLast(this) else geiss.frame(this, f, time, dtLast)
+            VisualPreset.N360 -> if (glow) n360.drawLast(this) else n360.frame(this, f, time, dtLast)
             VisualPreset.NEXO -> if (glow) nexo.drawLast(this) else nexo.frame(this, v, f, time, dtLast)
             VisualPreset.ASCII -> measurer?.let { ascii.draw(this, it, art, v, f, time, dpScale, glow) }
             else -> {}

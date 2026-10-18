@@ -285,17 +285,17 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp).windowDragArea())
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
-        SidebarItem(Icons.Default.Radio, "Radio", dest.isIn(RadioRoute::class)) { nav.openTab(RadioRoute()) }
-        SidebarItem(Icons.Default.Category, "Géneros", dest.isIn(GenresRoute::class) || dest.isIn(GenreRoute::class)) { nav.openTab(GenresRoute) }
         SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
         SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
+        SidebarItem(Icons.Default.AutoFixHigh, "Arreglar metadatos", dest.isIn(FixRoute::class)) { nav.openTab(FixRoute) }
         SectionLabel("Biblioteca")
         SidebarItem(Icons.Default.Album, "Álbumes", libTab == 0) { nav.openLibrary(0) }
         SidebarItem(Icons.Default.Person, "Artistas", libTab == 1) { nav.openLibrary(1) }
+        SidebarItem(Icons.Default.Category, "Géneros", dest.isIn(GenresRoute::class) || dest.isIn(GenreRoute::class)) { nav.openTab(GenresRoute) }
         SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
         SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
-        SidebarItem(Icons.Default.AutoFixHigh, "Arreglar metadatos", dest.isIn(FixRoute::class)) { nav.openTab(FixRoute) }
+        SidebarItem(Icons.Default.Radio, "Radio", dest.isIn(RadioRoute::class)) { nav.openTab(RadioRoute()) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SectionLabel("Tus playlists") }
             Box(

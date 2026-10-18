@@ -36,6 +36,21 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.12**:
+  - **Modo Xbox 360** (el fondo de arranque en pantalla completa): las piezas del visualizador "Neon" de
+    Jeff Minter según su manual (minotaurproject.co.uk): túnel en la GPU con dos texturas que ruedan y
+    curvas que viajan hacia ti (redondo o cuadrado), **Boingy** (membrana elástica en simetría 6/8),
+    **Star** (anillos de pirámides), **Psychedelia** (pincel en espejo) y **retroalimentación** con
+    intensidad, escala y giro en modos normal, espejo, color que gira, cuadrantes y horizonte; la
+    cámara gira y se acerca en los picos. 32 escenas en una matriz que cambia sola (o con la cruceta del
+    control, N y RePág/AvPág). 60 fps.
+  - **Interfaz**: tarjetas monocromas con mosaico de portadas (sin colores al azar), Géneros por familia
+    con página nueva (portada difuminada, Mix, Radio, artistas, lo que más pones), Radio con "Sonando"
+    en vivo, tus estaciones en fila y arte generado por nicho, resumen en Arreglar metadatos.
+  - **Barra lateral**: Arreglar metadatos arriba con Last.fm y el Ecualizador; Géneros y Radio en
+    Biblioteca con Álbumes y Artistas. En el cel, Géneros y Radio arriba en Biblioteca, y el título de
+    Biblioteca ya no se aplasta.
+
 - **v2.11**:
   - **Logo nuevo**: calavera pirata con huesos cruzados hecha de letras y números al azar (una sola
     figura matemática: `JollyRoger.kt` / `tools/brand/jolly.py`); sólida en los íconos chicos y de

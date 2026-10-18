@@ -171,8 +171,10 @@ class FxShader(sksl: String) {
     }.onFailure { System.err.println("FxShader: ${it.message}") }.getOrNull()
     val ok: Boolean get() = builder != null
 
-    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>): androidx.compose.ui.graphics.Brush? {
+    /** @param extra hasta 16 valores más para el efecto (iP0..iP3, de 4 en 4). */
+    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>, extra: FloatArray? = null): androidx.compose.ui.graphics.Brush? {
         val b = builder ?: return null
+        if (extra != null) for (k in 0 until extra.size / 4) b.uniform("iP$k", extra[k * 4], extra[k * 4 + 1], extra[k * 4 + 2], extra[k * 4 + 3])
         b.uniform("iRes", w, h)
         b.uniform("iTime", time)
         b.uniform("iFlow", flow)

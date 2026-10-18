@@ -156,7 +156,7 @@ class FxShader(sksl: String) {
     private val missing = HashSet<String>()
     val ok: Boolean get() = shader != null
 
-    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>): androidx.compose.ui.graphics.Brush? {
+    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>, extra: FloatArray? = null): androidx.compose.ui.graphics.Brush? {
         if (Build.VERSION.SDK_INT < 33) return null
         val s = shader as? android.graphics.RuntimeShader ?: return null
         fun set(name: String, vararg v: Float) {
@@ -171,6 +171,7 @@ class FxShader(sksl: String) {
             } catch (_: IllegalArgumentException) { missing.add(name) }
         }
         set("iRes", w, h); set("iTime", time); set("iFlow", flow)
+        if (extra != null) for (k in 0 until extra.size / 4) set("iP$k", extra[k * 4], extra[k * 4 + 1], extra[k * 4 + 2], extra[k * 4 + 3])
         set("iAudio", audio[0], audio[1], audio[2], audio[3])
         set("c0", cols[0].red, cols[0].green, cols[0].blue)
         set("c1", cols[1].red, cols[1].green, cols[1].blue)

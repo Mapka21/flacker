@@ -71,12 +71,24 @@ object Gamepad {
                 if (pressed and B != 0 && Immersive.on) Immersive.on = false
                 if (pressed and A != 0 && Immersive.on) Immersive.swapNow = true
                 if (pressed and X != 0) VizControl.shape++
-                if (pressed and BACK != 0) VizControl.reset()
+                if (pressed and BACK != 0) { VizControl.reset(); com.marco.audiopro.ui.viz.Neon360Control.manual = false }
                 if (pressed and START != 0) player.toggle()
-                if (pressed and (LB or LEFT) != 0) player.previous()
-                if (pressed and (RB or RIGHT) != 0) player.next()
-                if (pressed and UP != 0) player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f))
-                if (pressed and DOWN != 0) player.setVolume(((player.volume?.value ?: 0f) - 0.05f).coerceIn(0f, 1f))
+                if (pressed and LB != 0) player.previous()
+                if (pressed and RB != 0) player.next()
+                if (Immersive.on) {
+                    // Como en el 360: la cruceta recorre la matriz de escenas.
+                    val nc = com.marco.audiopro.ui.viz.Neon360Control
+                    if (pressed and LEFT != 0) nc.move(-1, 0)
+                    if (pressed and RIGHT != 0) nc.move(1, 0)
+                    if (pressed and UP != 0) nc.move(0, -1)
+                    if (pressed and DOWN != 0) nc.move(0, 1)
+                    if (pressed and (LEFT or RIGHT or UP or DOWN) != 0) Immersive.toast = "Escena ${nc.scene + 1} de ${com.marco.audiopro.ui.viz.Neon360.SCENES.size}"
+                } else {
+                    if (pressed and LEFT != 0) player.previous()
+                    if (pressed and RIGHT != 0) player.next()
+                    if (pressed and UP != 0) player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f))
+                    if (pressed and DOWN != 0) player.setVolume(((player.volume?.value ?: 0f) - 0.05f).coerceIn(0f, 1f))
+                }
                 ok = true
             }
         }

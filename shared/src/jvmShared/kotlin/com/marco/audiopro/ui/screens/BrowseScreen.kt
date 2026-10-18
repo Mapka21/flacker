@@ -1,6 +1,7 @@
 package com.marco.audiopro.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,12 +73,13 @@ fun tileColor(key: String): Color = tileColors[key.hashCode().absoluteValue % ti
  */
 @Composable
 fun CategoryTile(title: String, subtitle: String?, cover: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val base = tileColor(title)
+    // Monocromo como la marca: arte generado en grises y la portada asomándose; el color lo pone la portada.
     Box(
         modifier.height(104.dp).shadow(12.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp))
-            .background(Brush.linearGradient(listOf(base, lerp(base, Color.Black, 0.35f))))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .bouncyClick(onClick = onClick),
     ) {
+        com.marco.audiopro.ui.components.GlyphArt(title, Modifier.fillMaxSize())
         if (cover != null) {
             CoverArt(
                 cover, Modifier.align(Alignment.BottomEnd).padding(end = 0.dp).size(78.dp).rotate(22f).shadow(10.dp, RoundedCornerShape(6.dp)),
@@ -119,7 +121,7 @@ fun BrowseScreen(route: BrowseRoute, nav: NavController) {
     val color = tileColor(route.title)
     LazyVerticalGrid(
         GridCells.Adaptive(160.dp), state = grid,
-        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to color.copy(alpha = 0.55f), 0.35f to Color.Transparent)),
+        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.08f), 0.35f to Color.Transparent)),
         contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 24.dp),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {

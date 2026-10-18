@@ -1,6 +1,7 @@
 package com.marco.audiopro.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -206,6 +207,16 @@ fun FixScreen() {
                         }
                     }
                 }
+                if (FixSession.albums.isNotEmpty()) {
+                    val vals = FixSession.states.values
+                    Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Stat("Discos", FixSession.albums.size, Modifier.weight(1f))
+                        Stat("Con cambios", vals.count { it is FixState.Ready && !it.p.clean }, Modifier.weight(1f))
+                        Stat("Seguros", vals.count { it is FixState.Ready && it.p.safe && !it.p.clean }, Modifier.weight(1f))
+                        Stat("Sin encontrar", vals.count { it == FixState.NotFound }, Modifier.weight(1f))
+                        Stat("Arreglados", vals.count { it is FixState.Done }, Modifier.weight(1f))
+                    }
+                }
                 FixSession.status?.let {
                     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (FixSession.busy) { CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Hifi.TextDim); Spacer(Modifier.width(8.dp)) }
@@ -353,5 +364,16 @@ private fun Diff(label: String, old: String, new: String) {
             Text("  →  ", fontSize = 13.sp, color = Hifi.TextDim)
             Text(new, fontSize = 13.sp, color = Hifi.Text, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         }
+    }
+}
+
+@Composable
+private fun Stat(label: String, n: Int, modifier: Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text("$n", style = Display.copy(fontSize = 26.sp))
+        Text(label.uppercase(), style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp, letterSpacing = 1.sp))
     }
 }

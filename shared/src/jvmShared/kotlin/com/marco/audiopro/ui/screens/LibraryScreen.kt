@@ -1,5 +1,11 @@
 package com.marco.audiopro.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+
+import androidx.compose.foundation.horizontalScroll
+
+import androidx.compose.foundation.border
+
 import com.marco.audiopro.ui.components.ArtistImage
 import com.marco.audiopro.ui.components.textInput
 import androidx.compose.foundation.background
@@ -107,16 +113,19 @@ fun LibraryScreen(nav: NavController, initialTab: Int = 0) {
     var tab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
     val c = LocalApp.current
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.weight(1f))
-            // En la PC el aleatorio de toda tu música ya está en la barra de arriba.
-            if (!c.isDesktop) GlassChip("Aleatorio · toda tu música", false) { LibraryShuffle.start(c) }
-            // En el celular, las descargas viven aquí.
+        Text("Biblioteca", style = Display.copy(fontSize = 32.sp), modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 8.dp))
+        // En el celular: aleatorio de toda tu música y descargas, abajo del título (en la PC están arriba).
+        if (!c.isDesktop) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassChip("Aleatorio · toda tu música", false) { LibraryShuffle.start(c) }
             c.downloads?.let { store ->
-                Spacer(Modifier.width(8.dp))
                 val done = store.items.collectAsState().value.values.count { it.done }
                 GlassChip("Descargas · $done", false) { nav.navigate(com.marco.audiopro.ui.DownloadsRoute) { launchSingleTop = true } }
             }
+        }
+        // En el celular (sin barra lateral): Géneros y Radio a la mano, arriba de las pestañas.
+        if (!c.isDesktop) Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LibraryShortcut("Géneros", "Mixes y discos por género", Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.GenresRoute) }
+            LibraryShortcut("Radio", "En vivo, de nicho", Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.RadioRoute()) }
         }
         // Control segmentado de vidrio (en lugar de la barra de pestañas de Material).
         SegmentedControl(
@@ -394,3 +403,19 @@ private fun SongsTable(nav: NavController) {
 }
 
 private fun fmtCount(n: Int) = java.text.NumberFormat.getIntegerInstance().format(n)
+
+/** Acceso grande de la Biblioteca del celular (Géneros, Radio): arte generado y el nombre. */
+@Composable
+private fun LibraryShortcut(title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.height(72.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .bouncyClick(onClick = onClick),
+    ) {
+        com.marco.audiopro.ui.components.GlyphArt(title, Modifier.fillMaxSize())
+        Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 14.dp)) {
+            Text(title, style = Display.copy(fontSize = 18.sp))
+            Text(subtitle, fontSize = 11.sp, color = Hifi.TextDim, maxLines = 1)
+        }
+    }
+}
