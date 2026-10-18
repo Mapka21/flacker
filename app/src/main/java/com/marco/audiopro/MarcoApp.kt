@@ -112,7 +112,14 @@ class AppContainer(private val context: Context) : AppGraph {
                 ?.createMulticastLock("marco-connect")?.apply { setReferenceCounted(false); acquire() }
         }
     }
-    override val player by lazy { com.marco.audiopro.player.RoutedPlayer(localPlayer, connect, appScope) }
+    /** Transmitir a la tele; mientras transmite, un aviso en la barra mantiene viva la app (si no, Android la duerme). */
+    override val cast by lazy {
+        com.marco.audiopro.cast.CastService(http, api, appScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) }) { name ->
+            connect // el candado de multicast de Connect también sirve para encontrar teles
+            com.marco.audiopro.local.CastKeepAlive.set(context, name)
+        }
+    }
+    override val player by lazy { com.marco.audiopro.player.RoutedPlayer(localPlayer, connect, appScope, cast) }
     override val likes = Likes(api, appScope)
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos (se arranca en MainActivity). */
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, appScope).also { it.start() } }

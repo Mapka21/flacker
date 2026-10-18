@@ -36,6 +36,25 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.10**:
+  - **Transmitir a la tele**: en el botón de dispositivos, "Transmitir a la tele" encuentra
+    **Chromecast** (y teles con Chromecast), **Roku** y teles/bocinas **DLNA** de tu Wi-Fi. La cola,
+    play/pausa, siguiente y el volumen se manejan desde Flacker; "Este dispositivo" la regresa donde
+    iba. El audio le llega a la tele desde este dispositivo (un puente con clave al azar), así que
+    funciona con Navidrome por Tailscale y en modo sin servidor. Si un aparato no acepta el archivo
+    original, se manda en MP3 320 (con servidor). En Android un aviso mantiene viva la app mientras
+    transmite. Las Roku piden "Control por apps móviles → Acceso a la red → Predeterminado".
+    La búsqueda pregunta por cada adaptador de red (antes una VPN como Tailscale se llevaba el multicast).
+  - **Pantalla completa con modos**: **Letra**, **Solo visual** y **Portada** (la portada en grande
+    latiendo con el bajo, ideal para la tele), **Fondo: Mezcla** o uno fijo, y el botón para transmitir.
+    En la PC, **L** cambia de modo. Se recuerda lo que elegiste.
+  - **Más bajo**: la cámara respira con el bajo, brinca y tiembla en los golpes, un resplandor al centro
+    late con él, y los fondos (shaders y figuras) reaccionan bastante más.
+  - **Letras**: fuera el glitch; entran **Golpe** (cada palabra cae y sacude el verso), **Ola** (las
+    palabras flotan con el bajo) y **Una palabra** gigante a la vez. El verso crece despacito mientras
+    dura y late con el bajo; letra más grande.
+  - **Manual para beta testers** (`tools/manual/make_manual.py` → `Flacker-Manual.pdf`).
+
 - **v2.9.1**:
   - **Fondos nuevos en la tarjeta de video** (estilo Xbox 360): Caleidoscopio, Plasma, Túnel 360,
     Fractal y Estallido. Se calculan pixel por pixel en la GPU (shaders), así que van a 60 fps aunque

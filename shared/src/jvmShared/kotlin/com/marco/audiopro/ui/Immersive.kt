@@ -99,7 +99,14 @@ import kotlin.random.Random
 /** Modo inmersivo (pantalla completa): lo prende cualquier pantalla; la ventana / el celular reaccionan. */
 object Immersive {
     var on by mutableStateOf(false)
+    /** Qué se ve encima de los efectos: la letra, nada (sólo visual) o la portada en grande. */
+    var mode by mutableStateOf(ImmersiveMode.LETRA)
+    /** Fondo fijo elegido (null = se van mezclando solos). */
+    var pinned by mutableStateOf<VisualPreset?>(null)
+    fun cycleMode() { mode = ImmersiveMode.entries[(mode.ordinal + 1) % ImmersiveMode.entries.size] }
 }
+
+enum class ImmersiveMode(val label: String) { LETRA("Letra"), VISUAL("Solo visual"), PORTADA("Portada") }
 
 /** Fondos completos (abajo): los de shader y los que llenan la pantalla. */
 private val BasePool = listOf(
@@ -131,7 +138,17 @@ fun ImmersiveScreen(onExit: () -> Unit) {
     val song = st.current
     ImmersiveSystem(true, onExit)
 
+    // El modo y el fondo fijo se recuerdan entre sesiones.
+    LaunchedEffect(Unit) {
+        c.settings.getString("immersive_mode")?.let { m -> ImmersiveMode.entries.firstOrNull { it.name == m }?.let { Immersive.mode = it } }
+        c.settings.getString("immersive_fx")?.let { p -> Immersive.pinned = VisualPreset.available.firstOrNull { it.name == p } }
+    }
+    LaunchedEffect(Immersive.mode, Immersive.pinned) {
+        c.settings.putString("immersive_mode", Immersive.mode.name)
+        c.settings.putString("immersive_fx", Immersive.pinned?.name ?: "")
+    }
     var base by remember { mutableStateOf(BasePool.filter { it.gpu }.ifEmpty { BasePool }.random()) }
+    LaunchedEffect(Immersive.pinned) { Immersive.pinned?.let { base = it } }
     var top by remember { mutableStateOf<VisualPreset?>(VisualPreset.HALO) }
     var swaps by remember { mutableIntStateOf(0) }
     var swapNow by remember { mutableStateOf(false) }
@@ -145,7 +162,7 @@ fun ImmersiveScreen(onExit: () -> Unit) {
             val strongBeat = LiveAudio.features.beat > 0.9f && since > 6_000
             if (since > every || strongBeat || (swapNow && since > 3_000)) {
                 swaps++
-                if (changeTop) {
+                if (changeTop || Immersive.pinned != null) {
                     top = TopPool.filter { it != top && it != base }.random()
                 } else {
                     base = BasePool.filter { it != base && it != top }.random()
@@ -166,8 +183,14 @@ fun ImmersiveScreen(onExit: () -> Unit) {
 
     // Reloj y golpe por frame: se leen sólo al dibujar (nada se vuelve a componer por esto).
     val beat = remember { mutableFloatStateOf(0f) }
+    val bass = remember { mutableFloatStateOf(0f) }
     val clock = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) { val t0 = System.nanoTime(); while (true) withFrameNanos { beat.floatValue = LiveAudio.features.beat; clock.floatValue = (it - t0) / 1e9f } }
+    LaunchedEffect(Unit) {
+        val t0 = System.nanoTime()
+        while (true) withFrameNanos {
+            beat.floatValue = LiveAudio.features.beat; bass.floatValue = LiveAudio.features.bass; clock.floatValue = (it - t0) / 1e9f
+        }
+    }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black)
@@ -181,13 +204,15 @@ fun ImmersiveScreen(onExit: () -> Unit) {
             }
             .pointerInput(Unit) { detectTapGestures(onDoubleTap = { onExit() }) },
     ) {
-        // "Cámara": con cada golpe todo da un brinquito de zoom y un leve giro.
+        // "Cámara": respira con el bajo, brinca en cada golpe y tiembla tantito cuando pega fuerte.
         Box(
             Modifier.fillMaxSize().graphicsLayer {
-                val b = beat.floatValue; val t = clock.floatValue
-                val z = 1.04f + 0.06f * b
+                val b = beat.floatValue; val lo = bass.floatValue; val t = clock.floatValue
+                val z = 1.03f + 0.07f * lo + 0.10f * b
                 scaleX = z; scaleY = z
-                rotationZ = sin(t * 0.35f) * 1.2f + (if (b > 0.5f) sin(t * 40f) * 0.8f * b else 0f)
+                rotationZ = sin(t * 0.35f) * 1.2f + (if (b > 0.4f) sin(t * 40f) * 1.1f * b else 0f)
+                translationX = if (b > 0.4f) sin(t * 63f) * 9f * b * density else 0f
+                translationY = if (b > 0.4f) sin(t * 71f + 1f) * 7f * b * density else 0f
             },
         ) {
             val n = swaps
@@ -199,19 +224,42 @@ fun ImmersiveScreen(onExit: () -> Unit) {
                 }
             }
         }
-        // Destello en los golpes y en cada cambio de efecto.
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = (beat.floatValue * 0.12f + flash.value).coerceIn(0f, 1f) }.background(Color.White))
+        // Destello en los golpes y en cada cambio de efecto, y un resplandor al centro que late con el bajo.
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = (beat.floatValue * 0.10f + flash.value).coerceIn(0f, 1f) }.background(Color.White))
+        Box(
+            Modifier.fillMaxSize().graphicsLayer { alpha = (0.10f * bass.floatValue + 0.22f * beat.floatValue).coerceIn(0f, 1f); scaleX = 0.8f + 0.5f * bass.floatValue; scaleY = scaleX }
+                .background(Brush.radialGradient(listOf(Color.White, Color.Transparent))),
+        )
         // Viñeta para que se lea la letra.
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)))))
 
-        if (song != null) ImmersiveLyrics(song, beat, clock, onChorus = { swapNow = true }, Modifier.fillMaxSize())
+        if (song != null) AnimatedContent(Immersive.mode, transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(300)) }, label = "mode") { m ->
+            when (m) {
+                ImmersiveMode.LETRA -> ImmersiveLyrics(song, beat, bass, clock, onChorus = { swapNow = true }, Modifier.fillMaxSize())
+                ImmersiveMode.PORTADA -> CoverStage(song, st.durationMs, beat, bass, clock)
+                ImmersiveMode.VISUAL -> NowPlayingToast(song)
+            }
+        }
 
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomStart), enter = fadeIn(), exit = fadeOut()) {
             if (song != null) ImmersiveBar(song, st.isPlaying)
         }
         AnimatedVisibility(controls, Modifier.align(Alignment.TopEnd), enter = fadeIn(), exit = fadeOut()) {
             Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Esc o doble clic para salir", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+                ImmersiveMode.entries.forEach { m ->
+                    val sel = Immersive.mode == m
+                    Text(
+                        m.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (sel) Color.Black else Color.White,
+                        modifier = Modifier.padding(end = 6.dp).clip(RoundedCornerShape(50)).background(if (sel) Color.White else Color.Black.copy(alpha = 0.45f))
+                            .bouncyClick { Immersive.mode = m }.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                FxPicker(base)
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.45f))) { com.marco.audiopro.ui.components.DevicesButton(tint = Color.White) }
+                Spacer(Modifier.width(12.dp))
+                Text(if (c.isDesktop) "L cambia el modo · Esc sale" else "Doble toque para salir", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
                 Spacer(Modifier.width(12.dp))
                 Box(
                     Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).bouncyClick(onClick = onExit),
@@ -275,7 +323,7 @@ private fun rememberSmoothPosition(): State<Long> {
 }
 
 /** Cómo entra cada verso. */
-private enum class Kin { POP, LEAN_L, LEAN_R, STACK, DROP, ZOOM, TYPE, OUTLINE, SCATTER, GLITCH }
+private enum class Kin { POP, LEAN_L, LEAN_R, STACK, DROP, ZOOM, TYPE, OUTLINE, SCATTER, SLAM, WAVE, SPOT }
 
 /** Un verso ya preparado: sus palabras, cuándo entra cada una y su estilo. */
 private class Verse(val text: String, val start: Long, end: Long, val kin: Kin, val chorus: Boolean) {
@@ -302,6 +350,8 @@ private class Verse(val text: String, val start: Long, end: Long, val kin: Kin, 
     /** 0..1 de cada palabra a [elapsed] ms del inicio del verso. */
     fun word(w: Int, elapsed: Long): Float = ((elapsed - t0[w]).toFloat() / (t1[w] - t0[w]).coerceAtLeast(1)).coerceIn(0f, 1f)
     fun live(w: Int, elapsed: Long) = elapsed in t0[w]..t1[w]
+    /** La palabra que se está cantando (la última que ya empezó). */
+    fun current(elapsed: Long): Int = (words.indices.lastOrNull { t0[it] <= elapsed } ?: 0)
 }
 
 private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
@@ -315,11 +365,13 @@ private fun planVerses(song: Song, lines: List<com.marco.audiopro.data.subsonic.
         val text = l.value.trim()
         val n = text.split(" ").count { it.isNotEmpty() }
         val chorus = text.length > 8 && (counts[norm(text)] ?: 0) >= 2
-        val options = (if (chorus) listOf(Kin.OUTLINE, Kin.ZOOM, Kin.GLITCH, Kin.STACK, Kin.POP) else Kin.entries).filter { kin ->
+        val options = (if (chorus) listOf(Kin.OUTLINE, Kin.ZOOM, Kin.SLAM, Kin.STACK, Kin.SPOT, Kin.POP) else Kin.entries).filter { kin ->
             kin !in recent && when (kin) {
                 Kin.STACK -> n in 1..5
                 Kin.ZOOM -> n <= 7
                 Kin.SCATTER -> n in 2..8
+                Kin.SLAM -> n <= 8
+                Kin.SPOT -> n in 1..10
                 else -> true
             }
         }.ifEmpty { listOf(Kin.POP) }
@@ -339,7 +391,7 @@ private fun planVerses(song: Song, lines: List<com.marco.audiopro.data.subsonic.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ImmersiveLyrics(song: Song, beat: State<Float>, clock: State<Float>, onChorus: () -> Unit, modifier: Modifier) {
+private fun ImmersiveLyrics(song: Song, beat: State<Float>, bass: State<Float>, clock: State<Float>, onChorus: () -> Unit, modifier: Modifier) {
     val c = LocalApp.current
     val lyrics by produceState<StructuredLyrics?>(null, song.id) { value = runCatching { c.lyrics.get(song) }.getOrNull() }
     val pos = rememberSmoothPosition()
@@ -348,7 +400,7 @@ private fun ImmersiveLyrics(song: Song, beat: State<Float>, clock: State<Float>,
 
     BoxWithConstraints(modifier.padding(horizontal = 48.dp, vertical = 40.dp), contentAlignment = Alignment.Center) {
         val wide = maxWidth > 700.dp
-        val big = if (wide) 66.sp else 34.sp
+        val big = if (wide) 74.sp else 36.sp
         val small = if (wide) 22.sp else 15.sp
         val l = lyrics
         val lines = l?.line.orEmpty()
@@ -369,7 +421,8 @@ private fun ImmersiveLyrics(song: Song, beat: State<Float>, clock: State<Float>,
                     Kin.DROP -> fadeOut(tween(260)) + slideOutVertically(tween(320)) { it / 3 }
                     Kin.LEAN_L -> fadeOut(tween(260)) + slideOutHorizontally(tween(320)) { -it / 3 }
                     Kin.LEAN_R -> fadeOut(tween(260)) + slideOutHorizontally(tween(320)) { it / 3 }
-                    Kin.GLITCH -> fadeOut(tween(90))
+                    Kin.SLAM -> fadeOut(tween(200)) + scaleOut(tween(260), targetScale = 1.7f)
+                    Kin.SPOT -> fadeOut(tween(140))
                     else -> fadeOut(tween(240)) + slideOutVertically(tween(300)) { -it / 4 }
                 }
             },
@@ -382,7 +435,8 @@ private fun ImmersiveLyrics(song: Song, beat: State<Float>, clock: State<Float>,
                 else -> {
                     // Mientras es el verso actual avanza con la canción; al irse queda completo.
                     val elapsed = { if (index == k) pos.value + offset - v.start else Long.MAX_VALUE / 4 }
-                    VerseView(v, elapsed, beat, clock, big, small, prev = verses.getOrNull(k - 1)?.text, next = verses.getOrNull(k + 1)?.text)
+                    if (v.kin == Kin.SPOT) SpotView(v, elapsed, beat, bass, big, small)
+                    else VerseView(v, elapsed, beat, bass, clock, big, small, prev = verses.getOrNull(k - 1)?.text, next = verses.getOrNull(k + 1)?.text)
                 }
             }
         }
@@ -391,12 +445,12 @@ private fun ImmersiveLyrics(song: Song, beat: State<Float>, clock: State<Float>,
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, clock: State<Float>, big: TextUnit, small: TextUnit, prev: String?, next: String?) {
+private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, bass: State<Float>, clock: State<Float>, big: TextUnit, small: TextUnit, prev: String?, next: String?) {
     val kin = v.kin
     val fit = when { v.text.length > 75 -> 0.62f; v.text.length > 45 -> 0.8f; else -> 1f }
-    val mult = when (kin) { Kin.STACK -> 1.3f; Kin.ZOOM -> 1.12f; Kin.OUTLINE -> 1.15f; Kin.TYPE -> 0.78f; else -> 1f } * (if (v.chorus) 1.1f else 1f)
+    val mult = when (kin) { Kin.STACK -> 1.3f; Kin.ZOOM -> 1.12f; Kin.OUTLINE -> 1.15f; Kin.SLAM -> 1.18f; Kin.TYPE -> 0.78f; else -> 1f } * (if (v.chorus) 1.1f else 1f)
     val size = big * (fit * mult)
-    val upper = kin == Kin.STACK || kin == Kin.ZOOM || kin == Kin.GLITCH
+    val upper = kin == Kin.STACK || kin == Kin.ZOOM || kin == Kin.SLAM
     val style = when (kin) {
         Kin.TYPE -> TextStyle(fontFamily = Fonts.mono, fontWeight = FontWeight.Bold, fontSize = size, color = Color.White, lineHeight = size * 1.15f)
         Kin.ZOOM -> Display.copy(fontSize = size, color = Color.White, letterSpacing = 3.sp, lineHeight = size * 1.05f)
@@ -417,7 +471,20 @@ private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, clock: 
 
     Box(Modifier.fillMaxSize(), contentAlignment = BiasAlignment(0f, bias)) {
         Column(
-            Modifier.fillMaxWidth().graphicsLayer { rotationZ = tilt; alpha = gapFade(); compositingStrategy = CompositingStrategy.ModulateAlpha },
+            Modifier.fillMaxWidth().graphicsLayer {
+                rotationZ = tilt; alpha = gapFade(); compositingStrategy = CompositingStrategy.ModulateAlpha
+                val e = elapsed()
+                val life = (e.toFloat() / v.holdUntil.coerceAtLeast(1)).coerceIn(0f, 1f)
+                val sc = (1f + 0.05f * life) * (1f + 0.035f * bass.value)
+                scaleX = sc; scaleY = sc
+                if (kin == Kin.SLAM) {
+                    // Impacto: justo cuando cae una palabra, todo el verso se sacude.
+                    var imp = 0f
+                    for (w in v.words.indices) { val a = v.word(w, e); if (a in 0.6f..0.999f) imp = maxOf(imp, 1f - (a - 0.6f) / 0.4f) }
+                    translationX = sin(clock.value * 90f) * 12f * imp * density
+                    translationY = sin(clock.value * 77f + 2f) * 9f * imp * density
+                }
+            },
             horizontalAlignment = h,
         ) {
             if (showContext && !prev.isNullOrBlank()) Text(
@@ -426,7 +493,7 @@ private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, clock: 
             )
             FlowRow(
                 // Espacio entre palabras proporcional a la letra (con 16 dp fijos, a 70 sp se veían pegadas).
-                horizontalArrangement = Arrangement.spacedBy((size.value * when (kin) { Kin.STACK -> 0f; Kin.TYPE -> 0.5f; Kin.SCATTER -> 0.45f; Kin.ZOOM, Kin.GLITCH -> 0.38f; else -> 0.3f }).dp, h),
+                horizontalArrangement = Arrangement.spacedBy((size.value * when (kin) { Kin.STACK -> 0f; Kin.TYPE -> 0.5f; Kin.SCATTER -> 0.45f; Kin.ZOOM, Kin.SLAM -> 0.38f; else -> 0.3f }).dp, h),
                 verticalArrangement = Arrangement.spacedBy(if (kin == Kin.SCATTER) 10.dp else 2.dp),
                 maxItemsInEachRow = if (kin == Kin.STACK) 1 else Int.MAX_VALUE,
             ) {
@@ -436,7 +503,7 @@ private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, clock: 
                         // La más larga del verso regado va más grande (de tamaño real, para que no se encime).
                         if (kin == Kin.SCATTER && w == longest) style.copy(fontSize = size * 1.35f, lineHeight = size * 1.4f) else style,
                         seed = v.start.toInt() * 31 + w,
-                        a = { v.word(w, elapsed()) }, live = { v.live(w, elapsed()) }, beat = beat, clock = clock,
+                        a = { v.word(w, elapsed()) }, live = { v.live(w, elapsed()) }, beat = beat, bass = bass, clock = clock,
                     )
                 }
             }
@@ -449,8 +516,6 @@ private fun VerseView(v: Verse, elapsed: () -> Long, beat: State<Float>, clock: 
 }
 
 private val Glow = Shadow(Color.White.copy(alpha = 0.55f), Offset.Zero, 28f)
-private val GhostA = Color(0xFF00E5FF)
-private val GhostB = Color(0xFFFF2D6F)
 
 private fun outCubic(t: Float) = 1f - (1f - t) * (1f - t) * (1f - t)
 private fun outBack(t: Float): Float { val c = 1.9f; val x = t - 1f; return 1f + (c + 1f) * x * x * x + c * x * x }
@@ -465,29 +530,18 @@ private fun outBounce(t: Float): Float = when {
 @Composable
 private fun Word(
     text: String, kin: Kin, style: TextStyle, seed: Int,
-    a: () -> Float, live: () -> Boolean, beat: State<Float>, clock: State<Float>,
+    a: () -> Float, live: () -> Boolean, beat: State<Float>, bass: State<Float>, clock: State<Float>,
 ) {
     val r = remember(seed) { Random(seed) }
     val jx = remember(seed) { r.nextFloat() * 2 - 1 }
     val jy = remember(seed) { r.nextFloat() * 2 - 1 }
     val jr = remember(seed) { r.nextFloat() * 2 - 1 }
     val lit = style.copy(shadow = Glow)
-    Box(Modifier.graphicsLayer { move(kin, a(), live(), beat.value, clock.value, jx, jy, jr) }) {
+    Box(Modifier.graphicsLayer { move(kin, a(), live(), beat.value, bass.value, clock.value, jx, jy, jr) }) {
         when (kin) {
             Kin.OUTLINE -> Text(text, style = style.copy(drawStyle = Stroke(width = 2.2f)), modifier = Modifier.graphicsLayer { alpha = 0.8f; compositingStrategy = CompositingStrategy.ModulateAlpha })
-            Kin.POP, Kin.LEAN_L, Kin.LEAN_R, Kin.GLITCH -> Text(text, style = style, modifier = Modifier.graphicsLayer { alpha = 0.16f; compositingStrategy = CompositingStrategy.ModulateAlpha })
+            Kin.POP, Kin.LEAN_L, Kin.LEAN_R, Kin.WAVE -> Text(text, style = style, modifier = Modifier.graphicsLayer { alpha = 0.16f; compositingStrategy = CompositingStrategy.ModulateAlpha })
             else -> {}
-        }
-        if (kin == Kin.GLITCH) {
-            // Copias desfasadas (separación RGB) que tiemblan al entrar y en cada golpe.
-            for ((col, sign) in listOf(GhostA to -1f, GhostB to 1f)) Text(
-                text, style = style.copy(color = col),
-                modifier = Modifier.graphicsLayer {
-                    val p = a(); val b = beat.value
-                    alpha = 0.55f * p * (0.35f + b + (1f - p)); compositingStrategy = CompositingStrategy.ModulateAlpha
-                    translationX = sign * (3f + 16f * b + 22f * (1f - p)) * density * (0.6f + 0.4f * sin(clock.value * 53f + jx * 9f))
-                },
-            )
         }
         val wipe = kin == Kin.OUTLINE || kin == Kin.TYPE
         Text(
@@ -512,13 +566,13 @@ private fun Word(
 }
 
 private fun litAlpha(kin: Kin, a: Float) = when (kin) {
-    Kin.ZOOM, Kin.DROP, Kin.SCATTER, Kin.STACK -> (a * 1.6f).coerceAtMost(1f)
+    Kin.ZOOM, Kin.DROP, Kin.SCATTER, Kin.STACK, Kin.SLAM -> (a * 1.6f).coerceAtMost(1f)
     else -> a
 }
 
 /** Movimiento de entrada de cada estilo; [a] = 0 todavía no se canta, 1 ya está en su lugar. */
-private fun GraphicsLayerScope.move(kin: Kin, a: Float, live: Boolean, beat: Float, t: Float, jx: Float, jy: Float, jr: Float) {
-    val pulse = if (live) 1f + 0.08f * beat else 1f
+private fun GraphicsLayerScope.move(kin: Kin, a: Float, live: Boolean, beat: Float, bass: Float, t: Float, jx: Float, jy: Float, jr: Float) {
+    val pulse = if (live) 1f + 0.12f * beat + 0.05f * bass else 1f
     val o = outCubic(a)
     val d = density
     var s = pulse
@@ -537,7 +591,13 @@ private fun GraphicsLayerScope.move(kin: Kin, a: Float, live: Boolean, beat: Flo
             translationY = (jy * 90f * (1f - o) + jy * 10f) * d
             rotationZ = jr * 7f + (1f - o) * jr * 40f
         }
-        Kin.GLITCH -> { translationX = if (a < 1f) sin(t * 90f + jx * 20f) * 14f * (1f - a) * d else 0f }
+        Kin.SLAM -> { s *= 2.8f - 1.8f * outBack(a); rotationZ = (1f - o) * jr * 12f }
+        Kin.WAVE -> {
+            // Las palabras flotan en una ola que crece con el bajo.
+            translationY = (sin(t * 2.6f + jx * 6f) * (5f + 22f * bass) + (1f - o) * 30f) * d
+            rotationZ = sin(t * 2.6f + jx * 6f + 1.2f) * (1.5f + 4f * bass)
+        }
+        Kin.SPOT -> {}
     }
     scaleX = s; scaleY = s
 }
@@ -586,9 +646,119 @@ fun LyricStylesPreview(progress: Float) {
                 row.forEach { kin ->
                     val v = remember(kin) { Verse("de veinte hercios ${kin.name.lowercase()}", 0, 3000, kin, chorus = false) }
                     Box(Modifier.weight(1f).fillMaxSize()) {
-                        VerseView(v, { (v.reveal * progress).toLong() }, beat, clock, 30.sp, 12.sp, prev = "verso anterior", next = "verso siguiente")
+                        if (kin == Kin.SPOT) SpotView(v, { (v.reveal * progress).toLong() }, beat, beat, 30.sp, 12.sp)
+                        else VerseView(v, { (v.reveal * progress).toLong() }, beat, beat, clock, 30.sp, 12.sp, prev = "verso anterior", next = "verso siguiente")
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Una palabra a la vez, gigante al centro (como los subtítulos de los videos): cada palabra entra de
+ * golpe y late con el bajo; abajo, el verso completo chiquito para no perderse.
+ */
+@Composable
+private fun SpotView(v: Verse, elapsed: () -> Long, beat: State<Float>, bass: State<Float>, big: TextUnit, small: TextUnit) {
+    val cur by remember(v) { derivedStateOf { v.current(elapsed()) } }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AnimatedContent(
+            cur,
+            transitionSpec = { (scaleIn(tween(230), initialScale = 2.3f) + fadeIn(tween(110))) togetherWith (scaleOut(tween(170), targetScale = 0.55f) + fadeOut(tween(150))) },
+            label = "spot",
+        ) { w ->
+            val word = v.words.getOrNull(w).orEmpty().uppercase()
+            val size = big * (if (word.length > 9) 1.45f else 1.95f)
+            Text(
+                word, style = Display.copy(fontSize = size, color = Color.White, shadow = Glow, letterSpacing = 2.sp, lineHeight = size),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.graphicsLayer { val sc = 1f + 0.10f * beat.value + 0.06f * bass.value; scaleX = sc; scaleY = sc },
+            )
+        }
+        Text(
+            v.text, fontSize = small, color = Color.White.copy(alpha = 0.55f), textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp),
+        )
+    }
+}
+
+/** Modo "Portada": la portada en grande flotando y latiendo con el bajo, con la canción y su avance. */
+@Composable
+private fun CoverStage(song: Song, durationMs: Long, beat: State<Float>, bass: State<Float>, clock: State<Float>) {
+    val pos = rememberSmoothPosition()
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val side = minOf(maxWidth * 0.5f, maxHeight * 0.52f)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CoverArt(
+                song.coverArt,
+                Modifier.size(side).graphicsLayer {
+                    val sc = 1f + 0.035f * bass.value + 0.05f * beat.value
+                    scaleX = sc; scaleY = sc
+                    rotationZ = sin(clock.value * 0.5f) * 1.6f
+                    translationY = sin(clock.value * 0.8f) * 8f * density
+                    shadowElevation = 40f * density; shape = RoundedCornerShape(18.dp); clip = true
+                },
+                size = 1000, corner = 18.dp,
+            )
+            Spacer(Modifier.size(28.dp))
+            Text(song.title, style = Display.copy(fontSize = 40.sp, color = Color.White, shadow = Glow), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.size(6.dp))
+            Text(
+                listOfNotNull(song.artist, song.album).joinToString("  ·  ").uppercase(), fontSize = 15.sp, letterSpacing = 4.sp,
+                color = Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.size(22.dp))
+            Box(
+                Modifier.width(side).padding(horizontal = 4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+                    .drawWithContent {
+                        val f = if (durationMs > 0) (pos.value.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+                        drawRect(Color.White, size = Size(size.width * f, size.height))
+                    }.size(width = side, height = 4.dp),
+            )
+        }
+    }
+}
+
+/** Modo "Solo visual": sólo los efectos; al cambiar de canción aparece su nombre unos segundos. */
+@Composable
+private fun NowPlayingToast(song: Song) {
+    var show by remember(song.id) { mutableStateOf(true) }
+    LaunchedEffect(song.id) { delay(5000); show = false }
+    Box(Modifier.fillMaxSize().padding(36.dp), contentAlignment = Alignment.BottomEnd) {
+        AnimatedVisibility(show, enter = fadeIn(tween(600)), exit = fadeOut(tween(1200))) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CoverArt(song.coverArt, Modifier.size(64.dp), size = 200, corner = 10.dp)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(song.title, style = Display.copy(fontSize = 24.sp, color = Color.White, shadow = Glow))
+                    Text((song.artist ?: "").uppercase(), fontSize = 12.sp, letterSpacing = 3.sp, color = Color.White.copy(alpha = 0.7f))
+                }
+            }
+        }
+    }
+}
+
+/** Elegir el fondo: "Mezcla" (cambian solos) o uno fijo. */
+@Composable
+private fun FxPicker(current: VisualPreset) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            "Fondo: " + (Immersive.pinned?.label ?: "Mezcla") + " ▾", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f)).bouncyClick { open = true }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+        androidx.compose.material3.DropdownMenu(open, { open = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("Mezcla automática" + if (Immersive.pinned == null) "  ✓" else "") },
+                onClick = { Immersive.pinned = null; open = false },
+            )
+            BasePool.forEach { p ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(p.label + if (Immersive.pinned == p) "  ✓" else if (Immersive.pinned == null && current == p) "  (ahora)" else "") },
+                    onClick = { Immersive.pinned = p; open = false },
+                )
             }
         }
     }

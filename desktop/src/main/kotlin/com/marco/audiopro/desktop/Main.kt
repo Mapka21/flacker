@@ -120,14 +120,16 @@ class DesktopGraph : AppGraph {
         System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
     )
     /** Lo que ve la UI: este reproductor o el del dispositivo que controlas con Connect. */
-    override val player = RoutedPlayer(desktopPlayer, connect, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    override val cast = com.marco.audiopro.cast.CastService(http, api, uiScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) })
+    override val player = RoutedPlayer(desktopPlayer, connect, uiScope, cast)
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
 
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.9.1"
+    override val versionName = "2.10.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -247,6 +249,7 @@ fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
     return when {
         e.key == Key.F11 -> { Immersive.on = !Immersive.on; true }
         e.key == Key.Escape && Immersive.on -> { Immersive.on = false; true }
+        e.key == Key.L && Immersive.on -> { Immersive.cycleMode(); true }
         e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
         e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f)); true }

@@ -22,7 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Pause
@@ -70,10 +75,11 @@ fun DevicesButton(modifier: Modifier = Modifier, tint: Color = Hifi.OnArt, size:
     val devices by c.connect.devices.collectAsState()
     var open by remember { mutableStateOf(false) }
     val controlling by c.connect.controlling.collectAsState()
-    val remotePlaying = controlling != null || devices.any { it.nowPlaying?.playing == true }
+    val tv by c.cast.active.collectAsState()
+    val remotePlaying = controlling != null || tv != null || devices.any { it.nowPlaying?.playing == true }
     IconButton(onClick = { open = true }, modifier) {
         Box {
-            Icon(Icons.Default.Devices, "Dispositivos", tint = if (remotePlaying) ConnectGreen else tint, modifier = Modifier.size(size.dp))
+            Icon(if (tv != null) Icons.Default.Cast else Icons.Default.Devices, "Dispositivos", tint = if (remotePlaying) ConnectGreen else tint, modifier = Modifier.size(size.dp))
             if (devices.isNotEmpty()) {
                 Box(Modifier.align(Alignment.TopEnd).size(7.dp).clip(CircleShape).background(ConnectGreen))
             }
@@ -99,6 +105,12 @@ fun DevicesDialog(onDismiss: () -> Unit) {
         busy = id
         scope.launch { block(); busy = null; onDismiss() }
     }
+    val tvs by c.cast.devices.collectAsState()
+    val tvScanning by c.cast.scanning.collectAsState()
+    val tv by c.cast.active.collectAsState()
+    var castError by remember { mutableStateOf<String?>(null) }
+    val routed = c.player as? com.marco.audiopro.player.RoutedPlayer
+    LaunchedEffect(Unit) { if (tv == null) c.cast.scan() }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -109,17 +121,20 @@ fun DevicesDialog(onDismiss: () -> Unit) {
         ) {
             Text("Conectar a un dispositivo", style = Display.copy(fontSize = 22.sp))
             Spacer(Modifier.height(4.dp))
-            Text("Flacker Connect · misma red", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
+            Text("Flacker Connect, Chromecast, Roku y DLNA · misma red", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
             Spacer(Modifier.height(16.dp))
 
-            val here = controlling == null
+            val here = controlling == null && tv == null
             DeviceRow(
                 icon = if (c.isDesktop) Icons.Default.Computer else Icons.Default.PhoneAndroid,
                 name = "Este dispositivo",
                 subtitle = if (here) st.current?.let { "${it.title} · ${it.artist ?: ""}" } ?: "Nada sonando" else "Toca para traer la música aquí",
                 active = here,
                 trailing = { if (here) Icon(Icons.Default.Check, null, tint = ConnectGreen) },
-                onClick = controlling?.let { d -> { go({ c.connect.pullFrom(d) }, "here") } },
+                onClick = when {
+                    tv != null -> ({ go({ routed?.stopCasting() }, "here") })
+                    else -> controlling?.let { d -> { go({ c.connect.pullFrom(d) }, "here") } }
+                },
             )
 
             if (devices.isEmpty()) {
@@ -163,7 +178,56 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                     },
                 )
             }
-            // Volumen de donde suena (aquí o el dispositivo controlado).
+            // Teles y bocinas: Chromecast, Roku y DLNA.
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("TRANSMITIR A LA TELE", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp), modifier = Modifier.weight(1f))
+                if (tvScanning) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = ConnectGreen)
+                else Icon(
+                    Icons.Default.Refresh, "Buscar otra vez", tint = Hifi.TextDim,
+                    modifier = Modifier.size(28.dp).clip(CircleShape).bouncyClick { c.cast.scan() }.padding(5.dp),
+                )
+            }
+            if (tvs.isEmpty() && !tvScanning) Text(
+                "No encontré teles ni bocinas. Tienen que estar prendidas y en el mismo Wi-Fi (Chromecast, Roku o DLNA).",
+                color = Hifi.TextDim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp),
+            )
+            tvs.forEach { d ->
+                val active = tv?.id == d.id
+                DeviceRow(
+                    icon = when (d.kind) { com.marco.audiopro.cast.CastDevice.Kind.DLNA -> Icons.Default.Speaker; com.marco.audiopro.cast.CastDevice.Kind.ROKU -> Icons.Default.Tv; else -> Icons.Default.Cast },
+                    name = d.name,
+                    subtitle = when {
+                        busy == d.id -> "Conectando…"
+                        active -> "Transmitiendo · ${st.current?.title ?: "…"}"
+                        else -> listOfNotNull(d.kind.label, d.model).distinct().joinToString(" · ")
+                    },
+                    active = active,
+                    trailing = { if (active) Icon(Icons.Default.Check, null, tint = ConnectGreen) },
+                    onClick = if (active || routed == null) null else ({
+                        busy = d.id; castError = null
+                        scope.launch {
+                            if (tv != null) routed.stopCasting()
+                            val err = routed.castTo(d)
+                            busy = null
+                            if (err == null) onDismiss() else castError = err
+                        }
+                    }),
+                )
+            }
+            castError?.let { Text(it, color = Hifi.LedRed, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
+            // Volumen de donde suena (aquí, el dispositivo controlado o la tele).
+            val castVol = if (tv != null && c.player.volume == null) c.cast.player.volume.collectAsState().value else null
+            if (castVol != null) {
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.VolumeDown, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    com.marco.audiopro.ui.screens.AppleBar(castVol, { c.cast.player.setVolume(it) }, { c.cast.player.setVolume(it) }, Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
+                }
+            }
             if (vol != null) {
                 Spacer(Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -174,7 +238,7 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                     Icon(Icons.AutoMirrored.Filled.VolumeUp, null, tint = Hifi.TextDim, modifier = Modifier.size(18.dp))
                 }
                 Text(
-                    "Volumen de ${controlling?.name ?: "este dispositivo"}", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp),
+                    "Volumen de ${tv?.name ?: controlling?.name ?: "este dispositivo"}", style = Mono.copy(color = Hifi.TextFaint, fontSize = 9.sp),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -270,8 +334,10 @@ fun RemotePlaybackBanner(modifier: Modifier = Modifier) {
 @Composable
 fun ConnectToast(modifier: Modifier = Modifier) {
     val c = LocalApp.current
+    val castNotice by c.cast.notice.collectAsState()
+    LaunchedEffect(castNotice) { castNotice?.let { c.connect.notice.value = it; c.cast.notice.value = null } }
     val notice by c.connect.notice.collectAsState()
-    LaunchedEffect(notice) { if (notice != null) { delay(3000); c.connect.notice.value = null } }
+    LaunchedEffect(notice) { if (notice != null) { delay(if (notice!!.length > 60) 7000 else 3000); c.connect.notice.value = null } }
     AnimatedVisibility(notice != null, enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut(), modifier = modifier) {
         Row(
             Modifier.shadow(16.dp, RoundedCornerShape(50)).glass(RoundedCornerShape(50), Hifi.PanelHi.copy(alpha = 0.95f))
@@ -280,7 +346,7 @@ fun ConnectToast(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(Icons.Default.Devices, null, tint = ConnectGreen, modifier = Modifier.size(16.dp))
-            Text(notice ?: "", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(notice ?: "", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.widthIn(max = 520.dp))
         }
     }
 }

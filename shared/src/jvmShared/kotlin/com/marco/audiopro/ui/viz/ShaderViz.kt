@@ -34,13 +34,13 @@ float3 tone(float3 c) { return c / (1.0 + c); }
 half4 main(float2 fc) {
     float bass = iAudio.x; float mid = iAudio.y; float tre = iAudio.z; float beat = iAudio.w;
     float2 uv = (fc - 0.5 * iRes) / iRes.y;
-    uv *= 1.0 - 0.15 * beat;
+    uv *= 1.0 - 0.22 * beat - 0.12 * bass;
     float r = length(uv);
     float seg = 6.2831853 / 8.0;
     float a = atan(uv.y, uv.x) + iFlow * 0.12 + iTime * 0.01;
     a = mod(a, seg);
     a = abs(a - seg * 0.5);
-    float2 p = float2(cos(a), sin(a)) * r * (1.5 + 0.35 * bass);
+    float2 p = float2(cos(a), sin(a)) * r * (1.5 + 0.7 * bass);
     float3 col = float3(0.0);
     for (int i = 0; i < 5; i++) {
         float fi = float(i);
@@ -50,7 +50,7 @@ half4 main(float2 fc) {
         float d = abs(p.y) * (1.0 + fi * 0.6);
         col += pal(fi * 0.21 + iFlow * 0.04 + r * 0.6) * (0.010 + 0.012 * tre) / (d + 0.006);
     }
-    col *= smoothstep(1.6, 0.1, r) * (0.9 + 0.6 * mid);
+    col *= smoothstep(1.6, 0.1, r) * (0.75 + 0.5 * mid + 0.7 * bass);
     col += pal(r * 0.5 - iFlow * 0.03) * (0.12 + 0.1 * bass) * smoothstep(1.4, 0.0, r);
     col += pal(iFlow * 0.05) * beat * 0.6 * smoothstep(0.5, 0.0, r);
     return half4(half3(tone(col * 1.1)), 1.0);
@@ -61,7 +61,7 @@ half4 main(float2 fc) {
     private const val PLASMA = """
 half4 main(float2 fc) {
     float bass = iAudio.x; float mid = iAudio.y; float tre = iAudio.z; float beat = iAudio.w;
-    float2 uv = (fc - 0.5 * iRes) / iRes.y * (2.6 - 0.6 * bass);
+    float2 uv = (fc - 0.5 * iRes) / iRes.y * (2.6 - 1.1 * bass - 0.4 * beat);
     float t = iFlow * 0.6;
     float v = sin(uv.x * 2.1 + t) + sin(uv.y * 2.7 - t * 1.2) + sin((uv.x + uv.y) * 1.7 + t * 0.6)
         + sin(length(uv * 2.4 + float2(sin(t * 0.4), cos(t * 0.3))) * 2.0 - t * 1.6);
@@ -70,7 +70,7 @@ half4 main(float2 fc) {
     float neon = 0.004 / (b * b + 0.004);
     float3 col = pal(v * 0.7 + t * 0.07) * (0.22 + 0.9 * neon * (0.85 + 0.6 * tre));
     col += float3(1.0) * pow(neon, 4.0) * (0.15 + 0.6 * beat);
-    col *= 0.8 + 0.4 * beat;
+    col *= 0.7 + 0.6 * bass + 0.5 * beat;
     return half4(half3(tone(col * 1.8)), 1.0);
 }
 """
@@ -84,13 +84,13 @@ half4 main(float2 fc) {
     uv += 0.07 * float2(sin(iFlow * 0.37), cos(iFlow * 0.29));
     float r = length(uv) + 0.0001;
     float a = atan(uv.y, uv.x);
-    float z = 0.42 / r + iFlow * 1.4;
+    float z = (0.42 + 0.12 * bass) / r + iFlow * 1.4;
     float u = a / 6.2831853 * 12.0 + z * 0.3 * (0.5 + mid);
     float du = 0.5 - abs(fract(u) - 0.5);
     float dz = 0.5 - abs(fract(z) - 0.5);
     float d = min(du, dz);
     float lines = smoothstep(0.07, 0.0, d) + 0.012 / (d + 0.012);
-    float3 col = pal(z * 0.15 + iTime * 0.01) * lines * (1.0 + 0.8 * bass);
+    float3 col = pal(z * 0.15 + iTime * 0.01) * lines * (0.7 + 1.4 * bass);
     col += pal(z * 0.15 + 0.5) * smoothstep(0.12, 0.0, dz) * beat * 1.5;
     col *= clamp(r * 2.2, 0.0, 1.0);
     col += pal(iFlow * 0.03) * 0.035 / (r + 0.03) * (0.3 + tre);
@@ -104,7 +104,7 @@ half4 main(float2 fc) {
     float bass = iAudio.x; float mid = iAudio.y; float tre = iAudio.z; float beat = iAudio.w;
     float2 uv = (fc - 0.5 * iRes) / iRes.y;
     uv = rot(uv, iFlow * 0.04);
-    float2 p = uv * (1.15 - 0.3 * bass) + float2(0.15 * sin(iFlow * 0.05), 0.1 * cos(iFlow * 0.04));
+    float2 p = uv * (1.15 - 0.5 * bass - 0.15 * beat) + float2(0.15 * sin(iFlow * 0.05), 0.1 * cos(iFlow * 0.04));
     float2 k = float2(0.78 + 0.06 * sin(iFlow * 0.13), 0.62 + 0.06 * cos(iFlow * 0.09));
     float3 col = float3(0.0);
     float last = 0.0;
@@ -114,7 +114,7 @@ half4 main(float2 fc) {
         col += pal(float(i) * 0.07 + iFlow * 0.03 + iTime * 0.005) * exp(-abs(m - last) * 2.5) * 0.12;
         last = m;
     }
-    col *= 1.1 + 0.6 * mid + 0.6 * beat;
+    col *= 0.85 + 0.5 * mid + 0.9 * bass + 0.6 * beat;
     col += float3(tre * 0.03);
     return half4(half3(tone(col * 2.0)), 1.0);
 }
@@ -130,7 +130,7 @@ half4 main(float2 fc) {
     float rays = pow(0.5 + 0.5 * sin(a * 9.0 + iFlow * 1.1), 18.0);
     rays += pow(0.5 + 0.5 * sin(a * 14.0 - iFlow * 1.7 + 1.3), 26.0) * 0.8;
     rays += pow(0.5 + 0.5 * sin(a * 5.0 + iFlow * 0.6 + sin(r * 6.0 - iFlow)), 10.0) * 0.6;
-    rays *= exp(-r / (0.4 + 0.6 * bass + 0.4 * beat));
+    rays *= exp(-r / (0.3 + 0.9 * bass + 0.5 * beat));
     float ring = 0.0;
     for (int i = 0; i < 3; i++) {
         float ph = fract(iTime * 0.35 + float(i) / 3.0);

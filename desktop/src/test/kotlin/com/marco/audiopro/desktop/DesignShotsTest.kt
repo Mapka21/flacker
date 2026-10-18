@@ -144,6 +144,9 @@ class DesignShotsTest {
             graph.player.seekTo(ms)
             shot(imm, "d12-immersive-$n", 900)
         }
+        com.marco.audiopro.ui.Immersive.mode = com.marco.audiopro.ui.ImmersiveMode.PORTADA
+        shot(imm, "d12-immersive-portada", 1500)
+        com.marco.audiopro.ui.Immersive.mode = com.marco.audiopro.ui.ImmersiveMode.LETRA
         ui { imm.close() }
 
         val login = ui { ImageComposeScene(1380, 860, Density(1f)) {

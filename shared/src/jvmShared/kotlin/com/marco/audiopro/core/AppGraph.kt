@@ -35,6 +35,8 @@ interface AppGraph {
     /** Marco Connect: otros dispositivos con la app en la red. */
     val connect: ConnectService
     val player: PlayerController
+    /** Transmitir a Chromecast, Roku o teles/bocinas DLNA. */
+    val cast: com.marco.audiopro.cast.CastService
     val likes: Likes
     /** Playlists del servidor (crear, agregar, quitar). */
     val playlists: PlaylistStore

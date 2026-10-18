@@ -268,7 +268,7 @@ class VisualScene {
     fun drawFx(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, glow: Boolean) = scope.clipRect {
         dpScale = density
         val v = List(4) { cols[it].vivid(DuskPalette[it]) }
-        val punch = 1f + 0.06f * f.beat + 0.03f * f.bass
+        val punch = 1f + 0.08f * f.beat + 0.07f * f.bass
         drawContext.transform.scale(punch, punch, center)
         when (preset) {
             VisualPreset.PULSO -> pulse(v, f)
