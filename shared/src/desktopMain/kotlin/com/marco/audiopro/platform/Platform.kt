@@ -156,3 +156,30 @@ fun rememberLocalMusicPicker(onPicked: (String?) -> Unit): () -> Unit {
 
 /** En la PC se eligen carpetas; en el celular, toda la música del teléfono. */
 val localMusicIsFolders: Boolean = true
+
+/** Fondos que se calculan pixel por pixel en la tarjeta de video (SkSL). */
+val supportsFxShaders: Boolean = true
+
+/**
+ * Un efecto de pantalla completa escrito como shader: corre en la tarjeta de video, así que cuesta
+ * casi nada aunque cada pixel haga cuentas. Uniformes fijos: iRes, iTime, iFlow, iAudio
+ * (graves, medios, agudos, golpe) y c0..c2 (colores de la portada).
+ */
+class FxShader(sksl: String) {
+    private val builder: org.jetbrains.skia.RuntimeShaderBuilder? = runCatching {
+        org.jetbrains.skia.RuntimeShaderBuilder(org.jetbrains.skia.RuntimeEffect.makeForShader(sksl))
+    }.onFailure { System.err.println("FxShader: ${it.message}") }.getOrNull()
+    val ok: Boolean get() = builder != null
+
+    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>): androidx.compose.ui.graphics.Brush? {
+        val b = builder ?: return null
+        b.uniform("iRes", w, h)
+        b.uniform("iTime", time)
+        b.uniform("iFlow", flow)
+        b.uniform("iAudio", audio[0], audio[1], audio[2], audio[3])
+        b.uniform("c0", cols[0].red, cols[0].green, cols[0].blue)
+        b.uniform("c1", cols[1].red, cols[1].green, cols[1].blue)
+        b.uniform("c2", cols[2].red, cols[2].green, cols[2].blue)
+        return androidx.compose.ui.graphics.ShaderBrush(b.makeShader())
+    }
+}

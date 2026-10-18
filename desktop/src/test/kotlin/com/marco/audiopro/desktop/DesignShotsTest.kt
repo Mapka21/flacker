@@ -115,6 +115,17 @@ class DesignShotsTest {
         shot(viz2, "d8b-ascii", 4000)
         ui { viz2.close() }
 
+        // Fondos de shader (en la prueba corren en CPU: lentos, pero se ven igual).
+        VisualPreset.entries.filter { it.gpu }.forEach { p ->
+            val s = ui { ImageComposeScene(960, 540, Density(1f)) {
+                CompositionLocalProvider(LocalApp provides graph) {
+                    MarcoTheme { Box(Modifier.fillMaxSize()) { AmbientBackground(graph.player.state.value.current?.coverArt, preset = p) } }
+                }
+            } }
+            shot(s, "d8c-${p.name.lowercase()}", 2500)
+            ui { s.close() }
+        }
+
         // Pantalla completa: efectos mezclados + letra.
         val imm = ui { ImageComposeScene(1380, 860, Density(1f)) {
             CompositionLocalProvider(LocalLifecycleOwner provides DesignOwner, LocalViewModelStoreOwner provides DesignOwner, LocalApp provides graph) {
@@ -123,6 +134,16 @@ class DesignShotsTest {
         } }
         graph.player.seekTo(4000)
         shot(imm, "d12-immersive", 5000)
+        listOf(0.5f, 1f).forEach { pr ->
+            val ls = ui { ImageComposeScene(1200, 1100, Density(1f)) { MarcoTheme { com.marco.audiopro.ui.LyricStylesPreview(pr) } } }
+            shot(ls, "d12-styles-${(pr * 100).toInt()}", 600)
+            ui { ls.close() }
+        }
+        // Varios versos: cada uno entra con su estilo.
+        listOf(0L, 1_500L, 3_000L, 4_500L, 6_000L).forEachIndexed { n, ms ->
+            graph.player.seekTo(ms)
+            shot(imm, "d12-immersive-$n", 900)
+        }
         ui { imm.close() }
 
         val login = ui { ImageComposeScene(1380, 860, Density(1f)) {

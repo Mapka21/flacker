@@ -138,7 +138,9 @@ fun AmbientBackground(
     val playing by rememberUpdatedState(c.player.state.collectAsState().value.isPlaying)
     val reactive by rememberUpdatedState(preset != null || prefs.visualMode)
     // Apagado = la portada fluyendo tranquila, sin reaccionar a la música.
-    val mode = preset ?: if (prefs.visualMode) prefs.visualPreset else VisualPreset.PORTADA
+    val wanted = preset ?: if (prefs.visualMode) prefs.visualPreset else VisualPreset.PORTADA
+    // Un fondo de shader en un celular que no los soporta: el más parecido de los de siempre.
+    val mode = if (wanted.gpu && !com.marco.audiopro.platform.supportsFxShaders) VisualPreset.NEXO else wanted
     val offset by rememberUpdatedState(prefs.visualOffsetMs)
 
     var target by remember { mutableStateOf(DuskPalette) }
@@ -168,6 +170,15 @@ fun AmbientBackground(
     }
     val feats = { if (reactive) LiveAudio.features else LiveAudio.quiet }
     val cols = listOf(c0, c1, c2, c3)
+    if (mode.gpu) {
+        // Shader: la imagen completa sale de la tarjeta de video; sin capas difuminadas.
+        Canvas(modifier.fillMaxSize().background(Color.Black)) {
+            tick.longValue
+            if (!scene.drawShader(this, mode, cols, feats())) scene.draw(this, VisualPreset.AURORA, cols, feats(), intensity)
+            else if (!figuresOnly) scene.drawVeil(this, intensity)
+        }
+        return
+    }
     BoxWithConstraints(modifier.fillMaxSize().background(if (figuresOnly) Color.Black else Hifi.Bg)) {
         // Difuminado proporcional al tamaño (en las vistas previas chicas también se ve igual).
         val big = (minOf(maxWidth, maxHeight) * 0.16f).coerceIn(14.dp, 90.dp)

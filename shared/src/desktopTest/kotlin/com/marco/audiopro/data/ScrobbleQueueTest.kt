@@ -46,7 +46,9 @@ class ScrobbleQueueTest {
         assertEquals(3, q2.pending.value)
 
         online = true
-        assertEquals(3, q2.flush())
+        // Puede mandarlos este flush o el automático que la cola lanza al crearse (van con candado):
+        // lo que importa es que lleguen los 3, una sola vez y en orden.
+        q2.flush()
         assertEquals(listOf("a", "b", "c"), got.map { it.first })
         assertTrue("horas en orden", got.zipWithNext().all { (x, y) -> x.second <= y.second })
         assertEquals(0, q2.pending.value)

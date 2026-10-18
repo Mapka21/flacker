@@ -80,7 +80,7 @@ fun VisualModeDialog(onDismiss: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(18.dp))
-            VisualPreset.entries.chunked(3).forEach { row ->
+            VisualPreset.available.chunked(3).forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { p ->
                         PresetTile(p, cover, selected = prefs.visualMode && prefs.visualPreset == p, Modifier.weight(1f)) {

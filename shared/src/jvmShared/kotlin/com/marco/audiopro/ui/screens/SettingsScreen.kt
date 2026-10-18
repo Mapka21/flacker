@@ -208,7 +208,7 @@ fun SettingsScreen(nav: NavController) {
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                VisualPreset.entries.forEach { p ->
+                VisualPreset.available.forEach { p ->
                     GlassChip(p.label, prefs.visualMode && prefs.visualPreset == p) { c.settings.updatePrefs { it.copy(visualMode = true, visualPreset = p) } }
                 }
             }

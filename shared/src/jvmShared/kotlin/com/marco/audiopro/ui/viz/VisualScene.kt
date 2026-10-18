@@ -37,7 +37,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** Los "modos visuales": el fondo de la app se vuelve el visualizador. */
-enum class VisualPreset(val label: String, val blurb: String) {
+enum class VisualPreset(val label: String, val blurb: String, val gpu: Boolean = false) {
     PORTADA("Portada viva", "Como Apple Music: tu portada derretida fluyendo con la música"),
     AURORA("Aurora", "Los colores de la portada respiran con el bajo"),
     PULSO("Pulso", "Ondas de choque en cada golpe"),
@@ -48,6 +48,17 @@ enum class VisualPreset(val label: String, val blurb: String) {
     NEON("Neón 360", "Psicodelia con estela, como el del Xbox 360"),
     ASCII("ASCII 333", "Tu portada y la música dibujadas con caracteres, como arte ASCII: ondas en cada golpe y el espectro subiendo"),
     NEXO("Nexo 2029", "El túnel caleidoscopio del Xbox 360 llevado al futuro: vidrios que salen volando con cada golpe y un disco iridiscente al centro"),
+    CALEIDO("Caleidoscopio", "Ocho espejos que doblan líneas de luz y se abren con el bajo", gpu = true),
+    PLASMA("Plasma", "El plasma de los demos de los 90 con curvas de neón que corren con la música", gpu = true),
+    TUNEL("Túnel 360", "Una rejilla de neón que te jala hacia adentro; los anillos destellan en cada golpe", gpu = true),
+    FRACTAL("Fractal", "Un fractal que se dobla sobre sí mismo como vidrio de colores", gpu = true),
+    ESTALLIDO("Estallido", "Rayos de luz desde el centro que crecen con el bajo y ondas que salen", gpu = true),
+    ;
+
+    companion object {
+        /** Los que este dispositivo puede mostrar (los de shader piden Android 13 en el celular). */
+        val available: List<VisualPreset> get() = entries.filter { !it.gpu || com.marco.audiopro.platform.supportsFxShaders }
+    }
 }
 
 /** Atardecer neón (carmesí, índigo, azul noche, ciruela): colores cuando no hay portada. */
@@ -190,6 +201,10 @@ class VisualScene {
     var art: ImageBitmap? = null
     var measurer: androidx.compose.ui.text.TextMeasurer? = null
     private var dtLast = 0.016f
+    /** Tiempo "musical": corre más rápido con la música y da un jalón en cada golpe (para los shaders). */
+    private var flow = 0f
+    private val shaders = HashMap<VisualPreset, com.marco.audiopro.platform.FxShader>()
+    private val audio = FloatArray(4)
 
     private fun respawn(s: Star) {
         s.x = rnd.nextFloat() * 2 - 1; s.y = rnd.nextFloat() * 2 - 1; s.z = 1f
@@ -198,6 +213,7 @@ class VisualScene {
     fun step(dt: Float, f: AudioFeatures) {
         dtLast = dt
         time += dt
+        flow += dt * (0.35f + 1.1f * f.level + 2.2f * f.beat)
         phase += dt * (TAU / 28f) * (1f + 5f * f.level + 4f * f.beat)
         rot += dt * (0.15f + 1.4f * f.mid + 1.5f * f.beat)
         grid = (grid + dt * (0.10f + 0.45f * f.level + 0.6f * f.beat)) % 1f
@@ -216,8 +232,23 @@ class VisualScene {
         for (s in stars) { s.z -= dt * speed; if (s.z <= 0.03f) respawn(s) }
     }
 
+    /** El pincel del shader de [preset] para este frame, o null si no es de shader o no se puede. */
+    fun shaderBrush(preset: VisualPreset, w: Float, h: Float, cols: List<Color>, f: AudioFeatures): Brush? {
+        if (!preset.gpu) return null
+        val fx = shaders.getOrPut(preset) { com.marco.audiopro.platform.FxShader(ShaderViz.source(preset)!!) }
+        audio[0] = f.bass; audio[1] = f.mid; audio[2] = f.treble; audio[3] = f.beat
+        return fx.brush(w, h, time, flow, audio, List(3) { cols[it].vivid(DuskPalette[it]) })
+    }
+
+    /** Un fondo de shader a pantalla completa; false si no se pudo (y hay que dibujar otro). */
+    fun drawShader(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures): Boolean = with(scope) {
+        val b = shaderBrush(preset, size.width, size.height, cols, f) ?: return false
+        drawRect(b)
+        true
+    }
+
     /** Presets que llevan figuras encima del fondo (las demás son sólo el fondo fluido). */
-    fun hasFx(preset: VisualPreset) = preset != VisualPreset.PORTADA && preset != VisualPreset.AURORA
+    fun hasFx(preset: VisualPreset) = preset != VisualPreset.PORTADA && preset != VisualPreset.AURORA && !preset.gpu
 
     /**
      * Capa de fondo, pensada para difuminarse muchísimo: la portada girando y fluyendo
@@ -262,6 +293,7 @@ class VisualScene {
 
     /** Todo en un solo lienzo, sin difuminar (pantallas chicas como la del iPod). */
     fun draw(scope: DrawScope, preset: VisualPreset, cols: List<Color>, f: AudioFeatures, intensity: Float, art: ImageBitmap? = null) {
+        if (preset.gpu && drawShader(scope, preset, cols, f)) { drawVeil(scope, intensity); return }
         drawBase(scope, if (art == null && preset == VisualPreset.PORTADA) VisualPreset.AURORA else preset, cols, art, f)
         if (hasFx(preset)) drawFx(scope, preset, cols, f, glow = false)
         drawVeil(scope, intensity)

@@ -36,6 +36,21 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.9.1**:
+  - **Fondos nuevos en la tarjeta de video** (estilo Xbox 360): Caleidoscopio, Plasma, Túnel 360,
+    Fractal y Estallido. Se calculan pixel por pixel en la GPU (shaders), así que van a 60 fps aunque
+    llenen la pantalla. En Android piden Android 13 o más nuevo.
+  - **Pantalla completa con más variedad**: el fondo cambia entre 10 efectos con figuras encima (o
+    solo), con tres tipos de cambio (atravesar, salir disparado o disolverse) y un destello; cuando
+    entra el coro también cambia.
+  - **Letra a los fps de la pantalla**: la posición de la canción se suaviza cada cuadro (antes
+    brincaba ~20 veces por segundo) y todo se anima sin volver a armar la pantalla.
+  - **10 estilos de letra** que no se repiten seguidos: palabra por palabra desde grande, inclinado,
+    una palabra por renglón, cayendo con rebote, desde la cámara, máquina de escribir, delineado que
+    se rellena (karaoke), regado, glitch RGB. Las palabras largas tardan más (el tiempo se reparte por
+    letras), el coro se detecta solo y pega más fuerte, las partes instrumentales muestran puntos que
+    laten, y un verso viejo se desvanece si falta mucho para el siguiente.
+
 - **v2.9**:
   - **Sin servidor**: en el inicio de sesión, "¿Sin servidor?" → **Usar mi música de una carpeta**
     (PC) o **Usar la música de este celular** (Android). Lee tus archivos (FLAC, MP3, M4A, ALAC, OGG,

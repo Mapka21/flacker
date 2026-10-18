@@ -143,3 +143,38 @@ fun rememberLocalMusicPicker(onPicked: (String?) -> Unit): () -> Unit {
 
 /** En la PC se eligen carpetas; en el celular, toda la música del teléfono. */
 val localMusicIsFolders: Boolean = false
+
+/** Fondos por shader (AGSL): Android 13 en adelante. */
+val supportsFxShaders: Boolean = Build.VERSION.SDK_INT >= 33
+
+/** Mismo contrato que en la PC; en Android < 13 no hay shaders y [ok] es false. */
+class FxShader(sksl: String) {
+    private val shader: Any? = if (Build.VERSION.SDK_INT >= 33) {
+        runCatching { android.graphics.RuntimeShader(sksl) }.onFailure { android.util.Log.w("FxShader", it.message ?: "") }.getOrNull()
+    } else null
+    /** Uniformes que el compilador quitó por no usarse (fijarlos truena): se brincan. */
+    private val missing = HashSet<String>()
+    val ok: Boolean get() = shader != null
+
+    fun brush(w: Float, h: Float, time: Float, flow: Float, audio: FloatArray, cols: List<Color>): androidx.compose.ui.graphics.Brush? {
+        if (Build.VERSION.SDK_INT < 33) return null
+        val s = shader as? android.graphics.RuntimeShader ?: return null
+        fun set(name: String, vararg v: Float) {
+            if (name in missing) return
+            try {
+                when (v.size) {
+                    1 -> s.setFloatUniform(name, v[0])
+                    2 -> s.setFloatUniform(name, v[0], v[1])
+                    3 -> s.setFloatUniform(name, v[0], v[1], v[2])
+                    else -> s.setFloatUniform(name, v[0], v[1], v[2], v[3])
+                }
+            } catch (_: IllegalArgumentException) { missing.add(name) }
+        }
+        set("iRes", w, h); set("iTime", time); set("iFlow", flow)
+        set("iAudio", audio[0], audio[1], audio[2], audio[3])
+        set("c0", cols[0].red, cols[0].green, cols[0].blue)
+        set("c1", cols[1].red, cols[1].green, cols[1].blue)
+        set("c2", cols[2].red, cols[2].green, cols[2].blue)
+        return androidx.compose.ui.graphics.ShaderBrush(s)
+    }
+}
