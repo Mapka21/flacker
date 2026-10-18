@@ -54,6 +54,7 @@ private object DesignOwner : LifecycleOwner, ViewModelStoreOwner {
 @OptIn(ExperimentalComposeUiApi::class)
 class DesignShotsTest {
     @Test fun captureDesign() {
+        com.marco.audiopro.ui.components.SplashState.done = true
         val outDir = System.getenv("MARCO_SHOTS_DIR")
         assumeTrue("Sin servidor/carpeta de capturas", System.getenv("MARCO_TEST_SERVER") != null && outDir != null)
         System.setProperty("marco.profile", "dev")
@@ -96,6 +97,11 @@ class DesignShotsTest {
         ui { scene.sendPointerEvent(PointerEventType.Press, Offset(5f, 5f)); scene.sendPointerEvent(PointerEventType.Release, Offset(5f, 5f)) }
         ui { nav!!.navigate(LibraryRoute(1)) }; shot(scene, "d5-artists", 2500)
         ui { nav!!.navigate(ArtistRoute("ar1")) }; shot(scene, "d6-artist", 3000)
+        ui { nav!!.navigate(com.marco.audiopro.ui.GenresRoute) }; shot(scene, "d14-genres", 3000)
+        graph.genres.state.value.genres.firstOrNull()?.let { g -> ui { nav!!.navigate(com.marco.audiopro.ui.GenreRoute(g.name)) }; shot(scene, "d14-genre", 3000) }
+        ui { nav!!.navigate(com.marco.audiopro.ui.RadioRoute()) }; shot(scene, "d15-radio", 2000)
+        ui { nav!!.navigate(com.marco.audiopro.ui.RadioRoute("italo disco")) }; shot(scene, "d15-radio-search", 6000)
+        ui { nav!!.navigate(com.marco.audiopro.ui.FixRoute) }; shot(scene, "d16-fix", 1500)
         graph.settings.updatePrefs { it.copy(visualMode = true, visualPreset = VisualPreset.NEXO) }
         ui { nav!!.navigate(PlayerRoute) }; shot(scene, "d7-player-nexo", 5000)
         ui { scene.close() }
@@ -116,7 +122,7 @@ class DesignShotsTest {
         ui { viz2.close() }
 
         // Fondos de shader (en la prueba corren en CPU: lentos, pero se ven igual).
-        VisualPreset.entries.filter { it.gpu }.forEach { p ->
+        (VisualPreset.entries.filter { it.gpu } + listOf(VisualPreset.XBOX, VisualPreset.NEON)).forEach { p ->
             val s = ui { ImageComposeScene(960, 540, Density(1f)) {
                 CompositionLocalProvider(LocalApp provides graph) {
                     MarcoTheme { Box(Modifier.fillMaxSize()) { AmbientBackground(graph.player.state.value.current?.coverArt, preset = p) } }

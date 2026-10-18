@@ -77,6 +77,9 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Fullscreen
@@ -282,6 +285,8 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp).windowDragArea())
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
+        SidebarItem(Icons.Default.Radio, "Radio", dest.isIn(RadioRoute::class)) { nav.openTab(RadioRoute()) }
+        SidebarItem(Icons.Default.Category, "Géneros", dest.isIn(GenresRoute::class) || dest.isIn(GenreRoute::class)) { nav.openTab(GenresRoute) }
         SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
         SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
         SectionLabel("Biblioteca")
@@ -290,6 +295,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
         SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
+        SidebarItem(Icons.Default.AutoFixHigh, "Arreglar metadatos", dest.isIn(FixRoute::class)) { nav.openTab(FixRoute) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SectionLabel("Tus playlists") }
             Box(

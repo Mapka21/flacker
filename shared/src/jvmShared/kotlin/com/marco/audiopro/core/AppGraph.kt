@@ -35,6 +35,12 @@ interface AppGraph {
     /** Marco Connect: otros dispositivos con la app en la red. */
     val connect: ConnectService
     val player: PlayerController
+    /** Radio por internet (radio-browser.info). */
+    val radio: com.marco.audiopro.data.radio.RadioBrowser
+    /** Géneros de verdad para tu biblioteca (MusicBrainz). */
+    val genres: com.marco.audiopro.data.meta.GenreIndex
+    /** Arreglar metadatos de tus archivos; null donde no se pueden escribir (celular). */
+    val fixer: com.marco.audiopro.data.meta.MetadataFixer?
     /** Transmitir a Chromecast, Roku o teles/bocinas DLNA. */
     val cast: com.marco.audiopro.cast.CastService
     val likes: Likes

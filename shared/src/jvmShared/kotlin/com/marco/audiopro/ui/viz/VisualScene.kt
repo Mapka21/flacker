@@ -45,7 +45,8 @@ enum class VisualPreset(val label: String, val blurb: String, val gpu: Boolean =
     OLAS("Olas", "Una ola por rango de frecuencias"),
     HIPER("Hiperespacio", "Estrellas que aceleran con los agudos"),
     SYNTH("Synthwave", "Sol neón y rejilla retro al ritmo"),
-    NEON("Neón 360", "Psicodelia con estela, como el del Xbox 360"),
+    NEON("Neón 360", "Como el \"Neon\" de Jeff Minter en el Xbox 360: arcos parabólicos y chorros de partículas en espejo que explotan con el bajo"),
+    XBOX("Xbox 2001", "El de la primera Xbox (tipo Geiss): ondas verde neón y azul flotando sobre negro, con una estela que crece y gira"),
     ASCII("ASCII 333", "Tu portada y la música dibujadas con caracteres, como arte ASCII: ondas en cada golpe y el espectro subiendo"),
     NEXO("Nexo 2029", "El túnel caleidoscopio del Xbox 360 llevado al futuro: vidrios que salen volando con cada golpe y un disco iridiscente al centro"),
     CALEIDO("Caleidoscopio", "Ocho espejos que doblan líneas de luz y se abren con el bajo", gpu = true),
@@ -194,7 +195,8 @@ class VisualScene {
     private val path = Path()
     private val xs = FloatArray(120)
     private val ys = FloatArray(120)
-    private val neon = NeonFeedback()
+    private val neon = MinterNeon()
+    private val geiss = GeissFeedback()
     private val nexo = NexoTunnel()
     private val ascii = AsciiVision()
     /** Para el modo ASCII: la portada nítida y quien mide el texto (los pone el fondo cada frame). */
@@ -210,7 +212,9 @@ class VisualScene {
         s.x = rnd.nextFloat() * 2 - 1; s.y = rnd.nextFloat() * 2 - 1; s.z = 1f
     }
 
-    fun step(dt: Float, f: AudioFeatures) {
+    fun step(rawDt: Float, f: AudioFeatures) {
+        // Con el control se puede acelerar o frenar todo.
+        val dt = rawDt * VizControl.speed
         dtLast = dt
         time += dt
         flow += dt * (0.35f + 1.1f * f.level + 2.2f * f.beat)
@@ -277,6 +281,7 @@ class VisualScene {
             VisualPreset.HIPER -> hyperspace(v, f)
             VisualPreset.SYNTH -> synthwave(v, f)
             VisualPreset.NEON -> if (glow) neon.drawLast(this) else neon.frame(this, f, time, dtLast)
+            VisualPreset.XBOX -> if (glow) geiss.drawLast(this) else geiss.frame(this, f, time, dtLast)
             VisualPreset.NEXO -> if (glow) nexo.drawLast(this) else nexo.frame(this, v, f, time, dtLast)
             VisualPreset.ASCII -> measurer?.let { ascii.draw(this, it, art, v, f, time, dpScale, glow) }
             else -> {}
@@ -495,90 +500,6 @@ class VisualScene {
         val BLOB_SPEED = floatArrayOf(1.0f, -0.7f, 0.5f, -1.3f)
         val BLOB_OFFSET = floatArrayOf(0.0f, 1.9f, 3.6f, 5.1f)
         val ART_SPEED = floatArrayOf(0.6f, -0.45f, 0.35f, -0.8f)
-    }
-}
-
-/**
- * "Neón 360": visual con retroalimentación como el del Xbox 360. Cada frame se vuelve a pintar
- * el anterior un poco más grande y girado (la estela) y encima figuras nuevas en caleidoscopio.
- * Se dibuja en baja resolución y se escala: el desenfoque es parte del look.
- */
-class NeonFeedback(private val maxPx: Int = 420) {
-    private var a: ImageBitmap? = null
-    private var b: ImageBitmap? = null
-    private var ca: Canvas? = null
-    private var cb: Canvas? = null
-    private val cds = CanvasDrawScope()
-    private val path = Path()
-    private var hue = 0f
-
-    fun frame(scope: DrawScope, f: AudioFeatures, time: Float, dt: Float) {
-        val w = scope.size.width; val h = scope.size.height
-        if (w < 1f || h < 1f) return
-        val sc = min(1f, maxPx / max(w, h))
-        val bw = max(8, (w * sc).toInt()); val bh = max(8, (h * sc).toInt())
-        if (a?.width != bw || a?.height != bh) {
-            a = ImageBitmap(bw, bh).also { ca = Canvas(it) }
-            b = ImageBitmap(bw, bh).also { cb = Canvas(it) }
-        }
-        val src = a!!; val dst = b!!
-        hue = (hue + dt * (30f + 140f * f.level)) % 360f
-        cds.draw(Density(1f), LayoutDirection.Ltr, cb!!, Size(bw.toFloat(), bh.toFloat())) {
-            drawRect(Color.Black)
-            val z = 1.03f + 0.08f * f.bass + 0.05f * f.beat
-            withTransform({ rotate(0.9f + 3f * f.mid, center); scale(z, z, center) }) {
-                drawImage(src, alpha = 0.86f + 0.08f * f.level)
-            }
-            shapes(f, time)
-        }
-        // Intercambia: lo recién pintado es la base del siguiente frame.
-        a = dst; b = src
-        val t = ca; ca = cb; cb = t
-        drawLast(scope)
-    }
-
-    /** Pinta el último frame sin avanzar (para la capa de brillo). */
-    fun drawLast(scope: DrawScope) {
-        val img = a ?: return
-        scope.drawImage(
-            img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),
-            dstOffset = IntOffset.Zero, dstSize = IntSize(scope.size.width.toInt(), scope.size.height.toInt()),
-            filterQuality = FilterQuality.Low, blendMode = BlendMode.Screen,
-        )
-    }
-
-    private fun DrawScope.shapes(f: AudioFeatures, time: Float) {
-        val s = min(size.width, size.height)
-        val c1 = Color.hsv(hue, 1f, 1f)
-        val c2 = Color.hsv((hue + 120f) % 360f, 0.9f, 1f)
-        val c3 = Color.hsv((hue + 240f) % 360f, 0.9f, 1f)
-        // Roseta con la forma de onda.
-        val n = f.wave.size
-        path.reset()
-        for (j in 0..n) {
-            val k = j % n
-            val th = j.toFloat() / n * TAU + time * 0.4f
-            val r = s * (0.16f + 0.16f * f.bass) * (1f + f.wave[k] * 2.4f)
-            val p = Offset(center.x + cos(th) * r, center.y + sin(th) * r)
-            if (j == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
-        }
-        drawPath(path, c1, style = Stroke(1.6f + 3f * f.level))
-        // Caleidoscopio de 6 brazos con las bandas.
-        for (arm in 0 until 6) rotate(arm * 60f + time * 20f, center) {
-            for (i in 0 until f.bands.size step 3) {
-                val v = f.bands[i]
-                if (v < 0.1f) continue
-                val d = s * (0.05f + i / 24f * 0.42f)
-                drawCircle(c2.copy(alpha = v), 1f + v * s * 0.02f, Offset(center.x + d, center.y))
-            }
-            if (f.treble > 0.05f) drawLine(c3.copy(alpha = 0.6f * f.treble), center, Offset(center.x + s * 0.45f * f.treble, center.y), 1.5f)
-            // Un punto que orbita en cada brazo: con la estela dibuja espirales aunque no haya bajo.
-            val d = s * (0.22f + 0.12f * sin(time * 0.9f) + 0.1f * f.mid)
-            drawCircle(c1, 1.5f + 4f * f.level, Offset(center.x + d, center.y + sin(time * 2.3f) * s * 0.05f))
-        }
-        // Lissajous que sigue vivo aunque esté en pausa.
-        drawCircle(c3, 2.5f, Offset(center.x + sin(time * 1.3f) * s * 0.3f, center.y + cos(time * 1.7f) * s * 0.2f))
-        if (f.beat > 0.5f) drawCircle(Color.White.copy(alpha = f.beat * 0.5f), s * 0.3f * (1.2f - f.beat), center, style = Stroke(3f))
     }
 }
 

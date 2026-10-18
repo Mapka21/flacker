@@ -47,6 +47,7 @@ private object PhoneOwner : LifecycleOwner, ViewModelStoreOwner {
 @OptIn(ExperimentalComposeUiApi::class)
 class PhoneShotsTest {
     @Test fun capturePhone() {
+        com.marco.audiopro.ui.components.SplashState.done = true
         val outDir = System.getenv("MARCO_SHOTS_DIR")
         assumeTrue("Sin servidor/carpeta de capturas", System.getenv("MARCO_TEST_SERVER") != null && outDir != null)
         System.setProperty("marco.profile", "dev")

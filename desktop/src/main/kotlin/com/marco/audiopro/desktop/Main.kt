@@ -121,6 +121,10 @@ class DesktopGraph : AppGraph {
     )
     /** Lo que ve la UI: este reproductor o el del dispositivo que controlas con Connect. */
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val musicBrainz = com.marco.audiopro.data.meta.MusicBrainz(http)
+    override val radio = com.marco.audiopro.data.radio.RadioBrowser(http)
+    override val genres = com.marco.audiopro.data.meta.GenreIndex(api, musicBrainz, dataDir, scope)
+    override val fixer = com.marco.audiopro.data.meta.MetadataFixer(musicBrainz, JaudioTagIO(), lyrics, dataDir, genres)
     override val cast = com.marco.audiopro.cast.CastService(http, api, uiScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) })
     override val player = RoutedPlayer(desktopPlayer, connect, uiScope, cast)
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
@@ -129,7 +133,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.10.0"
+    override val versionName = "2.11.0"
     override val isDesktop = true
 
     fun shutdown() = desktopPlayer.shutdown()
@@ -199,6 +203,7 @@ fun main() {
             // Botones ⏮ ⏯ ⏭ en la barra de tareas, "Reproduciendo" en el control multimedia de Windows
             // y la barra de título propia (como Discord): si se pudo, la app dibuja sus botones.
             val maximized = remember { derivedStateOf { windowState.placement == WindowPlacement.Maximized } }
+            LaunchedEffect(Unit) { Gamepad.start(this, player) { window.isFocused } }
             LaunchedEffect(Unit) {
                 val custom = WindowsShell.install(
                     window, player, graph.http, { graph.api.coverUrl(it, 400) },
@@ -250,6 +255,7 @@ fun handleShortcut(e: KeyEvent, player: PlayerController): Boolean {
         e.key == Key.F11 -> { Immersive.on = !Immersive.on; true }
         e.key == Key.Escape && Immersive.on -> { Immersive.on = false; true }
         e.key == Key.L && Immersive.on -> { Immersive.cycleMode(); true }
+        Immersive.on && !e.isCtrlPressed && !e.isAltPressed && immersiveKey(e) -> true
         e.isCtrlPressed && e.key == Key.DirectionRight -> { player.next(); true }
         e.isCtrlPressed && e.key == Key.DirectionLeft -> { player.previous(); true }
         e.isCtrlPressed && e.key == Key.DirectionUp -> { player.setVolume(((player.volume?.value ?: 0f) + 0.05f).coerceIn(0f, 1f)); true }
@@ -272,4 +278,27 @@ fun java.awt.Window.useFlackerIcons() {
         DesktopGraph::class.java.getResource("/icons/flacker-$n.png")?.let { runCatching { javax.imageio.ImageIO.read(it) }.getOrNull() }
     }
     if (imgs.isNotEmpty()) iconImages = imgs
+}
+
+/**
+ * En pantalla completa, como con el control: ←/→ giran, ↑/↓ acercan, +/− velocidad, F forma de las
+ * ondas, Espacio sigue siendo pausa, [ y ] mueven la letra, 0 regresa todo a como estaba.
+ */
+private fun immersiveKey(e: KeyEvent): Boolean {
+    val vc = com.marco.audiopro.ui.viz.VizControl
+    when (e.key) {
+        Key.DirectionLeft -> vc.spin = (vc.spin - 30f).coerceAtLeast(-180f)
+        Key.DirectionRight -> vc.spin = (vc.spin + 30f).coerceAtMost(180f)
+        Key.DirectionUp -> vc.zoom = (vc.zoom + 0.08f).coerceAtMost(0.8f)
+        Key.DirectionDown -> vc.zoom = (vc.zoom - 0.08f).coerceAtLeast(-0.4f)
+        Key.Equals, Key.Plus, Key.NumPadAdd -> { vc.speed = (vc.speed * 1.25f).coerceAtMost(4f); Immersive.toast = "Velocidad ×%.1f".format(vc.speed) }
+        Key.Minus, Key.NumPadSubtract -> { vc.speed = (vc.speed / 1.25f).coerceAtLeast(0.25f); Immersive.toast = "Velocidad ×%.1f".format(vc.speed) }
+        Key.F -> vc.shape++
+        Key.A -> Immersive.swapNow = true
+        Key.LeftBracket -> Immersive.nudgeLyrics(-100)
+        Key.RightBracket -> Immersive.nudgeLyrics(100)
+        Key.Zero -> { vc.reset(); Immersive.toast = "Visuales como estaban" }
+        else -> return false
+    }
+    return true
 }

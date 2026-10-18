@@ -85,20 +85,10 @@ object Skull {
     const val HEIGHT = 92.5f
 }
 
-/** Dibuja la calavera para que su caja quepa en `height` px, centrada en `center`. */
+/** Dibuja la calavera con huesos cruzados ([JollyRoger]) en `height` px, centrada en `center`. */
+@Suppress("UNUSED_PARAMETER")
 fun DrawScope.drawSkull(center: Offset, height: Float, color: Color = BrandColors.White, bones: Color = BrandColors.Bone, glow: Boolean = true) {
-    val k = height / Skull.HEIGHT
-    val x = center.x - Skull.WIDTH * k / 2 - Skull.LEFT * k
-    val y = center.y - Skull.HEIGHT * k / 2 - Skull.TOP * k
-    translate(x, y) {
-        scale(k, k, Offset.Zero) {
-            Skull.bones.forEach { drawPath(it, bones) }
-            drawPath(Skull.skull, color)
-            // Brillo del ojo biónico.
-            if (glow) drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.55f), Color.Transparent), Offset(37.4f, 44f), 9f), 9f, Offset(37.4f, 44f))
-            drawPath(Skull.eye, color)
-        }
-    }
+    drawJollyRoger(center, height, color, bones)
 }
 
 /** Ícono de la app: cuadro negro con la calavera blanca. */
@@ -133,62 +123,11 @@ fun FlackerLogo(modifier: Modifier = Modifier, size: TextUnit = 19.sp) {
 }
 
 /**
- * La calavera en arte ASCII (como los dibujos de jp2a): generada de la misma figura vectorial con
- * tools/brand/ascii_skull.py y la rampa " .,:;?iSk$".
+ * La calavera pirata hecha de letras y números al azar (de [JollyRoger]).
  */
 object AsciiSkull {
-    val BIG = listOf(
-        "             .,;??iiii??;,.",
-        "          ,?S\$\$\$\$\$\$\$\$\$\$\$\$\$\$S?,",
-        "        :S\$\$\$\$Si\$\$\$\$\$S,i???i\$\$S:",
-        "      .S\$?;??i;:k\$\$\$\$kik\$\$\$i;S\$\$S.",
-        "     ,k:,k\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$:k\$\$k,",
-        "     ;SSS\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$;S\$\$\$k.",
-        "    ?;:, .,;?iSk\$\$\$\$\$\$\$\$\$\$\$\$k.;\$\$\$\$i",
-        "   .\$\$\$\$\$kSi?:,. ,:;?iSiiiSSkk\$\$\$\$\$k.",
-        "   :\$\$\$\$\$\$k?;:;?SSi?;:        .;;,.,:",
-        "   ;\$\$\$\$\$? .???. ?\$\$\$S         .iS\$\$;",
-        "   ;\$\$\$\$\$  S,i,S .\$\$\$i         :\$\$\$\$;",
-        "   .\$\$\$\$\$, ;?;?? :\$\$\$S         ?\$\$\$\$.",
-        "    i\$\$\$\$k;..,. :k\$\$\$\$?       .k\$\$\$i",
-        "    .k\$\$\$\$\$\$kSSk\$\$\$kk\$\$k?:,,:?k\$\$\$k.",
-        "     .i\$\$\$\$\$\$\$\$\$\$\$\$,,k\$\$\$\$\$\$\$\$\$\$\$i.",
-        "       :k\$\$\$\$\$\$\$\$\$;  ;\$\$\$\$\$\$\$\$\$k:",
-        "        :\$\$\$\$\$\$\$\$\$kkkk\$\$\$\$\$\$\$\$\$:",
-        "        :\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$:",
-        "         i\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$i",
-        "   ..      .S\$\$:\$?Siik?\$:\$\$S.      ..",
-        "  ;??:      ???.?,;::;,?.??i      :??;",
-        " :??????;:,.?\$\$,\$;Si?S;\$,\$\$?.,:;??????:",
-        ",???,:;??????SkkkSSSSSSkkkS??????;:,???,",
-        " .,.    .,:;???????;;???????;:,.    .,.",
-        "            .:;??????????;:.",
-        " :;,  .,:;???????;:,,:;???????;:,.  ,;:",
-        ".???;??????;:,.          .,:;??????;???.",
-        " .,:???:,                      ,:???:,.",
-    ).joinToString("\n")
-    val SMALL = listOf(
-        "        .:?iSSSSi?:.",
-        "      ;S\$\$k\$\$\$\$iSSSkS;",
-        "    ,SiiiS:k\$\$\$iSkk?i\$S,",
-        "   ,k:S\$\$\$\$\$\$\$\$\$\$\$\$\$?k\$k,",
-        "   ;:::?iSk\$\$\$\$\$\$\$\$\$;i\$\$k",
-        "  :\$\$\$kSi;;:::;????iiS\$ki:",
-        "  ;\$\$\$k:,:,:k\$k,      ,;i;",
-        "  ;\$\$\$:.???.;\$\$,      k\$\$;",
-        "  ,\$\$\$i ;:; S\$\$;     .\$\$\$,",
-        "   ?\$\$\$ki?ik\$\$\$\$i:..:k\$\$?",
-        "    ;\$\$\$\$\$\$\$\$::\$\$\$\$\$\$\$\$;",
-        "     .\$\$\$\$\$\$k??k\$\$\$\$\$\$.",
-        "      k\$\$\$\$\$\$\$\$\$\$\$\$\$\$k",
-        "      ,?S\$k\$SkkS\$k\$S?,",
-        " .?;    ;i;?:?;:?;i;    ;?.",
-        ".;????;::\$ik?SS?ki\$::;????;.",
-        ".;, .,:;?iiii??iiii?;:,. ,;.",
-        "        ,:????????:,",
-        ",?;,:;????;:,..,:;????;:,;?,",
-        ".:;??:,.            .,:??;:.",
-    ).joinToString("\n")
+    val BIG: String by lazy { JollyRoger.text(JollyRoger.colsFor(28), 28) }
+    val SMALL: String by lazy { JollyRoger.text(JollyRoger.colsFor(20), 20) }
 }
 
 /**

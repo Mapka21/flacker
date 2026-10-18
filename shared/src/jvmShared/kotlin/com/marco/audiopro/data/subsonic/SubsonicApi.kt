@@ -78,6 +78,9 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     suspend fun albumList(type: String, size: Int = 40, offset: Int = 0, extra: Map<String, Any?> = emptyMap()): List<Album> =
         get<AlbumList>("getAlbumList2", "albumList2", mapOf("type" to type, "size" to size, "offset" to offset) + extra, AlbumList()).album
 
+    /** Pide al servidor que vuelva a leer los archivos (después de arreglar metadatos). */
+    suspend fun startScan() { runCatching { call("startScan") } }
+
     suspend fun genres(): List<Genre> = get("getGenres", "genres", default = Genres()).genre
 
     suspend fun album(id: String): Album = get("getAlbum", "album", mapOf("id" to id), Album(id))
@@ -154,7 +157,7 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     var offlineQueue: com.marco.audiopro.data.ScrobbleQueue? = null
 
     suspend fun scrobble(id: String, submission: Boolean) {
-        if (id.startsWith("dz:")) return // muestras de Descubrir: no son de tu servidor
+        if (id.startsWith("dz:") || id.startsWith("radio:")) return // muestras de Descubrir y radio: no son de tu servidor
         val q = offlineQueue
         if (submission && q != null) { q.submit(id); return }
         runCatching { call("scrobble", mapOf("id" to id, "submission" to submission, "time" to System.currentTimeMillis())) }

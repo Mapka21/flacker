@@ -36,6 +36,30 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v2.11**:
+  - **Logo nuevo**: calavera pirata con huesos cruzados hecha de letras y números al azar (una sola
+    figura matemática: `JollyRoger.kt` / `tools/brand/jolly.py`); sólida en los íconos chicos y de
+    letras en los grandes. **Animación de entrada**: la calavera se arma, se ríe moviendo la mandíbula
+    y escribe "FLACKER 333" (clic o toque la salta; `-Dflacker.noSplash=true` la quita).
+  - **Radio** (radio-browser.info): 17 nichos curados (Groove ruso, Techno francés, French touch,
+    Minimal y dub techno, Italo disco, Post-punk y darkwave, Shoegaze, City pop, Synthwave, Phonk,
+    Rare groove…), buscador por género o nombre, estaciones guardadas. En vivo en PC y celular (en
+    Android la radio no entra a la caché).
+  - **Géneros de verdad**: cada álbum se revisa en MusicBrainz (géneros votados por la comunidad,
+    normalizados a ~250 nombres y 17 familias) y se guarda; un disco de shoegaze ya no sale como
+    "Rock". Sección **Géneros** por familia, página de cada género (Mix, Todo al azar, Radio del
+    género, artistas, álbumes, lo que más pones) y **Mixes por género** en Inicio.
+  - **Arreglar metadatos** (PC): revisa tus carpetas contra MusicBrainz y propone nombres, número de
+    pista, año original, géneros, portada 1200 px (Cover Art Archive) y letras sincronizadas (LRCLIB →
+    `.lrc`), con antes/después por disco, "Aplicar los seguros" y **Deshacer** (se guarda una copia de
+    las etiquetas y la portada). Con Navidrome pide `startScan`; en modo local vuelve a leer.
+  - **Visuales Xbox**: **Xbox 2001** (tipo Geiss, ondas verde y azul con estela) y **Neón 360**
+    rehecho a la manera de Jeff Minter (simetría de espejo, arcos parabólicos, chorros de partículas
+    que explotan con el bajo). Se **manejan con el control de Xbox** (XInput, sólo con la app al frente),
+    las flechas, +/− y la rueda del mouse en pantalla completa.
+  - **Letras**: soporte de LRC con tiempo por palabra (`<mm:ss.xx>`), el retraso de audio de los
+    visuales (Bluetooth) aplicado también a la letra y **[ / ]** para moverla al momento.
+
 - **v2.10**:
   - **Transmitir a la tele**: en el botón de dispositivos, "Transmitir a la tele" encuentra
     **Chromecast** (y teles con Chromecast), **Roku** y teles/bocinas **DLNA** de tu Wi-Fi. La cola,

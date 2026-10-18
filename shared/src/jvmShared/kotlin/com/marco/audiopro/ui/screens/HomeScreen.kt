@@ -221,17 +221,23 @@ fun HomeScreen(nav: NavController) {
                             }
                         }
                         Shelf("Agregados recientemente", home.newest, nav, big = true)
-                        if (home.genres.isNotEmpty()) {
-                            SectionHeader("Explora por género")
-                            val cols = if (wide) 4 else 2
-                            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                home.genres.chunked(cols).forEach { row ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        row.forEach { (name, cover) ->
-                                            CategoryTile(name, null, cover, Modifier.weight(1f)) { nav.navigate(BrowseRoute(name, genre = name)) }
-                                        }
-                                        repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                        // Mixes por género (géneros ya corregidos con MusicBrainz) y accesos a Radio y Géneros.
+                        com.marco.audiopro.ui.screens.GenreMixesRow(nav)
+                        val gs = c.genres.state.collectAsState().value.genres
+                        SectionHeader("Explora")
+                        val cols = if (wide) 4 else 2
+                        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                CategoryTile("Radio", "Estaciones de nicho en vivo", null, Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.RadioRoute()) }
+                                CategoryTile("Géneros", "${gs.size.takeIf { it > 0 } ?: ""} en tu música".trim(), gs.firstOrNull()?.covers?.firstOrNull(), Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.GenresRoute) }
+                                if (cols > 2) repeat(cols - 2) { Spacer(Modifier.weight(1f)) }
+                            }
+                            gs.take(cols * 2).chunked(cols).forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    row.forEach { g ->
+                                        CategoryTile(g.name, "${g.albums.size} álbumes", g.covers.firstOrNull(), Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.GenreRoute(g.name)) }
                                     }
+                                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         }

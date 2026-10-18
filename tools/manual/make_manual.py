@@ -156,9 +156,11 @@ story += LI([
     "<b>Volumen parejo</b> para que todas las rolas suenen igual de fuerte.",
     "<b>Visuales</b> estilo Xbox 360 que bailan con el bajo y una <b>pantalla completa</b> con la letra animada.",
     "<b>Letras sincronizadas</b> y <b>historias de Instagram</b> con la portada o un pedazo de la letra.",
+    "<b>Radio</b> en vivo de nicho (groove ruso, techno francés, italo disco, city pop…) y <b>Géneros</b> de verdad, con mixes.",
+    "<b>Arreglar metadatos</b> (PC): portadas, nombres, años, géneros y letras parejos en todos tus discos.",
     "<b>Transmitir a la tele</b> (Chromecast, Roku, teles DLNA) y <b>Flacker Connect</b> entre tu cel y tu PC.",
 ])
-story += shot("d2-home", "Inicio en la PC.")
+story += shot("d2-home", "Inicio en la PC.", width=4.9 * inch)
 
 # 2 · Instalar
 story += [PageBreak()] + section("Instalar", "01 · instalación")
@@ -184,7 +186,8 @@ story += tip("Los fondos animados más pesados (Caleidoscopio, Plasma, Túnel 36
 
 # 3 · Primer arranque
 story += [PageBreak()] + section("Tu música", "02 · primer arranque")
-story += [P("La primera vez Flacker te pregunta de dónde sale tu música. Hay dos caminos:"), H2("A) Sin servidor (lo más fácil)")]
+story += [P("Al abrirla sale la calavera de letras riéndose (un clic o toque la salta). La primera vez Flacker te pregunta de dónde "
+            "sale tu música. Hay dos caminos:"), H2("A) Sin servidor (lo más fácil)")]
 story += LI([
     "<b>En la PC:</b> toca <b>Usar mi música de una carpeta</b> y elige la carpeta donde tienes tus discos "
     "(por ejemplo <font name='Mono'>Música</font>). Lee FLAC, MP3, M4A, ALAC, OGG, WAV y DSD, con sus portadas "
@@ -218,6 +221,9 @@ story += keys([
     ("Alt + ← / →", "Atrás / adelante entre pantallas"),
     ("F11", "Pantalla completa (Esc para salir)"),
     ("L", "En pantalla completa: cambia entre Letra, Solo visual y Portada"),
+    ("← → / ↑ ↓", "En pantalla completa: girar / acercar los visuales (también la rueda del mouse)"),
+    ("+ / −  ·  F  ·  A", "Velocidad de los visuales · forma de las ondas · otro efecto"),
+    ("[ / ]", "Mover la letra 0.1 s (si va adelantada o atrasada)"),
     ("Teclas multimedia", "Funcionan aunque la app esté minimizada"),
 ])
 story += [P("También aparece en el control multimedia de Windows (volumen / pantalla de bloqueo) y la vista previa de la barra de "
@@ -256,11 +262,50 @@ story += table(["Modo", "Qué ves"], [
     ["<b>Portada</b>", "La portada en grande latiendo con el bajo, con la canción y su avance. Ideal para dejarla en la tele."],
 ], [1.3 * inch, W - 2 * M - 1.3 * inch])
 story += [P("Arriba a la derecha (mueve el mouse o toca la pantalla) eliges el modo, <b>Fondo: Mezcla</b> o uno fijo, y el botón "
-            "para transmitir.")]
+            "para transmitir. Hay dos homenajes a la Xbox: <b>Xbox 2001</b> (las ondas verde y azul del reproductor de CD de la primera "
+            "Xbox) y <b>Neón 360</b> (como el \"Neon\" de Jeff Minter: todo en espejo, partículas y arcos que explotan con el bajo).")]
+xb = Table([[Image(os.path.join(IMG, "v-geiss.png"), width=2.9 * inch, height=2.9 * inch * 9 / 16), Image(os.path.join(IMG, "v-neon.png"), width=2.9 * inch, height=2.9 * inch * 9 / 16)]], colWidths=[3.05 * inch, 3.05 * inch])
+story += [KeepTogether([xb, P("Xbox 2001 y Neón 360.", "cap")])]
+story += [H2("Con el control de Xbox (PC)")]
+story += [P("Conecta un control de Xbox (cable, inalámbrico o Bluetooth) y, con Flacker al frente, manejas los visuales como en la consola:")]
+story += keys([
+    ("Stick izquierdo", "Girar y acercar"),
+    ("Stick derecho", "Hacia dónde se va la estela"),
+    ("Gatillos RT / LT", "Más rápido / más lento"),
+    ("X  ·  A", "Forma de las ondas · cambiar de efecto"),
+    ("Y  ·  B", "Pantalla completa (otra vez: cambia el modo) · salir"),
+    ("LB / RB  ·  Start", "Anterior / siguiente · play / pausa"),
+    ("Cruceta ↑ ↓  ·  Back", "Volumen · regresar los visuales a como estaban"),
+])
 story += shot("d12-immersive-portada", "Pantalla completa en modo Portada.", width=4.6 * inch)
 
 # 7 · Letras e Instagram
-story += [Spacer(1, 10)] + section("Letras e historias", "05 · compartir")
+story += [PageBreak()] + section("Radio y géneros", "05 · explorar")
+story += [P("<b>Radio</b> (barra lateral en la PC; en el cel, desde Inicio → Explora): estaciones en vivo de todo el mundo. Hay nichos "
+            "armados a mano (Groove ruso, Techno francés, French touch, Italo disco, Post-punk y darkwave, Shoegaze, City pop, Phonk, "
+            "Rare groove…) y un buscador por género o por nombre. El corazón guarda la estación en <b>Tus estaciones</b>.")]
+story += [P("<b>Géneros</b>: las etiquetas de los archivos muchas veces dicen \"Rock\" a todo. Flacker revisa cada disco en "
+            "MusicBrainz (la base de datos abierta de música) y usa los géneros que vota la comunidad: un disco de shoegaze sale como "
+            "Shoegaze, no como Rock. La primera vez tarda un rato (revisa un disco por segundo, en segundo plano) y después queda guardado. "
+            "Cada género tiene su página con <b>Mix</b>, <b>Todo al azar</b>, <b>Radio del género</b>, artistas, álbumes y lo que más pones; "
+            "en Inicio salen los <b>Mixes por género</b>.")]
+row2 = Table([[Image(os.path.join(IMG, "d15-radio.png"), width=3.0 * inch, height=3.0 * inch * 860 / 1380), Image(os.path.join(IMG, "d14-genre.png"), width=3.0 * inch, height=3.0 * inch * 860 / 1380)]], colWidths=[3.1 * inch, 3.1 * inch])
+story += [row2, P("Radio con sus nichos y la página de un género.", "cap")]
+story += [H2("Arreglar metadatos (PC)")]
+story += [P("¿Discos con portadas distintas, títulos con \"01 - track\", años de la reedición o sin género? En <b>Arreglar metadatos</b>:")]
+story += NUM([
+    "Agrega la carpeta donde están tus discos (la de tu música local ya aparece).",
+    "Toca <b>Revisar mis discos</b>. Flacker lee tus archivos y busca cada disco en MusicBrainz por artista, nombre, número de "
+    "canciones y duraciones.",
+    "Cada disco dice <b>Ya está bien</b>, qué cambiaría (con qué tan seguro está) o <b>No lo encontré</b>. Ábrelo para ver el antes y el "
+    "después: nombre, artista, año original, géneros, la portada nueva (1200 px) y cada canción.",
+    "Elige qué aplicar (nombres, año, géneros, portada, <b>letras sincronizadas</b>) y toca <b>Aplicar</b>. "
+    "<b>Aplicar los seguros</b> arregla de una vez todos los que cuadran casi perfecto.",
+    "Si no te gustó, <b>Deshacer</b> regresa el último disco a como estaba (etiquetas, portada y letras).",
+])
+story += tip("Si usas Navidrome con la música en tu PC o NAS, agrega esa carpeta: al terminar, Flacker le pide al servidor que vuelva a "
+             "leer los archivos. Si no encuentra un disco, búscalo a mano con <b>Buscar otra edición</b> (por ejemplo \"Air Moon Safari\").")
+story += [Spacer(1, 10)] + section("Letras e historias", "06 · compartir")
 story += LI([
     "Las letras salen de la etiqueta del archivo, de un <font name='Mono'>.lrc</font> junto a la canción o de internet. Si van "
     "adelantadas o atrasadas, en la pantalla de letra puedes moverlas.",
@@ -276,7 +321,7 @@ row.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
 story += [Spacer(1, 6), row, P("Historia con la portada y con un pedazo de la letra.", "cap")]
 
 # 8 · Tele
-story += [PageBreak()] + section("Mandar la música a la tele", "06 · transmitir")
+story += [PageBreak()] + section("Mandar la música a la tele", "07 · transmitir")
 story += [P("Toca el botón de <b>dispositivos</b> (en el reproductor, en la barra de abajo de la PC o en la pantalla completa). "
             "En <b>Transmitir a la tele</b> aparecen los aparatos de tu Wi-Fi; toca uno y la música se pasa allá. "
             "Play, pausa, siguiente, la cola y el volumen se manejan desde Flacker. Para regresarla, toca <b>Este dispositivo</b>.")]
@@ -302,7 +347,7 @@ story += [P("Con Flacker abierto en tu cel y en tu PC (misma red), cada uno ve a
             "uno a otro o usar el cel como control remoto de la PC.")]
 
 # 9 · Problemas
-story += [PageBreak()] + section("Si algo no jala", "07 · problemas comunes")
+story += [PageBreak()] + section("Si algo no jala", "08 · problemas comunes")
 story += table(["Pasa esto", "Prueba esto"], [
     ["Windows no deja abrir la app", "SmartScreen: <b>Más información → Ejecutar de todas formas</b>."],
     ["No aparece la tele / el otro dispositivo", "Misma red Wi-Fi; en Windows permite Flacker en el firewall para redes privadas; "
@@ -310,13 +355,16 @@ story += table(["Pasa esto", "Prueba esto"], [
     ["La Roku dice que no deja", "Pon <b>Control por apps móviles → Acceso a la red → Predeterminado</b>."],
     ["Faltan discos o salen como “Desconocido”", "Revisa las etiquetas de los archivos y toca <b>Ajustes → Tu música → Volver a leer</b>."],
     ["No salen portadas", "Que el archivo traiga portada o que haya un <font name='Mono'>cover.jpg</font> en la carpeta del disco."],
-    ["La letra va desfasada", "Muévela en la pantalla de letra (adelantar / atrasar)."],
+    ["La letra va desfasada", "Muévela en la pantalla de letra, o en pantalla completa con <b>[</b> y <b>]</b>. Con bocinas Bluetooth, "
+                              "ajusta el retraso de los visuales en Ajustes: la letra lo usa también."],
+    ["Un disco salió con datos raros", "<b>Arreglar metadatos</b> → ábrelo → <b>Buscar otra edición</b>; o <b>Deshacer</b>."],
+    ["Una estación de radio no suena", "Algunas se caen o cambian de dirección: prueba otra del mismo nicho."],
     ["Se oye bajito o muy distinto entre rolas", "Activa <b>Volumen parejo</b> (o <b>Fuerte</b>)."],
     ["Va lenta la pantalla completa", "Elige <b>Fondo</b> fijo con un efecto más ligero (Synthwave, Hiperespacio) o el modo Portada."],
 ], [2.3 * inch, W - 2 * M - 2.3 * inch])
 
 # 10 · Retro
-story += [PageBreak()] + section("Tu retro", "08 · beta")
+story += [PageBreak()] + section("Tu retro", "09 · beta")
 story += [P("Lo que nos cuentes decide qué se arregla primero y hacia dónde va la app. No hay respuestas malas: si algo te "
             "aburre, te confunde o te encanta, también cuenta.")]
 story += [H2("Pruébale esto")]
@@ -326,6 +374,8 @@ story += LI([
     "Los presets de EQ con tu música y el <b>Volumen parejo</b>.",
     "La pantalla completa con letras (¿se ve chido? ¿qué estilo te gustó más y cuál no?).",
     "Mandar la música a la tele y compartir una historia.",
+    "La radio (¿encontraste algo chido?), los mixes por género y, en la PC, <b>Arreglar metadatos</b> con algunos discos.",
+    "Si tienes control de Xbox: la pantalla completa con el control.",
 ])
 story += [H2("Cómo reportar un error")]
 story += [P("Manda un mensaje con esto (una captura o un video corto ayudan muchísimo):")]
@@ -340,16 +390,17 @@ form = Table([[Paragraph(
     "</font>", st["tip"])]], colWidths=[W - 2 * M])
 form.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, INK), ("LEFTPADDING", (0, 0), (-1, -1), 14),
                           ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 12)]))
-story += [form, Spacer(1, 12), H2("Y unas preguntas rápidas")]
+story += [form, Spacer(1, 8)]
+story += tip("Tu música, tus archivos y tus datos se quedan en tus dispositivos. Flacker no tiene cuentas, ni anuncios, ni manda "
+             "lo que escuchas a ningún lado (salvo a tu propio servidor o a Last.fm, si tú lo configuras).", "PRIVACIDAD")
+story += [H2("Y unas preguntas rápidas")]
 story += NUM([
-    "¿Qué es lo que <b>más</b> te gustó? ¿Y lo que menos?",
+    "¿Qué es lo que <b>más</b> te gustó? ¿Y lo que menos? ¿A quién se la recomendarías?",
     "¿Qué te falta para usarla en lugar de Spotify / Apple Music / YouTube Music?",
     "¿Hubo algo que no encontraste o no entendiste cómo usar?",
     "Si Flacker fuera de paga, ¿pagarías? ¿Prefieres un pago único o una suscripción? ¿Cuánto te parecería justo?",
-    "¿A quién se la recomendarías?",
 ])
-story += tip("Tu música, tus archivos y tus datos se quedan en tus dispositivos. Flacker no tiene cuentas, ni anuncios, ni manda "
-             "lo que escuchas a ningún lado (salvo a tu propio servidor o a Last.fm, si tú lo configuras).", "PRIVACIDAD")
+
 
 
 doc = BaseDocTemplate(OUT, pagesize=letter, leftMargin=M, rightMargin=M, topMargin=0.95 * inch, bottomMargin=0.85 * inch,

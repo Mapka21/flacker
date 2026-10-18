@@ -47,7 +47,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flacker"
-            packageVersion = "2.10.0"
+            packageVersion = "2.11.0"
             description = "Flacker: tu música de Navidrome en alta fidelidad"
             vendor = "Marco"
             includeAllModules = true
@@ -63,14 +63,14 @@ compose.desktop {
 }
 
 tasks.withType<Test> {
-    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR", "MARCO_LOCAL_DIRS", "MARCO_LIVE", "MARCO_BENCH", "MARCO_CAST_SCAN", "MARCO_CAST_DEVICE", "MARCO_CAST_URL").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
+    listOf("MARCO_TEST_SERVER", "MARCO_SHOTS_DIR", "MARCO_LOCAL_DIRS", "MARCO_LIVE", "MARCO_BENCH", "MARCO_CAST_SCAN", "MARCO_CAST_DEVICE", "MARCO_CAST_URL", "MARCO_FIX_DIR").forEach { k -> System.getenv(k)?.let { environment(k, it) } }
     testLogging { events("passed", "failed", "skipped"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
 
 // ./gradlew :desktop:run -Pmarco.profile=dev → ajustes separados de los reales.
 afterEvaluate {
     tasks.withType<JavaExec>().configureEach {
-        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps", "flacker.debugWindow", "flacker.debugImmersive").forEach { k ->
+        listOf("marco.profile", "marco.startMini", "flacker.nativeTitle", "flacker.debugFrame", "flacker.debugFps", "flacker.debugWindow", "flacker.debugImmersive", "flacker.noSplash").forEach { k ->
             (project.findProperty(k) as String?)?.let { systemProperty(k, it) }
         }
     }

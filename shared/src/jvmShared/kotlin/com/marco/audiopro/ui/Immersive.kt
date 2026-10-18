@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -104,6 +105,12 @@ object Immersive {
     /** Fondo fijo elegido (null = se van mezclando solos). */
     var pinned by mutableStateOf<VisualPreset?>(null)
     fun cycleMode() { mode = ImmersiveMode.entries[(mode.ordinal + 1) % ImmersiveMode.entries.size] }
+    /** Pedir un cambio de efecto ya (A en el control, el coro). */
+    var swapNow by mutableStateOf(false)
+    /** Aviso corto arriba ("Letra +0.2 s", "Velocidad ×2"). */
+    var toast by mutableStateOf<String?>(null)
+    /** Lo pone la pantalla completa: mueve la letra de la canción actual [deltaMs]. */
+    var nudgeLyrics: (Long) -> Unit = {}
 }
 
 enum class ImmersiveMode(val label: String) { LETRA("Letra"), VISUAL("Solo visual"), PORTADA("Portada") }
@@ -111,7 +118,7 @@ enum class ImmersiveMode(val label: String) { LETRA("Letra"), VISUAL("Solo visua
 /** Fondos completos (abajo): los de shader y los que llenan la pantalla. */
 private val BasePool = listOf(
     VisualPreset.CALEIDO, VisualPreset.PLASMA, VisualPreset.TUNEL, VisualPreset.FRACTAL, VisualPreset.ESTALLIDO,
-    VisualPreset.NEXO, VisualPreset.NEON, VisualPreset.SYNTH, VisualPreset.ASCII, VisualPreset.HIPER,
+    VisualPreset.NEXO, VisualPreset.NEON, VisualPreset.XBOX, VisualPreset.SYNTH, VisualPreset.ASCII, VisualPreset.HIPER,
 ).filter { it in VisualPreset.available }
 
 /** Figuras que se suman encima con luz (null = el fondo solo, para que respire). */
@@ -151,7 +158,6 @@ fun ImmersiveScreen(onExit: () -> Unit) {
     LaunchedEffect(Immersive.pinned) { Immersive.pinned?.let { base = it } }
     var top by remember { mutableStateOf<VisualPreset?>(VisualPreset.HALO) }
     var swaps by remember { mutableIntStateOf(0) }
-    var swapNow by remember { mutableStateOf(false) }
     val flash = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         var since = 0L
@@ -160,7 +166,8 @@ fun ImmersiveScreen(onExit: () -> Unit) {
         while (true) {
             delay(100); since += 100
             val strongBeat = LiveAudio.features.beat > 0.9f && since > 6_000
-            if (since > every || strongBeat || (swapNow && since > 3_000)) {
+            val swapNow = Immersive.swapNow
+            if (since > every || strongBeat || (swapNow && since > 1_500)) {
                 swaps++
                 if (changeTop || Immersive.pinned != null) {
                     top = TopPool.filter { it != top && it != base }.random()
@@ -170,7 +177,7 @@ fun ImmersiveScreen(onExit: () -> Unit) {
                 }
                 changeTop = !changeTop
                 launch { flash.snapTo(if (swapNow || strongBeat) 0.55f else 0.25f); flash.animateTo(0f, tween(700)) }
-                swapNow = false
+                Immersive.swapNow = false
                 since = 0
                 every = Random.nextLong(9_000, 16_000)
             }
@@ -187,8 +194,11 @@ fun ImmersiveScreen(onExit: () -> Unit) {
     val clock = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(Unit) {
         val t0 = System.nanoTime()
+        var last = 0L
         while (true) withFrameNanos {
             beat.floatValue = LiveAudio.features.beat; bass.floatValue = LiveAudio.features.bass; clock.floatValue = (it - t0) / 1e9f
+            if (last != 0L) com.marco.audiopro.ui.viz.VizControl.step(((it - last) / 1e9f).coerceAtMost(0.1f))
+            last = it
         }
     }
 
@@ -199,6 +209,10 @@ fun ImmersiveScreen(onExit: () -> Unit) {
                     while (true) {
                         val e = awaitPointerEvent()
                         if (e.type == PointerEventType.Move || e.type == PointerEventType.Press) { controls = true; lastMove = System.currentTimeMillis() }
+                        if (e.type == PointerEventType.Scroll) {
+                            val vc = com.marco.audiopro.ui.viz.VizControl
+                            vc.zoom = (vc.zoom - (e.changes.firstOrNull()?.scrollDelta?.y ?: 0f) * 0.06f).coerceIn(-0.4f, 0.8f)
+                        }
                     }
                 }
             }
@@ -208,9 +222,10 @@ fun ImmersiveScreen(onExit: () -> Unit) {
         Box(
             Modifier.fillMaxSize().graphicsLayer {
                 val b = beat.floatValue; val lo = bass.floatValue; val t = clock.floatValue
-                val z = 1.03f + 0.07f * lo + 0.10f * b
+                val vc = com.marco.audiopro.ui.viz.VizControl
+                val z = (1.03f + 0.07f * lo + 0.10f * b) * (1f + 0.5f * vc.zoom)
                 scaleX = z; scaleY = z
-                rotationZ = sin(t * 0.35f) * 1.2f + (if (b > 0.4f) sin(t * 40f) * 1.1f * b else 0f)
+                rotationZ = vc.angle + sin(t * 0.35f) * 1.2f + (if (b > 0.4f) sin(t * 40f) * 1.1f * b else 0f)
                 translationX = if (b > 0.4f) sin(t * 63f) * 9f * b * density else 0f
                 translationY = if (b > 0.4f) sin(t * 71f + 1f) * 7f * b * density else 0f
             },
@@ -235,12 +250,27 @@ fun ImmersiveScreen(onExit: () -> Unit) {
 
         if (song != null) AnimatedContent(Immersive.mode, transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(300)) }, label = "mode") { m ->
             when (m) {
-                ImmersiveMode.LETRA -> ImmersiveLyrics(song, beat, bass, clock, onChorus = { swapNow = true }, Modifier.fillMaxSize())
+                ImmersiveMode.LETRA -> ImmersiveLyrics(song, beat, bass, clock, onChorus = { Immersive.swapNow = true }, Modifier.fillMaxSize())
                 ImmersiveMode.PORTADA -> CoverStage(song, st.durationMs, beat, bass, clock)
                 ImmersiveMode.VISUAL -> NowPlayingToast(song)
             }
         }
 
+        val toast = Immersive.toast
+        LaunchedEffect(toast) { if (toast != null) { delay(1400); Immersive.toast = null } }
+        AnimatedVisibility(toast != null, Modifier.align(Alignment.TopCenter).padding(top = 28.dp), enter = fadeIn(), exit = fadeOut()) {
+            Text(
+                toast ?: "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 18.dp, vertical = 9.dp),
+            )
+        }
+        AnimatedVisibility(controls && com.marco.audiopro.ui.viz.VizControl.pad, Modifier.align(Alignment.BottomEnd), enter = fadeIn(), exit = fadeOut()) {
+            Text(
+                "CONTROL  ·  stick izq: girar y acercar  ·  stick der: mover  ·  gatillos: velocidad  ·  X: forma  ·  A: otro efecto  ·  Y: modo  ·  B: salir",
+                fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f),
+                modifier = Modifier.padding(24.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.5f)).padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomStart), enter = fadeIn(), exit = fadeOut()) {
             if (song != null) ImmersiveBar(song, st.isPlaying)
         }
@@ -326,7 +356,7 @@ private fun rememberSmoothPosition(): State<Long> {
 private enum class Kin { POP, LEAN_L, LEAN_R, STACK, DROP, ZOOM, TYPE, OUTLINE, SCATTER, SLAM, WAVE, SPOT }
 
 /** Un verso ya preparado: sus palabras, cuándo entra cada una y su estilo. */
-private class Verse(val text: String, val start: Long, end: Long, val kin: Kin, val chorus: Boolean) {
+private class Verse(val text: String, val start: Long, end: Long, val kin: Kin, val chorus: Boolean, wordStarts: List<Long>? = null) {
     val words = text.split(" ").filter { it.isNotEmpty() }
     private val len = text.length
     /** Cuánto tarda en salir todo el verso (se canta al principio; luego suele haber pausa). */
@@ -336,6 +366,16 @@ private class Verse(val text: String, val start: Long, end: Long, val kin: Kin, 
     private val t1 = LongArray(words.size)
 
     init {
+        if (wordStarts != null && wordStarts.size == words.size) {
+            // La letra trae el tiempo exacto de cada palabra: se usa tal cual.
+            for (w in words.indices) {
+                t0[w] = wordStarts[w] - start
+                t1[w] = (wordStarts.getOrNull(w + 1)?.minus(start) ?: (t0[w] + 450)).coerceAtLeast(t0[w] + 120) + 60
+            }
+        } else initGuess()
+    }
+
+    private fun initGuess() {
         // Las palabras largas tardan más en cantarse: el tiempo se reparte por letras.
         val weights = words.map { it.length + 1.5 }
         val total = weights.sum().coerceAtLeast(1.0)
@@ -378,7 +418,7 @@ private fun planVerses(song: Song, lines: List<com.marco.audiopro.data.subsonic.
         val kin = options[rnd.nextInt(options.size)]
         recent.addLast(kin); if (recent.size > 2) recent.removeFirst()
         val start = l.start ?: 0L
-        Verse(text, start, lines.getOrNull(k + 1)?.start ?: (start + 5000), kin, chorus)
+        Verse(text, start, lines.getOrNull(k + 1)?.start ?: (start + 5000), kin, chorus, l.words)
     }
 }
 
@@ -396,7 +436,17 @@ private fun ImmersiveLyrics(song: Song, beat: State<Float>, bass: State<Float>, 
     val lyrics by produceState<StructuredLyrics?>(null, song.id) { value = runCatching { c.lyrics.get(song) }.getOrNull() }
     val pos = rememberSmoothPosition()
     val offsets by c.lyrics.offsets.collectAsState()
-    val offset = offsets[song.id] ?: 0L
+    val prefs by c.settings.prefs.collectAsState()
+    // El mismo retraso que los visuales (bocinas Bluetooth, etc.) y el ajuste de esta canción.
+    val offset = (offsets[song.id] ?: 0L) - prefs.visualOffsetMs
+    DisposableEffect(song.id) {
+        Immersive.nudgeLyrics = { d ->
+            val now = (c.lyrics.offsets.value[song.id] ?: 0L) + d
+            c.lyrics.setOffset(song.id, now)
+            Immersive.toast = "Letra " + (if (now >= 0) "+" else "") + "%.1f s".format(now / 1000f)
+        }
+        onDispose { Immersive.nudgeLyrics = {} }
+    }
 
     BoxWithConstraints(modifier.padding(horizontal = 48.dp, vertical = 40.dp), contentAlignment = Alignment.Center) {
         val wide = maxWidth > 700.dp

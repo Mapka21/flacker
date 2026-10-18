@@ -41,6 +41,8 @@ data class Song(
     val externalUrl: String? = null,
 ) {
     val isPreview: Boolean get() = externalUrl != null
+    /** Estación de radio en vivo (sin duración). */
+    val isRadio: Boolean get() = id.startsWith("radio:")
 
     /** "FLAC · 24/96" */
     val formatLabel: String
@@ -168,7 +170,12 @@ data class Playlists(val playlist: List<Playlist> = emptyList())
 data class RandomSongs(val song: List<Song> = emptyList())
 
 @Serializable
-data class Lyric(val start: Long? = null, val value: String = "")
+data class Lyric(
+    val start: Long? = null,
+    val value: String = "",
+    /** Inicio de cada palabra (ms) si la letra lo trae (LRC mejorado); null si sólo hay tiempo por línea. */
+    val words: List<Long>? = null,
+)
 
 @Serializable
 data class StructuredLyrics(

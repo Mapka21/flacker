@@ -68,7 +68,8 @@ class PlaybackService : MediaSessionService() {
         val streamCache = CacheDataSource.Factory()
             .setCache(c.mediaCache)
             .setUpstreamDataSourceFactory(upstream)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+            // La radio en vivo no tiene tamaño: no se guarda en la caché (no termina nunca).
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR or CacheDataSource.FLAG_IGNORE_CACHE_FOR_UNSET_LENGTH_REQUESTS)
         val dataSource = CacheDataSource.Factory()
             .setCache(c.downloadCache)
             .setUpstreamDataSourceFactory(streamCache)
@@ -133,7 +134,7 @@ class PlaybackService : MediaSessionService() {
     /** La UI manda MediaItems sin URI (no cruzan el IPC): aquí se arma la URL de stream. */
     private fun resolve(item: MediaItem): MediaItem {
         item.toSong()?.externalUrl?.let { url ->
-            resolvedTransport[item.mediaId] = "Muestra de 30 s (Deezer, MP3)"
+            resolvedTransport[item.mediaId] = if (item.mediaId.startsWith("radio:")) "Radio en vivo" else "Muestra de 30 s (Deezer, MP3)"
             return item.buildUpon().setUri(url).build()
         }
         container.downloads.completed(item.mediaId)?.let { req ->

@@ -59,6 +59,9 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
         }
     }
 
+    /** Busca en LRCLIB con las mismas reglas estrictas (para el arreglador de metadatos). */
+    suspend fun lookup(song: Song): StructuredLyrics? = fetchLrclib(song)
+
     fun setOffset(songId: String, ms: Long) {
         _offsets.value = if (ms == 0L) _offsets.value - songId else _offsets.value + (songId to ms)
         runCatching { offsetsFile.writeText(SubsonicJson.encodeToString(_offsets.value)) }
@@ -180,12 +183,25 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
 
     companion object {
         private val tag = Regex("""\[(\d+):(\d+)(?:[.:](\d{1,3}))?]""")
+        private val wordTag = Regex("""<(\d+):(\d+)(?:[.:](\d{1,3}))?>""")
+
+        private fun ms(m: MatchResult): Long {
+            val (mm, ss, frac) = m.destructured
+            val f = when (frac.length) { 0 -> 0; 1 -> frac.toInt() * 100; 2 -> frac.toInt() * 10; else -> frac.take(3).toInt() }
+            return mm.toLong() * 60_000 + ss.toLong() * 1000 + f
+        }
 
         /** Líneas que no son letra: anuncios, marcas de agua, ligas, créditos de quien la subió. */
         private val junk = Regex(
             """(https?://|www\.|\.com\b|lyrics (provided|by)|musixmatch|letras\.|paroles|written by:|\*{3,}|subtitulado|subtitled|^\s*-+\s*$)""",
             RegexOption.IGNORE_CASE,
         )
+
+        /** Letra sincronizada como archivo .lrc ("[01:23.45] texto"). */
+        fun toLrc(l: StructuredLyrics): String = l.line.filter { it.start != null }.joinToString("\n") { x ->
+            val t = x.start!!
+            "[%02d:%02d.%02d] %s".format(t / 60_000, t / 1000 % 60, t % 1000 / 10, x.value)
+        } + "\n"
 
         /** Quita basura; si casi todo era basura, la letra no sirve. */
         fun clean(l: StructuredLyrics): StructuredLyrics? {
@@ -199,12 +215,16 @@ class LyricsRepository(private val http: OkHttpClient, private val api: Subsonic
         fun parseLrc(lrc: String): List<Lyric> = lrc.lines().flatMap { raw ->
             val stamps = tag.findAll(raw).toList()
             if (stamps.isEmpty()) return@flatMap emptyList()
-            val text = raw.substring(stamps.last().range.last + 1).trim()
-            stamps.map { m ->
-                val (mm, ss, frac) = m.destructured
-                val ms = when (frac.length) { 0 -> 0; 1 -> frac.toInt() * 100; 2 -> frac.toInt() * 10; else -> frac.take(3).toInt() }
-                Lyric(mm.toLong() * 60_000 + ss.toLong() * 1000 + ms, text)
-            }
+            val body = raw.substring(stamps.last().range.last + 1)
+            // Marcas por palabra (<mm:ss.xx>): se guardan aparte y se quitan del texto.
+            val wordMarks = wordTag.findAll(body).toList()
+            val text = body.replace(wordTag, " ").replace(Regex("\\s+"), " ").trim()
+            val words = if (wordMarks.isNotEmpty()) {
+                val parts = body.split(wordTag).drop(1)
+                val starts = wordMarks.mapIndexedNotNull { i, m -> if (parts.getOrNull(i).isNullOrBlank()) null else ms(m) }
+                starts.takeIf { it.size == text.split(" ").count { w -> w.isNotEmpty() } }
+            } else null
+            stamps.map { m -> Lyric(ms(m), text, words) }
         }.sortedBy { it.start }
     }
 }

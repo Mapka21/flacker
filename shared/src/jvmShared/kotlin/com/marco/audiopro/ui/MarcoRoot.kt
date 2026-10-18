@@ -138,6 +138,13 @@ import kotlin.reflect.KClass
 /** Artista / álbum del catálogo (Deezer), aunque no esté en tu biblioteca. */
 @Serializable data class ExternalArtistRoute(val id: Long)
 @Serializable data class ExternalAlbumRoute(val id: Long)
+/** Géneros de tu biblioteca (ya corregidos) y la página de uno. */
+@Serializable data object GenresRoute
+@Serializable data class GenreRoute(val name: String)
+/** Radio por internet; [query] = búsqueda inicial ("Radio Shoegaze" desde un género). */
+@Serializable data class RadioRoute(val query: String? = null)
+/** Arreglar metadatos (PC). */
+@Serializable data object FixRoute
 
 fun NavController.openAlbum(id: String) = navigate(AlbumRoute(id))
 fun NavController.openArtist(id: String) = navigate(ArtistRoute(id))
@@ -174,6 +181,10 @@ fun androidx.navigation.NavBackStackEntry.routeObject(): Any? {
             d.hasRoute(DiscoverRoute::class) -> DiscoverRoute
             d.hasRoute(LastFmRoute::class) -> LastFmRoute
             d.hasRoute(BrowseRoute::class) -> toRoute<BrowseRoute>()
+            d.hasRoute(GenresRoute::class) -> GenresRoute
+            d.hasRoute(GenreRoute::class) -> toRoute<GenreRoute>()
+            d.hasRoute(RadioRoute::class) -> toRoute<RadioRoute>()
+            d.hasRoute(FixRoute::class) -> FixRoute
             d.hasRoute(LibraryRoute::class) -> toRoute<LibraryRoute>()
             d.hasRoute(HomeRoute::class) -> HomeRoute
             d.hasRoute(SearchRoute::class) -> SearchRoute
@@ -197,6 +208,16 @@ data class NavItem(val route: Any, val label: String, val icon: ImageVector)
 /** Login, tema de acento y "me gusta": lo que comparten teléfono y PC antes de la cáscara. */
 @Composable
 fun MarcoGate(shell: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        GateContent(shell)
+        if (!com.marco.audiopro.ui.components.SplashState.done) {
+            com.marco.audiopro.ui.components.SkullSplash { com.marco.audiopro.ui.components.SplashState.done = true }
+        }
+    }
+}
+
+@Composable
+private fun GateContent(shell: @Composable () -> Unit) {
     val c = LocalApp.current
     AccentController()
     val account by c.settings.account.collectAsState()
@@ -235,6 +256,10 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         composable<DiscoverRoute> { DiscoverScreen(nav) }
         composable<LastFmRoute> { LastFmScreen(nav) }
         composable<BrowseRoute> { BrowseScreen(it.toRoute<BrowseRoute>(), nav) }
+        composable<GenresRoute> { com.marco.audiopro.ui.screens.GenresScreen(nav) }
+        composable<GenreRoute> { com.marco.audiopro.ui.screens.GenreScreen(it.toRoute<GenreRoute>().name, nav) }
+        composable<RadioRoute> { com.marco.audiopro.ui.screens.RadioScreen(nav, it.toRoute<RadioRoute>().query) }
+        composable<FixRoute> { com.marco.audiopro.ui.screens.FixScreen() }
         composable<ExternalArtistRoute> { ExternalArtistScreen(it.toRoute<ExternalArtistRoute>().id, nav) }
         composable<ExternalAlbumRoute> { ExternalAlbumScreen(it.toRoute<ExternalAlbumRoute>().id, nav) }
         // El fondo es compartido: el reproductor entra creciendo y desvaneciéndose, sin tapar nada.

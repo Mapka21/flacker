@@ -129,6 +129,10 @@ class AppContainer(private val context: Context) : AppGraph {
     override val artistPhotos = com.marco.audiopro.data.ArtistPhotos(http, api, context.filesDir)
     override val localLibrary = com.marco.audiopro.data.local.LocalLibrary(context.filesDir, com.marco.audiopro.local.MediaStoreSource(context))
         .also { com.marco.audiopro.data.local.LocalMode.resume(it, settings) }
+    override val radio = com.marco.audiopro.data.radio.RadioBrowser(http)
+    override val genres = com.marco.audiopro.data.meta.GenreIndex(api, com.marco.audiopro.data.meta.MusicBrainz(http), context.filesDir, appScope)
+    /** En el celular no se reescriben tus archivos (los de MediaStore son de sólo lectura para la app). */
+    override val fixer: com.marco.audiopro.data.meta.MetadataFixer? = null
     override val versionName: String = BuildConfig.VERSION_NAME
     override val isDesktop = false
 
