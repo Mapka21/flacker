@@ -78,8 +78,19 @@ private class PrefsStore(private val p: Preferences) : KeyValueStore {
                 else -> p.put(k, v.toString())
             }
         }
-        runCatching { p.flush() }
+        // Al arrastrar el volumen o un slider llegan decenas de cambios por segundo: se guarda a disco
+        // una sola vez cuando se calman (vaciar el registro en cada uno da tirones).
+        synchronized(this) {
+            pendingFlush?.cancel(false)
+            pendingFlush = flusher.schedule({ runCatching { p.flush() } }, 700, TimeUnit.MILLISECONDS)
+        }
     }
+
+    private var pendingFlush: java.util.concurrent.ScheduledFuture<*>? = null
+    private val flusher = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "flacker-prefs").apply { isDaemon = true } }
+
+    /** Al cerrar: lo pendiente se guarda ya. */
+    fun flushNow() { synchronized(this) { pendingFlush?.cancel(false) }; runCatching { p.flush() } }
 }
 
 /** Perfil opcional (-Dmarco.profile=dev): ajustes y caché separados, útil para pruebas. */
@@ -95,7 +106,8 @@ class DesktopGraph : AppGraph {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    override val settings = Settings(PrefsStore(Preferences.userRoot().node("marco-audio-pro$profileSuffix")))
+    private val prefsStore = PrefsStore(Preferences.userRoot().node("marco-audio-pro$profileSuffix"))
+    override val settings = Settings(prefsStore)
     override val api = SubsonicApi(http) { settings.account.value }
     /** Scrobbles que se guardan si no hay red y se mandan después. */
     val scrobbles = com.marco.audiopro.data.ScrobbleQueue(api, dataDir, scope).also { api.offlineQueue = it }
@@ -125,7 +137,7 @@ class DesktopGraph : AppGraph {
     override val radio = com.marco.audiopro.data.radio.RadioBrowser(http)
     override val genres = com.marco.audiopro.data.meta.GenreIndex(api, musicBrainz, dataDir, scope)
     override val fixer = com.marco.audiopro.data.meta.MetadataFixer(musicBrainz, JaudioTagIO(), lyrics, dataDir, genres)
-    override val cast = com.marco.audiopro.cast.CastService(http, api, uiScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) })
+    override val cast = com.marco.audiopro.cast.CastService(http, api, uiScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) }, decoder = FfmpegPcmDecoder())
     override val player = RoutedPlayer(desktopPlayer, connect, uiScope, cast)
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
@@ -133,10 +145,10 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "2.12.1"
+    override val versionName = "3.0"
     override val isDesktop = true
 
-    fun shutdown() = desktopPlayer.shutdown()
+    fun shutdown() { desktopPlayer.shutdown(); prefsStore.flushNow() }
 }
 
 fun main() {

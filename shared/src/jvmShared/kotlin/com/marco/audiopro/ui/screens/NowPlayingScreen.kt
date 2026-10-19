@@ -307,13 +307,14 @@ private fun PhonePlayer(song: Song, nav: NavController, onPath: () -> Unit) {
         }
         Column(Modifier.padding(horizontal = 24.dp)) {
             SeekBar(st.durationMs)
-            if (gestures) GestureHint(st.isPlaying, stage == Stage.COVER) else Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
+            // Con gestos, la portada es el control; en la letra o la cola no hay portada, así que van los botones.
+            if (gestures && stage == Stage.COVER) GestureHint(st.isPlaying) else Controls(st.isPlaying, st.isBuffering, st.shuffle, st.repeat)
             VolumeRow()
             st.error?.let { Text(it, color = Hifi.LedRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 StageToggle(Icons.Default.Lyrics, "Letra", stage == Stage.LYRICS) { stage = if (stage == Stage.LYRICS) Stage.COVER else Stage.LYRICS }
                 StageToggle(Icons.Default.Equalizer, "DSP", false) { nav.navigate(DspRoute) }
-                if (gestures) {
+                if (gestures && stage == Stage.COVER) {
                     // Sin la fila de botones, aleatorio y repetir viven aquí abajo.
                     StageToggle(Icons.Default.Shuffle, "Aleatorio", st.shuffle) { c.player.toggleShuffle() }
                     StageToggle(if (st.repeat == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, "Repetir", st.repeat != RepeatMode.OFF) { c.player.cycleRepeat() }
@@ -705,13 +706,13 @@ private fun SignalPathSheet(song: Song, engine: AudioEngine) {
  * para que se aprenda sin estorbar).
  */
 @Composable
-private fun GestureHint(playing: Boolean, onCover: Boolean) {
+private fun GestureHint(playing: Boolean) {
     val alpha by animateFloatAsState(if (playing) 0.45f else 0.85f, tween(400), label = "hint")
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).graphicsLayer { this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            if (onCover) "Toca la portada para ${if (playing) "pausar" else "reproducir"}" else "Regresa a la portada para controlar con gestos",
+            "Toca la portada para ${if (playing) "pausar" else "reproducir"}",
             fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
         )
-        if (onCover) Text("Desliza ← → para cambiar · mantén y arrastra para adelantar · ↓ para cerrar", fontSize = 11.sp, color = Hifi.OnArt, textAlign = TextAlign.Center)
+        Text("Desliza ← → para cambiar · mantén y arrastra para adelantar · ↓ para cerrar", fontSize = 11.sp, color = Hifi.OnArt, textAlign = TextAlign.Center)
     }
 }

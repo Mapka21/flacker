@@ -151,11 +151,26 @@ class ConnectService(
     private var udp: DatagramSocket? = null
     private val jobs = ArrayList<Job>()
 
-    /** Huella de la cuenta (servidor + usuario): sólo hablamos con "nosotros mismos". */
+    private fun hash(s: String) = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).take(8).joinToString("") { "%02x".format(it) }
+
+    /**
+     * Huella de la cuenta (servidor + usuario) que va en el faro, para ver a "nosotros mismos" en la red.
+     * Sin servidor todos tendrían la misma cuenta local: ahí cada dispositivo es su propia biblioteca.
+     */
+    private fun beaconKey(): String {
+        val a = settings.account.value ?: return ""
+        val local = if (com.marco.audiopro.data.local.LocalMode.isOn(settings)) "|$id" else ""
+        return hash("beacon|${a.url}|${a.user}$local")
+    }
+
+    /**
+     * Clave de las órdenes: distinta de la del faro (que cualquiera en la red puede leer) y, si se
+     * inició sesión con la contraseña, derivada de ella ([Settings.connectSecret]).
+     */
     private fun accountKey(): String {
         val a = settings.account.value ?: return ""
-        val d = MessageDigest.getInstance("SHA-256").digest("${a.url}|${a.user}".toByteArray())
-        return d.take(8).joinToString("") { "%02x".format(it) }
+        val local = if (com.marco.audiopro.data.local.LocalMode.isOn(settings)) "|$id" else ""
+        return hash("cmd|${a.url}|${a.user}|${settings.connectSecret().orEmpty()}$local")
     }
 
     fun start() {
@@ -199,7 +214,7 @@ class ConnectService(
         val socket = DatagramSocket().apply { broadcast = true }
         try {
             while (scope.isActive) {
-                val account = accountKey()
+                val account = beaconKey()
                 if (account.isNotEmpty()) {
                     // Leer el reproductor en su hilo (Media3 lo exige en Android).
                     val np = withContext(Dispatchers.Main) {
@@ -241,7 +256,7 @@ class ConnectService(
             val packet = DatagramPacket(buf, buf.size)
             runCatching { sock.receive(packet) }.getOrElse { if (sock.isClosed) return else continue }
             val b = runCatching { SubsonicJson.decodeFromString<Beacon>(String(packet.data, 0, packet.length)) }.getOrNull() ?: continue
-            if (b.id == id || b.account != accountKey()) continue
+            if (b.id == id || b.account != beaconKey()) continue
             val dev = RemoteDevice(b.id, b.name, b.platform, packet.address, b.port, b.np, System.currentTimeMillis())
             _devices.value = (_devices.value.filter { it.id != b.id } + dev).sortedBy { it.name }
         }
@@ -328,6 +343,9 @@ class ConnectService(
                     line?.let { SubsonicJson.decodeFromString<Reply>(it) }
                 }
             }.getOrNull()
+        }?.also { r ->
+            // Mismo servidor y usuario, pero el otro inició sesión con otra contraseña (o antes de la v3).
+            if (r.error == "otra cuenta") notice.value = "Para usar ${to.name}, cierra sesión y vuelve a entrar en los dos dispositivos"
         }
     }
 
@@ -347,7 +365,7 @@ class ConnectService(
             r.status?.let { _remote.value = it to System.currentTimeMillis() }
             return true
         }
-        notice.value = "No se pudo conectar con ${to.name}"
+        failed(r, "No se pudo conectar con ${to.name}")
         return false
     }
 
@@ -360,14 +378,14 @@ class ConnectService(
             notice.value = "Traído de ${from.name}"
             return true
         }
-        notice.value = "No se pudo traer de ${from.name}"
+        failed(r, "No se pudo traer de ${from.name}")
         return false
     }
 
     /** Control remoto: toggle / next / previous / seek / skip… (responde con el estado nuevo). */
     suspend fun remote(to: RemoteDevice, cmd: String, index: Int = 0, positionMs: Long = 0, songs: List<Song> = emptyList()) {
         val r = send(fresh(to), Command(cmd, accountKey(), deviceName, songs, index, positionMs))
-        if (r?.ok != true) { notice.value = "${to.name} no responde"; return }
+        if (r?.ok != true) { failed(r, "${to.name} no responde"); return }
         if (_controlling.value?.id == to.id) r.status?.let { _remote.value = it to System.currentTimeMillis() }
     }
 
@@ -378,8 +396,9 @@ class ConnectService(
     /** Avisa a los demás que algo cambió aquí (me gusta, playlists, portadas, ajustes). */
     /** Manda una canción al celular para compartirla en historias de Instagram desde ahí. */
     suspend fun sendStory(to: RemoteDevice, song: Song): Boolean {
-        val ok = send(fresh(to), Command("story", accountKey(), deviceName, listOf(song)))?.ok == true
-        notice.value = if (ok) "Listo: ábrela en ${to.name} y compártela" else "${to.name} no responde"
+        val r = send(fresh(to), Command("story", accountKey(), deviceName, listOf(song)))
+        val ok = r?.ok == true
+        if (ok) notice.value = "Listo: ábrela en ${to.name} y compártela" else failed(r, "${to.name} no responde")
         return ok
     }
 
@@ -389,12 +408,15 @@ class ConnectService(
         scope.launch(Dispatchers.IO) { list.forEach { d -> send(fresh(d), Command("refresh", accountKey(), deviceName)) } }
     }
 
+    /** Aviso de error, salvo que ya se explicó que hay que volver a iniciar sesión. */
+    private fun failed(r: Reply?, msg: String) { if (r?.error != "otra cuenta") notice.value = msg }
+
     /** Pasa lo que suena en `from` (otro dispositivo) a `to` y controla `to`. */
     suspend fun moveBetween(from: RemoteDevice, to: RemoteDevice): Boolean {
         val h = send(fresh(from), Command("handoff", accountKey(), deviceName))
-        if (h?.ok != true || h.songs.isEmpty()) { notice.value = "No se pudo mover desde ${from.name}"; return false }
+        if (h?.ok != true || h.songs.isEmpty()) { failed(h, "No se pudo mover desde ${from.name}"); return false }
         val r = send(fresh(to), Command("play", accountKey(), deviceName, h.songs, h.index, h.positionMs))
-        if (r?.ok != true) { notice.value = "No se pudo conectar con ${to.name}"; return false }
+        if (r?.ok != true) { failed(r, "No se pudo conectar con ${to.name}"); return false }
         _controlling.value = to
         r.status?.let { _remote.value = it to System.currentTimeMillis() }
         notice.value = "Ahora suena en ${to.name}"

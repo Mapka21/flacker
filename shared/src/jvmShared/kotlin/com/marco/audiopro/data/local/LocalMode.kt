@@ -43,9 +43,10 @@ object LocalMode {
         return n
     }
 
-    /** Salir del modo local (regresa a la pantalla de inicio de sesión). */
-    fun disable(s: Settings) {
+    /** Salir del modo local (regresa a la pantalla de inicio de sesión) y apagar su servidor. */
+    fun disable(s: Settings, lib: LocalLibrary? = null) {
         s.putString("local_mode", "0")
         s.saveAccount(null)
+        lib?.server?.stop()
     }
 }

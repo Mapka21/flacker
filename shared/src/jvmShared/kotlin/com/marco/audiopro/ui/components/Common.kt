@@ -43,7 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.currentCompositeKeyHash
+import androidx.compose.runtime.currentCompositeKeyHashCode
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -117,7 +117,7 @@ private object ScreenMemory {
 /** Como `remember`, pero sobrevive a salir y regresar a la pantalla (por posición y claves). */
 @Composable
 fun <T> rememberRetained(vararg keys: Any?, init: () -> T): T {
-    val slot = "$currentCompositeKeyHash:${keys.contentHashCode()}"
+    val slot = "$currentCompositeKeyHashCode:${keys.contentHashCode()}"
     @Suppress("UNCHECKED_CAST")
     return remember(*keys) { ScreenMemory.map.getOrPut(slot) { init() } as T }
 }
@@ -131,7 +131,7 @@ private class Cached(val value: Any?, val at: Long)
 @Composable
 fun <T> rememberLoad(key: Any?, block: suspend () -> T): Loader<T> {
     var attempt by remember { mutableIntStateOf(0) }
-    val slot = "load:$currentCompositeKeyHash:${key.hashCode()}"
+    val slot = "load:$currentCompositeKeyHashCode:${key.hashCode()}"
     val cached = remember(key) { ScreenMemory.map[slot] as? Cached }
     @Suppress("UNCHECKED_CAST")
     val state = remember(key) { mutableStateOf<Load<T>>(cached?.let { Load.Ok(it.value as T) } ?: Load.Loading) }
@@ -385,7 +385,8 @@ fun AlbumCard(album: Album, onClick: () -> Unit, modifier: Modifier = Modifier, 
 /** Corazón de "me gusta" sincronizado con Navidrome. */
 @Composable
 fun LikeButton(song: Song, modifier: Modifier = Modifier, size: Dp = 24.dp) {
-    if (song.isPreview) return
+    // Muestras de Deezer y radio en vivo no son de tu servidor: no se les puede dar me gusta.
+    if (song.isPreview || song.isRadio) return
     val likes = LocalApp.current.likes
     val liked = song.id in likes.ids.collectAsState().value
     val tint by animateColorAsState(if (liked) Hifi.Accent else Hifi.TextDim, label = "like")

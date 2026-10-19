@@ -316,10 +316,13 @@ private fun SongsTable(nav: NavController) {
     var filter by rememberSaveable { mutableStateOf("") }
     val list = rememberLazyListState()
     val playback by c.player.state.collectAsState()
-    LaunchedEffect(Unit) {
+    // "Reintentar" sube el contador y vuelve a arrancar la carga desde donde se quedó.
+    var attempt by remember { mutableStateOf(0) }
+    LaunchedEffect(attempt) {
+        val seen = songs.mapTo(HashSet()) { it.id }
         while (!pager.end) {
             runCatching { c.api.allSongs(songs.size, 500) }
-                .onSuccess { page -> songs += page.filter { s -> songs.none { it.id == s.id } }; if (page.size < 500) pager.end = true }
+                .onSuccess { page -> songs += page.filter { seen.add(it.id) }; if (page.size < 500) pager.end = true }
                 .onFailure { pager.error = it.message; return@LaunchedEffect }
         }
     }
@@ -337,7 +340,7 @@ private fun SongsTable(nav: NavController) {
     }
     val keyOf: (Song) -> String = { s -> when (sort) { "artist" -> s.artist ?: ""; "album" -> s.album ?: ""; else -> s.title } }
 
-    if (pager.error != null && songs.isEmpty()) { ErrorBox(pager.error!!, { pager.error = null; pager.end = false }); return }
+    if (pager.error != null && songs.isEmpty()) { ErrorBox(pager.error!!, { pager.error = null; pager.end = false; attempt++ }); return }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth > 760.dp
         Column(Modifier.fillMaxSize()) {
@@ -359,7 +362,7 @@ private fun SongsTable(nav: NavController) {
                 }
                 Spacer(Modifier.width(8.dp))
                 Box(
-                    Modifier.size(38.dp).clip(CircleShape).background(Hifi.Accent).bouncyClick { if (shown.isNotEmpty()) c.player.play(shown, shuffle = true) },
+                    Modifier.size(38.dp).clip(CircleShape).background(Hifi.Accent).bouncyClick { if (shown.isNotEmpty()) c.player.play(shown.shuffled().take(QUEUE_MAX), shuffle = false) },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Default.Shuffle, "Aleatorio", tint = Color.Black, modifier = Modifier.size(18.dp)) }
             }
@@ -385,7 +388,8 @@ private fun SongsTable(nav: NavController) {
                 LazyColumn(state = list, modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                     itemsIndexed(shown, key = { _, s -> s.id }) { i, s ->
                         TrackRow(
-                            s, null, playback.current?.id == s.id, { c.player.play(shown, i) },
+                            // Desde aquí, no toda la biblioteca: una cola enorme hace lento al celular y a Connect.
+                            s, null, playback.current?.id == s.id, { c.player.play(shown.subList(i, minOf(shown.size, i + QUEUE_MAX)), 0) },
                             showCover = true, showFormat = !wide, showAlbum = wide, onGoToAlbum = { s.albumId?.let(nav::openAlbum) },
                         )
                     }
@@ -401,6 +405,9 @@ private fun SongsTable(nav: NavController) {
         }
     }
 }
+
+/** Tope de canciones que se mandan a la cola desde la lista de todas tus canciones. */
+private const val QUEUE_MAX = 500
 
 private fun fmtCount(n: Int) = java.text.NumberFormat.getIntegerInstance().format(n)
 

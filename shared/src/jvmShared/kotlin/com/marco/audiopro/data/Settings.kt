@@ -66,8 +66,19 @@ class Settings(private val sp: KeyValueStore) {
     }
 
     fun saveAccount(a: ServerAccount?) {
-        sp.edit(mapOf("url" to a?.url, "user" to a?.user, "salt" to a?.salt, "token" to a?.token))
+        sp.edit(mapOf("url" to a?.url, "user" to a?.user, "salt" to a?.salt, "token" to a?.token) + (if (a == null) mapOf("connect_secret" to null) else emptyMap()))
         _account.value = a
+    }
+
+    /**
+     * Secreto de Connect: huella de la contraseña (nunca la contraseña), igual en todos tus
+     * dispositivos con la misma cuenta. Sólo quien la sabe puede mandar órdenes o pedir tus API keys.
+     */
+    fun connectSecret(): String? = sp.getString("connect_secret")?.takeIf { it.isNotBlank() }
+
+    fun saveConnectSecret(url: String, user: String, password: String) {
+        val h = java.security.MessageDigest.getInstance("SHA-256").digest("flacker-connect|$url|$user|$password".toByteArray())
+        sp.edit(mapOf("connect_secret" to h.joinToString("") { "%02x".format(it) }))
     }
 
     private fun readPrefs() = AppPrefs(

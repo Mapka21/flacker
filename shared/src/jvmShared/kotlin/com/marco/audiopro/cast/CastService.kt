@@ -21,7 +21,8 @@ import okhttp3.OkHttpClient
  * Transmitir a la tele: busca aparatos (Chromecast, Roku, DLNA), abre la conexión y deja un
  * [player] que la app usa igual que el de siempre. La cola la lleva este dispositivo; el audio
  * le llega a la tele por [CastRelay].
- * @param isLocal modo sin servidor (no se puede convertir a MP3: siempre va el archivo original).
+ * @param isLocal modo sin servidor (el servidor no puede convertir a MP3: se convierte aquí con [decoder]).
+ * @param decoder convierte a WAV en este dispositivo lo que la tele no acepta (ffmpeg en la PC, MediaCodec en Android).
  * @param keepAlive en Android mantiene viva la app mientras transmite (aviso en la barra); null = parar.
  */
 class CastService(
@@ -29,9 +30,10 @@ class CastService(
     private val api: SubsonicApi,
     private val scope: CoroutineScope,
     private val isLocal: () -> Boolean = { false },
+    decoder: PcmDecoder? = null,
     private val keepAlive: (String?) -> Unit = {},
 ) {
-    private val relay = CastRelay(http, api)
+    private val relay = CastRelay(http, api, decoder)
     private val _devices = MutableStateFlow<List<CastDevice>>(emptyList())
     val devices: StateFlow<List<CastDevice>> = _devices
     private val _scanning = MutableStateFlow(false)
@@ -109,15 +111,25 @@ class CastService(
     private val rokuOk = setOf("mp3", "flac", "m4a", "aac", "wav", "wma", "mp4")
     private val dlnaOk = setOf("mp3", "flac")
 
-    /** ¿Hay que mandarla convertida a MP3 para que ese aparato la toque? */
-    private fun needsMp3(kind: CastDevice.Kind, s: Song): Boolean {
-        if (isLocal()) return false
+    /** ¿Hay que mandarla convertida para que ese aparato la toque? */
+    private fun needsConversion(kind: CastDevice.Kind, s: Song): Boolean {
         val sfx = s.suffix?.lowercase() ?: return true
         return when (kind) {
             CastDevice.Kind.CHROMECAST -> sfx !in chromecastOk || (s.samplingRate ?: 0) > 96_000
-            CastDevice.Kind.ROKU -> sfx !in rokuOk
-            CastDevice.Kind.DLNA -> sfx !in dlnaOk
+            CastDevice.Kind.ROKU -> sfx !in rokuOk || (s.samplingRate ?: 0) > 96_000
+            CastDevice.Kind.DLNA -> sfx !in dlnaOk || (s.samplingRate ?: 0) > 48_000 || (s.bitDepth ?: 16) > 24
         }
+    }
+
+    /**
+     * Lo que se va probando con una canción, en orden: el archivo original (si el aparato lo acepta),
+     * WAV convertido aquí y, con servidor, MP3 convertido por Navidrome. Si la tele rechaza uno, va el siguiente.
+     */
+    private fun modesFor(kind: CastDevice.Kind, s: Song): List<CastRelay.Mode> = buildList {
+        if (!needsConversion(kind, s)) add(CastRelay.Mode.ORIGINAL)
+        if (relay.canWav) add(CastRelay.Mode.WAV)
+        if (!isLocal()) add(CastRelay.Mode.MP3)
+        if (isEmpty()) add(CastRelay.Mode.ORIGINAL)
     }
 
     private fun mime(s: Song): String = when (s.suffix?.lowercase()) {
@@ -151,7 +163,11 @@ class CastService(
         private var posAt = 0L
         private var playing = false
         private var sawPlaying = false
-        private var triedMp3 = false
+        /** Qué forma de mandar la canción actual se está probando (ver [modesFor]). */
+        private var modes = listOf(CastRelay.Mode.ORIGINAL)
+        private var step = 0
+        /** Canciones seguidas que la tele no pudo tocar (para no dar vueltas para siempre con repetir). */
+        private var failures = 0
         private var loadedAt = 0L
         private var scrobbled = false
         private var listened = 0L
@@ -183,27 +199,38 @@ class CastService(
             )
         }
 
-        private fun load(startMs: Long, mp3: Boolean = false) {
+        private fun load(startMs: Long, nextStep: Int = 0) {
             val sess = s ?: return; val d = device ?: return
             val song = queue.getOrNull(index) ?: return
-            triedMp3 = mp3; sawPlaying = false; scrobbled = false; listened = 0; lastPlayingPos = 0; lastDur = 0
+            if (nextStep == 0) modes = modesFor(d.kind, song)
+            step = nextStep
+            sawPlaying = false; scrobbled = false; listened = 0; lastPlayingPos = 0; lastDur = 0
             pos = startMs; posAt = System.currentTimeMillis(); loadedAt = posAt; playing = true
             publish(buffering = true)
-            val conv = mp3 || needsMp3(d.kind, song)
+            val mode = modes[step]
+            val mimeType = when (mode) { CastRelay.Mode.ORIGINAL -> mime(song); CastRelay.Mode.WAV -> "audio/wav"; CastRelay.Mode.MP3 -> "audio/mpeg" }
             val meta = CastMeta(
                 song.title, song.artist, song.album,
                 song.coverArt?.let { relay.coverUrl(lanIp, it) }, (song.duration ?: 0) * 1000L,
             )
             scope.launch {
-                val r = runCatching { sess.load(relay.audioUrl(lanIp, song.id, conv), if (conv) "audio/mpeg" else mime(song), meta, startMs) }
+                val r = runCatching { sess.load(relay.audioUrl(lanIp, song.id, mode, song.duration ?: 0), mimeType, meta, startMs) }
                 val e = r.exceptionOrNull()
                 when {
                     e is RokuLimitedException -> { notice.value = e.message; publish(error = e.message) }
-                    e != null && !conv && !isLocal() -> load(startMs, mp3 = true) // no le gustó el original: va en MP3
-                    e != null -> { notice.value = "${d.name} no pudo tocar \"${song.title}\""; advance(auto = true) }
+                    e != null -> rejected(startMs)
                     else -> runCatching { api.scrobble(song.id, submission = false) }
                 }
             }
+        }
+
+        /** La tele no pudo con la canción así: se prueba la siguiente forma o, si ya no hay, la siguiente canción. */
+        private fun rejected(atMs: Long) {
+            if (step + 1 < modes.size) { load(atMs, step + 1); return }
+            val song = queue.getOrNull(index)
+            if (++failures >= queue.size) { failures = 0; playing = false; sawPlaying = false; publish(error = "${device?.name ?: "La tele"} no pudo tocar ninguna canción"); return }
+            notice.value = "${device?.name ?: "La tele"} no pudo tocar \"${song?.title ?: "la canción"}\""
+            advance(auto = false) // con "repetir una" no se reintenta la misma para siempre
         }
 
         private suspend fun tick() {
@@ -217,6 +244,7 @@ class CastService(
                 CastState.PLAYING -> {
                     if (sawPlaying) listened += now - posAt
                     sawPlaying = true; playing = true; pos = st.positionMs; posAt = now
+                    if (st.positionMs > 4000) failures = 0
                     lastPlayingPos = st.positionMs; if (st.durationMs > 0) lastDur = st.durationMs
                     // Scrobble como en el reproductor normal: a la mitad o a los 4 minutos.
                     val dur = st.durationMs.takeIf { it > 0 } ?: ((song?.duration ?: 0) * 1000L)
@@ -228,13 +256,18 @@ class CastService(
                 CastState.PAUSED -> { playing = false; pos = st.positionMs; posAt = now; publish() }
                 CastState.LOADING -> publish(buffering = true)
                 CastState.FINISHED -> if (sawPlaying) advance(auto = true)
-                CastState.ERROR -> if (!triedMp3 && !isLocal()) load(pos, mp3 = true) else advance(auto = true)
+                CastState.ERROR -> rejected(pos)
                 CastState.IDLE -> {
                     // DLNA y Roku no dicen "terminó": si sonaba y se detuvo cerca del final, es la siguiente.
                     // (Se usa la última posición que se vio sonando: muchas teles la regresan a 0 al detenerse.)
                     val dur = lastDur.takeIf { it > 0 } ?: ((song?.duration ?: 0) * 1000L)
-                    if (sawPlaying && (dur <= 0 || lastPlayingPos >= dur - 6000)) advance(auto = true)
-                    else if (sawPlaying || now - loadedAt > 20_000) { playing = false; publish() }
+                    when {
+                        sawPlaying && (dur <= 0 || lastPlayingPos >= dur - 6000) -> advance(auto = true)
+                        // Tampoco dicen "no pude": se detiene al segundo de empezar o nunca arranca. Se prueba convertida.
+                        sawPlaying && lastPlayingPos < 4000 && dur > 10_000 -> rejected(pos)
+                        !sawPlaying && now - loadedAt > 10_000 -> rejected(pos)
+                        sawPlaying -> { playing = false; publish() }
+                    }
                 }
             }
         }
@@ -284,7 +317,6 @@ class CastService(
 
         override fun seekTo(ms: Long) {
             val sess = s ?: return
-            if (device?.kind == CastDevice.Kind.ROKU) { load(0); return } // Roku no adelanta: sólo puede volver a empezar
             pos = ms; posAt = System.currentTimeMillis(); publish()
             scope.launch(Dispatchers.IO) { runCatching { sess.seek(ms) } }
         }

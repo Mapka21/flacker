@@ -50,7 +50,7 @@ internal class DlnaSession(override val device: CastDevice, http: OkHttpClient) 
             meta.album?.let { append("<upnp:album>${esc(it)}</upnp:album>") }
             meta.coverUrl?.let { append("<upnp:albumArtURI>${esc(it)}</upnp:albumArtURI>") }
             append("<upnp:class>object.item.audioItem.musicTrack</upnp:class>")
-            append("""<res protocolInfo="http-get:*:$mime:*"${if (meta.durationMs > 0) " duration=\"${hms(meta.durationMs)}.000\"" else ""}>${esc(url)}</res></item></DIDL-Lite>""")
+            append("""<res protocolInfo="http-get:*:$mime:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"${if (meta.durationMs > 0) " duration=\"${hms(meta.durationMs)}.000\"" else ""}>${esc(url)}</res></item></DIDL-Lite>""")
         }
         val ctl = device.avControl ?: error("Sin control")
         runCatching { soap(ctl, av, "Stop", listOf("InstanceID" to "0")) }
@@ -148,6 +148,8 @@ internal class RokuSession(override val device: CastDevice, http: OkHttpClient) 
         val ours = xml.contains("id=\"dev\"")
         val state = when {
             !ours && st != null && st != "none" && st != "close" -> CastState.IDLE
+            // La Roku avisa cuando no pudo con el archivo: se prueba convertido.
+            ours && xml.contains("error=\"true\"") -> CastState.ERROR
             st == "play" -> CastState.PLAYING
             st == "pause" -> CastState.PAUSED
             st == "buffer" || st == "startup" -> CastState.LOADING

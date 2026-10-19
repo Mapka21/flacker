@@ -220,10 +220,16 @@ object CastDiscovery {
     /** La IP de este aparato que está en la misma red que [peer] (para que la tele pueda pedirle el audio). */
     fun lanAddressFor(peer: String): String? {
         val target = runCatching { InetAddress.getByName(peer) as? Inet4Address }.getOrNull()
+        if (target?.isLoopbackAddress == true) return "127.0.0.1"
+        // Sin VPN tipo Tailscale (100.64/10) ni 169.254: la tele no llega ahí (y Tailscale a veces dice /0 y "cuadraba" con todo).
         val candidates = runCatching { NetworkInterface.getNetworkInterfaces().toList() }.getOrDefault(emptyList())
             .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
             .flatMap { it.interfaceAddresses }
-            .filter { it.address is Inet4Address }
+            .filter { ia ->
+                val a = ia.address as? Inet4Address ?: return@filter false
+                val b0 = a.address[0].toInt() and 0xFF; val b1 = a.address[1].toInt() and 0xFF
+                !a.isLinkLocalAddress && !(b0 == 100 && b1 in 64..127) && ia.networkPrefixLength in 8..32
+            }
         if (target != null) {
             val t = target.address.fold(0) { acc, x -> (acc shl 8) or (x.toInt() and 0xFF) }
             candidates.firstOrNull { ia ->

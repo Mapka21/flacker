@@ -30,6 +30,8 @@ data class SharedPrefs(
     val visualPreset: String = "",
     /** Cuándo se cambió alguno (ms). */
     val ts: Long = 0,
+    /** Si trae las API keys: sólo entre dispositivos que iniciaron sesión con la contraseña. */
+    val withKeys: Boolean = false,
 )
 
 @Serializable
@@ -58,7 +60,12 @@ class SyncService(
 
     private fun localPrefs(): SharedPrefs {
         val p = settings.prefs.value
-        return SharedPrefs(p.lastFmUser, p.lastFmKey, p.anthropicKey, p.accent.name, p.visualMode, p.visualPreset.name, settings.getString("sync_prefs_ts")?.toLongOrNull() ?: 0)
+        // Las API keys sólo viajan si las órdenes van protegidas con la contraseña (ver ConnectService).
+        val keys = settings.connectSecret() != null
+        return SharedPrefs(
+            p.lastFmUser, if (keys) p.lastFmKey else "", if (keys) p.anthropicKey else "", p.accent.name, p.visualMode, p.visualPreset.name,
+            settings.getString("sync_prefs_ts")?.toLongOrNull() ?: 0, withKeys = keys,
+        )
     }
 
     override fun manifest(): String = SubsonicJson.encodeToString(SyncManifest(localPrefs(), covers.manifest()))
@@ -113,8 +120,8 @@ class SyncService(
             val next = settings.prefs.value.let { p ->
                 p.copy(
                     lastFmUser = m.prefs.lastFmUser,
-                    lastFmKey = m.prefs.lastFmKey,
-                    anthropicKey = m.prefs.anthropicKey,
+                    lastFmKey = if (m.prefs.withKeys) m.prefs.lastFmKey else p.lastFmKey,
+                    anthropicKey = if (m.prefs.withKeys) m.prefs.anthropicKey else p.anthropicKey,
                     accent = runCatching { AccentTheme.valueOf(m.prefs.accent) }.getOrDefault(p.accent),
                     visualMode = m.prefs.visualMode,
                     visualPreset = runCatching { VisualPreset.valueOf(m.prefs.visualPreset) }.getOrDefault(p.visualPreset),

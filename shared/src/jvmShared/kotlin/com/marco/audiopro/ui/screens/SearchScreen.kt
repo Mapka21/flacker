@@ -23,9 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -76,6 +73,8 @@ fun SearchScreen(nav: NavController) {
     val keyboard = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(query) {
+        // Un error viejo no se queda pegado: cada búsqueda nueva empieza limpia.
+        error = null
         if (query.isBlank()) { result = null; return@LaunchedEffect }
         delay(300)
         runCatching { c.api.search(query.trim()) }
@@ -153,18 +152,13 @@ fun SearchScreen(nav: NavController) {
     }
 }
 
-/** Con la búsqueda vacía en el celular: tus géneros en mosaicos para explorar (como Spotify). */
+/** Con la búsqueda vacía en el celular: tus géneros (los de verdad, de MusicBrainz) en mosaicos para explorar. */
 @Composable
 private fun ExploreGenres(nav: NavController) {
     val c = LocalApp.current
-    val loader = com.marco.audiopro.ui.components.rememberLoad("explore") {
-        coroutineScope {
-            c.api.genres().filter { it.albumCount > 0 }.sortedByDescending { it.albumCount }.take(16).map { g ->
-                async { g.value to runCatching { c.api.albumList("byGenre", 1, 0, mapOf("genre" to g.value)).firstOrNull()?.coverArt }.getOrNull() }
-            }.awaitAll()
-        }
-    }
-    val genres = (loader.state.value as? com.marco.audiopro.ui.components.Load.Ok)?.value.orEmpty()
+    val lib by c.genres.state.collectAsState()
+    LaunchedEffect(Unit) { runCatching { c.genres.load() } }
+    val genres = lib.genres.take(16).map { it.name to it.covers.firstOrNull() }
     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
         if (genres.isNotEmpty()) item {
             Text("Explora tus géneros", style = com.marco.audiopro.ui.theme.Display.copy(fontSize = 20.sp), modifier = Modifier.padding(top = 14.dp, bottom = 12.dp))
@@ -172,7 +166,7 @@ private fun ExploreGenres(nav: NavController) {
         items(genres.chunked(2)) { row ->
             Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { (name, cover) ->
-                    CategoryTile(name, null, cover, Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.BrowseRoute(name, genre = name)) }
+                    CategoryTile(name, null, cover, Modifier.weight(1f)) { nav.navigate(com.marco.audiopro.ui.GenreRoute(name)) }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }

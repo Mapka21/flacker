@@ -37,6 +37,22 @@ class DesktopPlayerTest {
         return cond()
     }
 
+    /** Un WAV de 4 s (440 Hz) a la frecuencia pedida. */
+    private fun tone(rate: Int): java.io.File {
+        val n = rate * 4
+        val pcm = ByteArray(n * 4)
+        for (i in 0 until n) {
+            val v = (Math.sin(2 * Math.PI * 440 * i / rate) * 8000).toInt()
+            for (c in 0 until 2) { pcm[i * 4 + c * 2] = v.toByte(); pcm[i * 4 + c * 2 + 1] = (v shr 8).toByte() }
+        }
+        val f = java.io.File.createTempFile("flacker-tone-$rate", ".wav").apply { deleteOnExit() }
+        val fmt = javax.sound.sampled.AudioFormat(rate.toFloat(), 16, 2, true, false)
+        javax.sound.sampled.AudioSystem.write(
+            javax.sound.sampled.AudioInputStream(pcm.inputStream(), fmt, n.toLong()), javax.sound.sampled.AudioFileFormat.Type.WAVE, f,
+        )
+        return f
+    }
+
     @Test fun playsSeeksAndAdvances() = runBlocking {
         val server = System.getenv("MARCO_TEST_SERVER")
         assumeTrue("Sin servidor de prueba", server != null)
@@ -54,7 +70,7 @@ class DesktopPlayerTest {
         assertEquals(2, songs.size)
         player.play(songs)
 
-        assertTrue("no empezó a sonar", waitFor(8000) { player.state.value.isPlaying })
+        assertTrue("no empezó a sonar: ${player.state.value.error}", waitFor(8000) { player.state.value.isPlaying })
         Thread.sleep(1500)
         val pos = player.positionMs()
         assertTrue("la posición no avanza: $pos", pos in 800..4000)
@@ -85,6 +101,21 @@ class DesktopPlayerTest {
         val paused = player.positionMs()
         Thread.sleep(600)
         assertTrue("en pausa la posición siguió avanzando", player.positionMs() - paused < 50)
+
+        // En pausa, poner una canción con otra frecuencia (96 → 44.1 kHz) no debe trabar el audio para siempre.
+        val wav44 = tone(44_100)
+        fun local(id: String) = com.marco.audiopro.data.subsonic.Song(id, "Tono $id", externalUrl = wav44.path, duration = 4)
+        player.play(listOf(local("t44")))
+        assertTrue("se trabó al cambiar de frecuencia en pausa", waitFor(6000) { player.state.value.isPlaying && player.state.value.current?.id == "t44" })
+
+        // En aleatorio, "Reproducir a continuación" suena justo después de la actual.
+        player.play((1..8).map { local("q$it") })
+        assertTrue(waitFor(6000) { player.state.value.isPlaying })
+        player.toggleShuffle()
+        player.playNext(listOf(local("siguiente")))
+        Thread.sleep(200)
+        player.next()
+        assertTrue("en aleatorio, lo de \"a continuación\" no fue lo siguiente: ${player.state.value.current?.id}", waitFor(6000) { player.state.value.current?.id == "siguiente" })
 
         player.shutdown()
         scope.cancel()

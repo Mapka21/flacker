@@ -90,7 +90,7 @@ fun LoginScreen() {
                     scope.launch {
                         val acc = SubsonicApi.login(url, user, pass)
                         runCatching { c.api.ping(acc) }
-                            .onSuccess { c.settings.saveAccount(acc) }
+                            .onSuccess { c.settings.saveAccount(acc); c.settings.saveConnectSecret(acc.url, acc.user, pass) }
                             .onFailure { error = "No se pudo conectar: ${it.message}" }
                         busy = false
                     }

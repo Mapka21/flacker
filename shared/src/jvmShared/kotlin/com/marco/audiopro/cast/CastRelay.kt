@@ -18,7 +18,10 @@ import java.util.concurrent.TimeUnit
  * dispositivo, aunque tu Navidrome esté por Tailscale, en otra red o no exista (modo sin servidor).
  * Cada dirección lleva una clave al azar: nadie más de la red puede pedir nada.
  */
-class CastRelay(http: OkHttpClient, private val api: SubsonicApi) {
+class CastRelay(http: OkHttpClient, private val api: SubsonicApi, private val decoder: PcmDecoder? = null) {
+    /** Cómo le llega una canción a la tele. */
+    enum class Mode { ORIGINAL, WAV, MP3 }
+
     private val client = http.newBuilder().readTimeout(60, TimeUnit.SECONDS).build()
     private val key = ByteArray(12).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
     private var socket: ServerSocket? = null
@@ -42,8 +45,17 @@ class CastRelay(http: OkHttpClient, private val api: SubsonicApi) {
 
     @Synchronized fun stop() { runCatching { socket?.close() }; socket = null }
 
-    /** Dirección del audio para la tele; [mp3] = convertido a MP3 320 (para aparatos que no aceptan el original). */
-    fun audioUrl(lanIp: String, songId: String, mp3: Boolean) = "http://$lanIp:$port/$key/a/${enc(songId)}" + if (mp3) "?mp3=1" else ""
+    /**
+     * Dirección del audio para la tele: el archivo tal cual, WAV convertido aquí ([decoder]) o MP3 320
+     * convertido por el servidor. [durationSec] sirve para que el WAV tenga tamaño exacto (y se pueda adelantar).
+     */
+    fun audioUrl(lanIp: String, songId: String, mode: Mode, durationSec: Int = 0) = "http://$lanIp:$port/$key/a/${enc(songId)}" + when (mode) {
+        Mode.ORIGINAL -> ""
+        Mode.MP3 -> "?mp3=1"
+        Mode.WAV -> "?wav=1&d=$durationSec"
+    }
+
+    val canWav: Boolean get() = decoder != null
     fun coverUrl(lanIp: String, coverArt: String) = "http://$lanIp:$port/$key/c/${enc(coverArt)}"
 
     private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
@@ -66,6 +78,7 @@ class CastRelay(http: OkHttpClient, private val api: SubsonicApi) {
         fun fail(code: Int) { out.write("HTTP/1.1 $code No\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray()); out.flush() }
         if (parts.size != 3 || parts[0] != key) return fail(404)
         val id = java.net.URLDecoder.decode(parts[2], "UTF-8")
+        if (parts[1] == "a" && target.contains("wav=1")) return wav(out, method, id, target, headers["range"], ::fail)
         val upstream = when (parts[1]) {
             "a" -> api.streamUrl(id, if (target.contains("mp3=1")) StreamQuality.MP3_320 else StreamQuality.ORIGINAL)
             "c" -> api.coverUrl(id, 800)
@@ -79,11 +92,43 @@ class CastRelay(http: OkHttpClient, private val api: SubsonicApi) {
             r.header("Content-Length")?.let { sb.append("Content-Length: ").append(it).append("\r\n") }
             r.header("Content-Range")?.let { sb.append("Content-Range: ").append(it).append("\r\n") }
             if (r.header("Accept-Ranges") != null || r.code == 206) sb.append("Accept-Ranges: bytes\r\n")
+            if (parts[1] == "a") sb.append(DLNA_HEADERS)
             sb.append("Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n")
             out.write(sb.toString().toByteArray())
             if (method != "HEAD" && body != null) body.byteStream().use { it.copyTo(out, 64 * 1024) }
             out.flush()
         }
+    }
+
+    /** WAV convertido aquí mismo (con Range: la tele puede adelantar). */
+    private fun wav(out: java.io.OutputStream, method: String, id: String, target: String, range: String?, fail: (Int) -> Unit) {
+        val dec = decoder ?: return fail(404)
+        val durSec = Regex("[?&]d=(\\d+)").find(target)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val stream = dec.open(api.streamUrl(id, StreamQuality.ORIGINAL), CastWav.MAX_RATE) ?: return fail(502)
+        try {
+            val rate = CastWav.outRate(stream.sampleRate)
+            // Un segundo de más: la duración del servidor viene redondeada (se completa con silencio).
+            val total = if (durSec > 0) CastWav.HEADER + CastWav.dataBytes(rate, (durSec + 1) * 1000L) else -1L
+            val from = if (total > 0) Regex("bytes=(\\d+)-").find(range ?: "")?.groupValues?.get(1)?.toLongOrNull()?.coerceIn(0, total - 1) ?: 0 else 0
+            val sb = StringBuilder(if (from > 0) "HTTP/1.1 206 Partial Content\r\n" else "HTTP/1.1 200 OK\r\n")
+            sb.append("Content-Type: audio/wav\r\n")
+            if (total > 0) {
+                sb.append("Content-Length: ").append(total - from).append("\r\nAccept-Ranges: bytes\r\n")
+                if (from > 0) sb.append("Content-Range: bytes $from-${total - 1}/$total\r\n")
+            }
+            sb.append(DLNA_HEADERS).append("Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n")
+            out.write(sb.toString().toByteArray())
+            if (method != "HEAD") CastWav.write(stream, out, if (total > 0) total else Long.MAX_VALUE, from)
+            out.flush()
+        } finally {
+            stream.closeQuietly()
+        }
+    }
+
+    private companion object {
+        /** Muchas teles DLNA (Samsung, LG) no tocan nada sin esto. */
+        const val DLNA_HEADERS = "transferMode.dlna.org: Streaming\r\n" +
+            "contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n"
     }
 
     private fun readLine(input: BufferedInputStream): String? {

@@ -36,6 +36,7 @@ class Likes(private val api: SubsonicApi, private val scope: CoroutineScope) {
     fun isLiked(id: String) = id in _ids.value
 
     fun toggle(song: Song) {
+        if (song.isPreview || song.isRadio) return
         val like = song.id !in _ids.value
         val prevSongs = _songs.value
         val prevIds = _ids.value

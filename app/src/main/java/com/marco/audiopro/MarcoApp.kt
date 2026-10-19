@@ -114,7 +114,10 @@ class AppContainer(private val context: Context) : AppGraph {
     }
     /** Transmitir a la tele; mientras transmite, un aviso en la barra mantiene viva la app (si no, Android la duerme). */
     override val cast by lazy {
-        com.marco.audiopro.cast.CastService(http, api, appScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) }) { name ->
+        com.marco.audiopro.cast.CastService(
+            http, api, appScope, isLocal = { com.marco.audiopro.data.local.LocalMode.isOn(settings) },
+            decoder = com.marco.audiopro.local.MediaCodecPcmDecoder(),
+        ) { name ->
             connect // el candado de multicast de Connect también sirve para encontrar teles
             com.marco.audiopro.local.CastKeepAlive.set(context, name)
         }

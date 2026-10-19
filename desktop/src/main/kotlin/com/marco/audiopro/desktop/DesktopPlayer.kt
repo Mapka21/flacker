@@ -102,8 +102,8 @@ class DesktopPlayer(
         data class Seek(val ms: Long) : Cmd
         data object Pause : Cmd
         data object Resume : Cmd
-        /** La cola cambió (desde la UI); `removed` = índice quitado, si hubo. */
-        data class QueueChanged(val removed: Int? = null) : Cmd
+        /** La cola cambió (desde la UI); `removed` = índice quitado, si hubo; `insertedAt`/`count` = canciones metidas. */
+        data class QueueChanged(val removed: Int? = null, val insertedAt: Int? = null, val count: Int = 0) : Cmd
     }
 
     private class Track(var index: Int, val song: Song, val grabber: FFmpegFrameGrabber, val transport: String) {
@@ -193,8 +193,10 @@ class DesktopPlayer(
             Cmd.Resume -> { if (cur != null) { wantPlay = true; line?.start() } }
             is Cmd.QueueChanged -> {
                 cancelPrefetch()
+                val tracks = (segments.map { it.track } + listOfNotNull(cur)).distinct()
+                cmd.insertedAt?.let { at -> tracks.forEach { if (it.index >= at) it.index += cmd.count } }
                 val r = cmd.removed ?: return
-                (segments.map { it.track } + listOfNotNull(cur)).distinct().forEach { if (it.index > r) it.index-- }
+                tracks.forEach { if (it.index > r) it.index-- }
             }
         }
     }
@@ -218,7 +220,8 @@ class DesktopPlayer(
             if (flush) l.flush()
             return
         }
-        l?.let { it.drain(); it.close() }
+        // drain() en una salida detenida (en pausa) espera para siempre: ahí se descarta lo pendiente.
+        l?.let { if (flush || !it.isRunning) it.flush() else it.drain(); it.close() }
         var opened: SourceDataLine? = null
         for (b in intArrayOf(24, 16)) {
             val fmt = AudioFormat(rate.toFloat(), b, 2, true, false)
@@ -417,23 +420,35 @@ class DesktopPlayer(
         cmds.put(Cmd.Load(start, positionMs, true))
     }
 
-    override fun playNext(songs: List<Song>) {
-        val empty = synchronized(lock) {
-            val c = _state.value.currentIndex
-            val at = c + 1
-            queue = queue.take(at) + songs + queue.drop(at)
-            rebuildOrder(c.coerceAtLeast(0))
-            queue.size == songs.size
+    /**
+     * Mete [songs] en la posición [at] de la cola sin revolver lo demás; en aleatorio, en el orden de
+     * reproducción van justo después de la actual ([afterCurrent]) o al final.
+     */
+    private fun insert(songs: List<Song>, at: Int, afterCurrent: Boolean): Boolean = synchronized(lock) {
+        val c = _state.value.currentIndex
+        val wasEmpty = queue.isEmpty()
+        queue = queue.take(at) + songs + queue.drop(at)
+        val added = (at until at + songs.size).toList()
+        if (wasEmpty || order.isEmpty()) {
+            rebuildOrder(0)
+        } else {
+            val shifted = order.map { if (it >= at) it + songs.size else it }
+            val pos = if (afterCurrent) shifted.indexOf(c).let { if (it < 0) shifted.size else it + 1 } else shifted.size
+            order = shifted.take(pos) + added + shifted.drop(pos)
         }
-        cmds.put(if (empty) Cmd.Load(0, 0, true) else Cmd.QueueChanged())
+        wasEmpty
+    }
+
+    override fun playNext(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        val at = (_state.value.currentIndex + 1).coerceIn(0, synchronized(lock) { queue.size })
+        val empty = insert(songs, at, afterCurrent = true)
+        cmds.put(if (empty) Cmd.Load(0, 0, true) else Cmd.QueueChanged(insertedAt = at, count = songs.size))
     }
 
     override fun enqueue(songs: List<Song>) {
-        val empty = synchronized(lock) {
-            queue = queue + songs
-            rebuildOrder(_state.value.currentIndex.coerceAtLeast(0))
-            queue.size == songs.size
-        }
+        if (songs.isEmpty()) return
+        val empty = insert(songs, synchronized(lock) { queue.size }, afterCurrent = false)
         cmds.put(if (empty) Cmd.Load(0, 0, true) else Cmd.QueueChanged())
     }
 

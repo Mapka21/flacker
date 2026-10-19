@@ -35,7 +35,8 @@ class CastTest {
     }
 
     /** Tele de mentiras: guarda qué le pidieron, decodifica unos segundos y dice que terminó. */
-    private class FakeTv(val roku: Boolean) {
+    /** @param rejectOriginal como la tele del amigo: con el archivo original suena un segundo y se detiene. */
+    private class FakeTv(val roku: Boolean, val dur: Long = 3000L, val rejectOriginal: Boolean = false) {
         val loaded: MutableList<String> = Collections.synchronizedList(mutableListOf())
         val decoded: MutableList<String> = Collections.synchronizedList(mutableListOf())
         @Volatile var state = "STOPPED"
@@ -44,15 +45,26 @@ class CastTest {
         @Volatile var open = false
         @Volatile var launches = 0
         @Volatile var inputs = 0
-        /** "Canciones" de 3 s: la posición avanza con el reloj, como en una tele de verdad. */
-        val dur = 3000L
         val pos: Long get() = if (ended) 0L else (System.currentTimeMillis() - startedAt).coerceIn(0, dur)
         val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
 
         private fun play(url: String) {
             state = "PLAYING"; startedAt = System.currentTimeMillis(); ended = false
+            if (rejectOriginal && !url.contains("wav=1")) {
+                Thread { Thread.sleep(1200); ended = true; state = "STOPPED" }.start()
+                return
+            }
             Thread {
                 runCatching {
+                    if (url.contains("wav=1")) {
+                        // El WAV convertido se lee con Java Sound: un ffmpeg aquí mismo esperaría al ffmpeg del puente.
+                        java.net.URI(url).toURL().openStream().buffered().use { ins ->
+                            val ais = javax.sound.sampled.AudioSystem.getAudioInputStream(ins)
+                            ais.readNBytes(256 * 1024)
+                            decoded += "wav ${ais.format.sampleRate.toInt()} Hz"
+                        }
+                        return@runCatching
+                    }
                     val g = org.bytedeco.javacv.FFmpegFrameGrabber(url)
                     g.start(); repeat(20) { g.grabSamples() }
                     decoded += "${g.format} ${g.sampleRate} Hz"
@@ -132,6 +144,32 @@ class CastTest {
             assertEquals(null, cast.active.value)
             scope.cancel(); tv.server.stop(0)
         }
+    }
+
+    /**
+     * La tele no acepta el archivo original (suena un segundo y se para, sin decir nada): Flacker lo
+     * convierte a WAV aquí mismo, también sin servidor (modo local, donde no hay MP3 del servidor).
+     */
+    @Test fun fallsBackToWavWhenTvRejectsOriginal(): Unit = runBlocking {
+        val url = System.getenv("MARCO_TEST_SERVER")
+        assumeTrue(url != null)
+        val http = OkHttpClient()
+        val api = SubsonicApi(http) { SubsonicApi.login(url!!, "marco", "x") }
+        val songs = api.album("al1").song
+        val tv = FakeTv(roku = true, dur = 12_000, rejectOriginal = true)
+        val dev = tv.start()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val cast = CastService(http, api, scope, isLocal = { true }, decoder = FfmpegPcmDecoder())
+        assertEquals(null, cast.start(dev, songs, 0, 0))
+        val until = System.currentTimeMillis() + 25_000
+        while (tv.decoded.isEmpty() && System.currentTimeMillis() < until) Thread.sleep(200)
+        println("CAST rechazo: pedidas=${tv.loaded} decodificadas=${tv.decoded}")
+        assertTrue("primero el original", !tv.loaded.first().contains("wav=1"))
+        assertTrue("luego convertida a WAV", tv.loaded.any { it.contains("wav=1") })
+        // 24/96 → WAV de 48 kHz que la tele sí puede decodificar.
+        assertEquals(listOf("wav 48000 Hz"), tv.decoded.take(1))
+        assertEquals("sigue en la misma canción", songs.first().id, cast.player.state.value.current?.id)
+        cast.stop(); scope.cancel(); tv.server.stop(0)
     }
 
     /** El instalador de la Roku: contraseña por Digest (como la tele) y un paquete .zip válido. */

@@ -49,7 +49,7 @@ class LocalServer(private val lib: LocalLibrary) {
         return s.localPort
     }
 
-    fun stop() { runCatching { socket?.close() }; socket = null }
+    @Synchronized fun stop() { runCatching { socket?.close() }; socket = null }
 
     // ---------------------------------------------------------------- HTTP mínimo
 

@@ -339,5 +339,5 @@ private fun LocalLibraryCard(lib: com.marco.audiopro.data.local.LocalLibrary) {
     }
     Hint("Lo nuevo o cambiado se lee solo al volver a leer. Me gusta, playlists y cuántas veces pones cada canción se guardan en este dispositivo.")
     Spacer(Modifier.height(8.dp))
-    OutlinedButton(onClick = { com.marco.audiopro.data.local.LocalMode.disable(c.settings) }) { Text("Usar un servidor Navidrome", color = Hifi.LedRed) }
+    OutlinedButton(onClick = { com.marco.audiopro.data.local.LocalMode.disable(c.settings, lib) }) { Text("Usar un servidor Navidrome", color = Hifi.LedRed) }
 }

@@ -37,9 +37,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -111,9 +108,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -132,8 +129,8 @@ import com.marco.audiopro.ui.components.AmbientBackground
 import com.marco.audiopro.ui.components.ConnectToast
 import com.marco.audiopro.ui.components.CoverArt
 import androidx.compose.material.icons.filled.UnfoldLess
-import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.automirrored.filled.LastPage
+import androidx.compose.material.icons.automirrored.filled.ViewSidebar
 import androidx.compose.ui.unit.DpOffset
 import com.marco.audiopro.ui.components.SongMenu
 import com.marco.audiopro.ui.components.onRightClick
@@ -633,9 +630,15 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
     val pos by rememberPlaybackPosition(500)
     val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
-    // La portada gira como disco mientras suena.
-    val spin = rememberInfiniteTransition(label = "spin")
-    val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(12_000, easing = LinearEasing)), label = "a")
+    // La portada gira como disco mientras suena; en pausa se queda quieta (y no gasta CPU animando).
+    val spin = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(st.isPlaying) {
+        if (st.isPlaying) while (true) {
+            spin.animateTo(spin.value + 360f, tween(12_000, easing = LinearEasing))
+            spin.snapTo(spin.value % 360f)
+        }
+    }
+    val angle = spin.value
 
     var menu by remember { mutableStateOf<DpOffset?>(null) }
     Box(Modifier.onRightClick { menu = it }) {
@@ -645,7 +648,7 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
             .bouncyClick { nav.openPlayer() },
     ) {
         Row(Modifier.padding(start = 10.dp, end = 12.dp, top = 9.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverArt(song.coverArt, Modifier.size(46.dp).rotate(if (st.isPlaying) angle else 0f), size = 200, corner = 23.dp)
+            CoverArt(song.coverArt, Modifier.size(46.dp).graphicsLayer { rotationZ = angle }, size = 200, corner = 23.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(song.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -660,7 +663,7 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
             if (onShowPanel != null) {
                 Spacer(Modifier.width(10.dp))
-                Icon(Icons.Default.ViewSidebar, "Mostrar el panel", tint = Hifi.OnArt, modifier = Modifier.size(22.dp).bouncyClick(onClick = onShowPanel))
+                Icon(Icons.AutoMirrored.Filled.ViewSidebar, "Mostrar el panel", tint = Hifi.OnArt, modifier = Modifier.size(22.dp).bouncyClick(onClick = onShowPanel))
             }
         }
         Box(Modifier.padding(horizontal = 30.dp).padding(bottom = 8.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f))) {

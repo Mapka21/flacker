@@ -36,6 +36,26 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v3.0 (estable)**:
+  - **Transmitir a la tele ya toca todo**: si la tele no acepta el archivo (no lo abre, o suena un segundo y se
+    para), Flacker lo convierte a WAV ahí mismo (ffmpeg en la PC, los decodificadores de Android en el cel) y se lo
+    vuelve a mandar; también **sin servidor**, que antes no tenía a qué convertir. Las hi-res bajan a 44.1/48 kHz
+    para la tele, se puede adelantar (también en Roku) y las teles DLNA (Samsung, LG…) reciben los datos que piden.
+    Con Tailscale prendido ya no se le da a la tele la dirección de la VPN.
+  - **PC**: ya no se queda muda al poner, en pausa, una canción con otra frecuencia (p. ej. de 44.1 a 96 kHz).
+    Mover el volumen o un slider ya no escribe al registro de Windows en cada movimiento.
+  - **Aleatorio**: "Reproducir a continuación" suena de verdad justo después de la actual (PC y celular).
+  - **Connect más seguro**: la clave de las órdenes ya no es la que se anuncia a toda la red, y las API keys
+    (Anthropic, Last.fm) sólo viajan entre dispositivos que iniciaron sesión con tu contraseña. **Después de
+    actualizar, cierra sesión y vuelve a entrar en cada dispositivo** para que se vuelvan a ver. Sin servidor, cada
+    dispositivo es su propia biblioteca (ya no se mezclan dos Flacker locales en la misma red).
+  - **Canciones**: "Reintentar" funciona, carga rápido con bibliotecas grandes y tocar una canción ya no mete
+    toda la biblioteca a la cola (va desde ahí, hasta 500).
+  - **Celular**: con gestos, en la letra y la cola salen los botones (ahí no hay portada que tocar). Buscar muestra
+    tus géneros de verdad (MusicBrainz) y abre su página.
+  - Detalles: el error de búsqueda ya no se queda pegado; radio y muestras no muestran "me gusta"; la portada
+    que gira en la píldora no gasta CPU en pausa; salir del modo sin servidor apaga su servidor.
+
 - **v2.12.1**:
   - **Roku de verdad**: el "Roku Media Player" no acepta música de otras apps (Roku nunca abrió eso),
     así que Flacker trae su propia app para la tele (`cast/RokuChannel.kt`, SceneGraph): se instala
