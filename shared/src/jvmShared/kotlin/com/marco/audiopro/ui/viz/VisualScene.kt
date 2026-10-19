@@ -796,10 +796,12 @@ class AsciiVision {
     private val rowColor = IntArray(512)
 
     private fun ensureRain() {
-        if (dropY.size == cols) return
-        dropY = FloatArray(cols) { -rnd.nextFloat() * rows * 2 }
-        dropSpeed = FloatArray(cols) { 6f + rnd.nextFloat() * 14f }
-        glitchShift = IntArray(rows)
+        // Por columna (la lluvia) y por renglón (el glitch): si la ventana sólo cambia de alto, también se rehace.
+        if (dropY.size != cols) {
+            dropY = FloatArray(cols) { -rnd.nextFloat() * rows * 2 }
+            dropSpeed = FloatArray(cols) { 6f + rnd.nextFloat() * 14f }
+        }
+        if (glitchShift.size != rows) glitchShift = IntArray(rows)
     }
 
     fun draw(

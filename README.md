@@ -36,6 +36,9 @@ y API key de Anthropic para que Claude escriba la reseña cuando Last.fm no tien
 
 ## Qué trae
 
+- **v3.0.1**: el modo visual **ASCII 333** ya no truena con "Index 64 out of bounds" al reproducir (pasaba si la
+  ventana cambiaba de alto pero no de ancho, en el primer golpe fuerte de la canción).
+
 - **v3.0 (estable)**:
   - **Transmitir a la tele ya toca todo**: si la tele no acepta el archivo (no lo abre, o suena un segundo y se
     para), Flacker lo convierte a WAV ahí mismo (ffmpeg en la PC, los decodificadores de Android en el cel) y se lo
