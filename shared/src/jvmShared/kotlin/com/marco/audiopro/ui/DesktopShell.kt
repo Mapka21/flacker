@@ -68,16 +68,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.MoreHoriz
+import com.marco.audiopro.ui.components.AppMenu
+import com.marco.audiopro.ui.components.AppMenuItem
+import com.marco.audiopro.ui.components.Tip
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Home
@@ -91,7 +95,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -141,7 +144,6 @@ import com.marco.audiopro.ui.components.RemoteBadge
 import com.marco.audiopro.ui.components.FlackerLogo
 import com.marco.audiopro.ui.components.LyricsPane
 import com.marco.audiopro.ui.components.SegmentedControl
-import com.marco.audiopro.ui.components.VisualModeButton
 import com.marco.audiopro.ui.screens.SeekBar
 import com.marco.audiopro.ui.components.LikeButton
 import com.marco.audiopro.ui.components.Load
@@ -235,7 +237,10 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             ) { Row { Sidebar(nav, entry, dest); Spacer(Modifier.width(14.dp)) } }
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedVisibility(!onPlayer, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    Column { TopBar(nav, onMiniPlayer, search, dest.isIn(SearchRoute::class), goBack); Spacer(Modifier.height(12.dp)) }
+                    Column {
+                        TopBar(nav, onMiniPlayer, search, dest.isIn(SearchRoute::class), goBack, goForward, canBack = nav.previousBackStackEntry != null, canForward = forward.isNotEmpty())
+                        Spacer(Modifier.height(12.dp))
+                    }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().then(if (onPlayer) Modifier else Modifier.panel())) { AppNavHost(nav, Modifier.fillMaxSize()) }
             }
@@ -280,11 +285,10 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
     Column(Modifier.width(236.dp).fillMaxHeight().panel().padding(vertical = 22.dp)) {
         // El logo también sirve para arrastrar la ventana.
         FlackerLogo(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp).windowDragArea())
+        // Sólo música: Last.fm, ecualizador, arreglar metadatos y ajustes viven en el menú de tu avatar.
         SidebarItem(Icons.Default.Home, "Inicio", dest.isIn(HomeRoute::class)) { nav.openTab(HomeRoute) }
         SidebarItem(Icons.Default.Explore, "Descubrir", dest.isIn(DiscoverRoute::class)) { nav.openTab(DiscoverRoute) }
-        SidebarItem(Icons.Default.Insights, "Mi Last.fm", dest.isIn(LastFmRoute::class)) { nav.openTab(LastFmRoute) }
-        SidebarItem(Icons.Default.Equalizer, "Ecualizador", dest.isIn(DspRoute::class)) { nav.openTab(DspRoute) }
-        SidebarItem(Icons.Default.AutoFixHigh, "Arreglar metadatos", dest.isIn(FixRoute::class)) { nav.openTab(FixRoute) }
+        SidebarItem(Icons.Default.Radio, "Radio", dest.isIn(RadioRoute::class)) { nav.openTab(RadioRoute()) }
         SectionLabel("Biblioteca")
         SidebarItem(Icons.Default.Album, "Álbumes", libTab == 0) { nav.openLibrary(0) }
         SidebarItem(Icons.Default.Person, "Artistas", libTab == 1) { nav.openLibrary(1) }
@@ -292,14 +296,15 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
         SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
-        SidebarItem(Icons.Default.Radio, "Radio", dest.isIn(RadioRoute::class)) { nav.openTab(RadioRoute()) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SectionLabel("Tus playlists") }
-            Box(
-                Modifier.padding(end = 18.dp, top = 14.dp).size(26.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
-                    .bouncyClick { creating = true },
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Default.Add, "Nueva playlist", tint = Hifi.TextDim, modifier = Modifier.size(16.dp)) }
+            Tip("Nueva playlist") {
+                Box(
+                    Modifier.padding(end = 18.dp, top = 14.dp).size(26.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
+                        .bouncyClick { creating = true },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Add, "Nueva playlist", tint = Hifi.TextDim, modifier = Modifier.size(16.dp)) }
+            }
         }
         LazyColumn(Modifier.weight(1f)) {
             items(lists, key = { it.id }) { p ->
@@ -315,7 +320,6 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
                 }
             }
         }
-        SidebarItem(Icons.Default.Settings, "Ajustes", dest.isIn(SettingsRoute::class)) { nav.openTab(SettingsRoute) }
     }
 }
 
@@ -353,43 +357,78 @@ private fun SidebarItem(icon: ImageVector, label: String, selected: Boolean, onC
 // ------------------------------------------------------------------ barra superior
 
 @Composable
-private fun TopBar(nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: MutableState<String>, onSearch: Boolean, onBack: () -> Unit) {
+private fun TopBar(
+    nav: NavHostController, onMiniPlayer: (() -> Unit)?, query: MutableState<String>, onSearch: Boolean,
+    onBack: () -> Unit, onForward: () -> Unit, canBack: Boolean, canForward: Boolean,
+) {
     val c = LocalApp.current
     val playing = c.player.state.collectAsState().value.current != null
-    Row(Modifier.fillMaxWidth().height(50.dp), verticalAlignment = Alignment.CenterVertically) {
-        RoundGlass(Icons.AutoMirrored.Filled.ArrowBack, "Atrás", onClick = onBack)
-        Spacer(Modifier.width(12.dp))
-        SearchField(nav, query, onSearch)
-        Spacer(Modifier.weight(1f).fillMaxHeight().windowDragArea())
-        RoundGlass(Icons.Default.Shuffle, "Aleatorio de toda tu música") { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { VisualModeButton() }
-        Spacer(Modifier.width(10.dp))
-        RoundGlass(Icons.Default.Fullscreen, "Pantalla completa (F11)") { Immersive.on = true }
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.28f))) { DevicesButton() }
-        if (onMiniPlayer != null && playing) {
+    val visualOn = c.settings.prefs.collectAsState().value.visualMode
+    val mini = onMiniPlayer != null && playing
+    var visual by remember { mutableStateOf(false) }
+    var more by remember { mutableStateOf(false) }
+    BoxWithConstraints(Modifier.fillMaxWidth().height(50.dp)) {
+        // Cada botón redondo ocupa 44 + 10 de aire. Si no caben todos junto a un buscador decente,
+        // los secundarios se van al menú "Más" (antes se encimaban con la ventana angosta).
+        val slot = 54.dp
+        val arrows = 44.dp * 2 + 8.dp + 12.dp
+        val all = (if (mini) 5 else 4) + 1
+        val compact = maxWidth - arrows - slot * all < 300.dp
+        val searchW = (maxWidth - arrows - slot * (if (compact) 3 else all) - 24.dp).coerceIn(140.dp, 440.dp)
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            RoundGlass(Icons.AutoMirrored.Filled.ArrowBack, "Atrás", enabled = canBack, onClick = onBack)
+            Spacer(Modifier.width(8.dp))
+            RoundGlass(Icons.AutoMirrored.Filled.ArrowForward, "Adelante", enabled = canForward, onClick = onForward)
+            Spacer(Modifier.width(12.dp))
+            SearchField(nav, query, onSearch, Modifier.width(searchW))
+            Spacer(Modifier.weight(1f).fillMaxHeight().windowDragArea())
+            if (!compact) {
+                RoundGlass(Icons.Default.Shuffle, "Aleatorio de toda tu música") { com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
+                Spacer(Modifier.width(10.dp))
+                RoundGlass(Icons.Default.AutoAwesome, "Modo visual", tint = if (visualOn) Hifi.Accent else Hifi.OnArt) { visual = true }
+                Spacer(Modifier.width(10.dp))
+                RoundGlass(Icons.Default.Fullscreen, "Pantalla completa (F11)") { Immersive.on = true }
+                Spacer(Modifier.width(10.dp))
+            }
+            Tip("Conectar a un dispositivo") { Box(Modifier.glass(CircleShape, Color.Black.copy(alpha = 0.36f))) { DevicesButton() } }
+            if (!compact && mini) {
+                Spacer(Modifier.width(10.dp))
+                RoundGlass(Icons.Default.PictureInPictureAlt, "Miniplayer iPod", onClick = onMiniPlayer!!)
+            }
+            if (compact) {
+                Spacer(Modifier.width(10.dp))
+                Box {
+                    RoundGlass(Icons.Default.MoreHoriz, "Más") { more = true }
+                    AppMenu(more, { more = false }, offset = DpOffset((-180).dp, 6.dp)) {
+                        AppMenuItem("Aleatorio de toda tu música", Icons.Default.Shuffle) { more = false; com.marco.audiopro.ui.components.LibraryShuffle.start(c) }
+                        AppMenuItem("Modo visual…", Icons.Default.AutoAwesome, iconTint = if (visualOn) Hifi.Accent else null) { more = false; visual = true }
+                        AppMenuItem("Pantalla completa", Icons.Default.Fullscreen, shortcut = "F11") { more = false; Immersive.on = true }
+                        if (mini) AppMenuItem("Miniplayer iPod", Icons.Default.PictureInPictureAlt) { more = false; onMiniPlayer!!() }
+                    }
+                }
+            }
             Spacer(Modifier.width(10.dp))
-            RoundGlass(Icons.Default.PictureInPictureAlt, "Miniplayer iPod", onClick = onMiniPlayer)
+            Tip("Tu perfil, herramientas y ajustes") { com.marco.audiopro.ui.screens.ProfileMenuButton(nav) }
         }
     }
+    if (visual) com.marco.audiopro.ui.components.VisualModeDialog { visual = false }
 }
 
 /** La única barra de búsqueda (como Spotify): escribir aquí muestra los resultados al centro. */
 @Composable
-private fun SearchField(nav: NavHostController, query: MutableState<String>, onSearch: Boolean) {
+private fun SearchField(nav: NavHostController, query: MutableState<String>, onSearch: Boolean, modifier: Modifier = Modifier) {
     val focus = LocalFocusManager.current
     var focused by remember { mutableStateOf(false) }
     val border by animateColorAsState(if (focused) Color.White.copy(alpha = 0.35f) else Color.Transparent, label = "sf")
     Row(
-        Modifier.width(440.dp).height(44.dp).glass(RoundedCornerShape(50), Color.Black.copy(alpha = if (focused) 0.42f else 0.28f))
+        modifier.height(44.dp).glass(RoundedCornerShape(50), Color.Black.copy(alpha = if (focused) 0.50f else 0.38f))
             .border(1.dp, border, RoundedCornerShape(50)).padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Default.Search, null, tint = if (focused) Hifi.Text else Hifi.TextDim, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (query.value.isEmpty()) Text("¿Qué quieres escuchar?", color = Hifi.TextFaint, fontSize = 14.sp)
+            if (query.value.isEmpty()) Text("¿Qué quieres escuchar?", color = Hifi.TextDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             BasicTextField(
                 query.value,
                 { q ->
@@ -417,12 +456,15 @@ private fun SearchField(nav: NavHostController, query: MutableState<String>, onS
     }
 }
 
+/** Botón redondo de vidrio de la barra de arriba, con su nombre al pasar el mouse. */
 @Composable
-private fun RoundGlass(icon: ImageVector, desc: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(44.dp).glass(CircleShape, Color.Black.copy(alpha = 0.28f)).bouncyClick(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, desc, tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
+private fun RoundGlass(icon: ImageVector, desc: String, enabled: Boolean = true, tint: Color = Hifi.OnArt, onClick: () -> Unit) {
+    Tip(desc) {
+        Box(
+            Modifier.size(44.dp).glass(CircleShape, Color.Black.copy(alpha = 0.36f)).bouncyClick(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, desc, tint = if (enabled) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(20.dp)) }
+    }
 }
 
 // ------------------------------------------------------------------ columna derecha
@@ -468,11 +510,11 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
                 if (st.remoteName != null) RemoteBadge(st.remoteName)
                 else Text("REPRODUCIENDO", style = Mono.copy(color = Hifi.OnArt.copy(alpha = 0.6f), fontSize = 10.sp, letterSpacing = 0.9.sp))
             }
-            Icon(Icons.Default.UnfoldLess, "Hacer mini", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onCollapse))
+            Tip("Encoger") { Icon(Icons.Default.UnfoldLess, "Encoger", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onCollapse)) }
             Spacer(Modifier.width(12.dp))
-            Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel (mini reproductor)", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide))
+            Tip("Esconder el panel") { Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide)) }
             Spacer(Modifier.width(12.dp))
-            Icon(Icons.Default.OpenInFull, "Vista completa", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() })
+            Tip("Reproductor completo") { Icon(Icons.Default.OpenInFull, "Reproductor completo", tint = Hifi.OnArt, modifier = Modifier.size(16.dp).bouncyClick { nav.openPlayer() }) }
         }
         Spacer(Modifier.height(12.dp))
         // Al cambiar de canción la portada nueva entra creciendo y la vieja se desvanece.
@@ -527,14 +569,16 @@ private fun NowPlayingCard(nav: NavHostController, lyricsOn: Boolean, onCollapse
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (lyricsOn) Color.White.copy(alpha = 0.22f) else Color.Transparent)
-                    .bouncyClick(onClick = onLyrics),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Default.Lyrics, "Letra", tint = if (lyricsOn) Color.White else Hifi.OnArt, modifier = Modifier.size(20.dp)) }
-            IconButton(onClick = { nav.openTab(DspRoute) }) { Icon(Icons.Default.Equalizer, "Ecualizador", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) }
-            com.marco.audiopro.ui.components.ShareStoryButton(song, size = 19)
-            DevicesButton(size = 20)
+            Tip("Letra") {
+                Box(
+                    Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (lyricsOn) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+                        .bouncyClick(onClick = onLyrics),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Lyrics, "Letra", tint = if (lyricsOn) Color.White else Hifi.OnArt, modifier = Modifier.size(20.dp)) }
+            }
+            Tip("Ecualizador") { IconButton(onClick = { nav.openTab(DspRoute) }) { Icon(Icons.Default.Equalizer, "Ecualizador", tint = Hifi.OnArt, modifier = Modifier.size(20.dp)) } }
+            Tip("Compartir en historias") { com.marco.audiopro.ui.components.ShareStoryButton(song, size = 19) }
+            Tip("Conectar a un dispositivo") { DevicesButton(size = 20) }
         }
     }
 }
@@ -562,9 +606,9 @@ private fun CompactNowPlaying(nav: NavHostController, onHide: () -> Unit, onExpa
                 Text(song.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(song.artist ?: "", fontSize = 12.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(Icons.Default.UnfoldMore, "Agrandar", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onExpand))
+            Tip("Agrandar") { Icon(Icons.Default.UnfoldMore, "Agrandar", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onExpand)) }
             Spacer(Modifier.width(10.dp))
-            Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide))
+            Tip("Esconder el panel") { Icon(Icons.AutoMirrored.Filled.LastPage, "Esconder el panel", tint = Hifi.OnArt, modifier = Modifier.size(18.dp).bouncyClick(onClick = onHide)) }
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -663,7 +707,7 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
             Icon(Icons.Default.SkipNext, "Siguiente", tint = Color.White, modifier = Modifier.size(26.dp).bouncyClick { player.next() })
             if (onShowPanel != null) {
                 Spacer(Modifier.width(10.dp))
-                Icon(Icons.AutoMirrored.Filled.ViewSidebar, "Mostrar el panel", tint = Hifi.OnArt, modifier = Modifier.size(22.dp).bouncyClick(onClick = onShowPanel))
+                Tip("Mostrar el panel") { Icon(Icons.AutoMirrored.Filled.ViewSidebar, "Mostrar el panel", tint = Hifi.OnArt, modifier = Modifier.size(22.dp).bouncyClick(onClick = onShowPanel)) }
             }
         }
         Box(Modifier.padding(horizontal = 30.dp).padding(bottom = 8.dp).fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f))) {

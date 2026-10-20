@@ -32,7 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
@@ -145,6 +145,8 @@ import kotlin.reflect.KClass
 @Serializable data class RadioRoute(val query: String? = null)
 /** Arreglar metadatos (PC). */
 @Serializable data object FixRoute
+/** Tu perfil: números, Last.fm, herramientas y dispositivos. */
+@Serializable data object ProfileRoute
 
 fun NavController.openAlbum(id: String) = navigate(AlbumRoute(id))
 fun NavController.openArtist(id: String) = navigate(ArtistRoute(id))
@@ -185,6 +187,7 @@ fun androidx.navigation.NavBackStackEntry.routeObject(): Any? {
             d.hasRoute(GenreRoute::class) -> toRoute<GenreRoute>()
             d.hasRoute(RadioRoute::class) -> toRoute<RadioRoute>()
             d.hasRoute(FixRoute::class) -> FixRoute
+            d.hasRoute(ProfileRoute::class) -> ProfileRoute
             d.hasRoute(LibraryRoute::class) -> toRoute<LibraryRoute>()
             d.hasRoute(HomeRoute::class) -> HomeRoute
             d.hasRoute(SearchRoute::class) -> SearchRoute
@@ -260,6 +263,7 @@ fun AppNavHost(nav: NavHostController, modifier: Modifier = Modifier) {
         composable<GenreRoute> { com.marco.audiopro.ui.screens.GenreScreen(it.toRoute<GenreRoute>().name, nav) }
         composable<RadioRoute> { com.marco.audiopro.ui.screens.RadioScreen(nav, it.toRoute<RadioRoute>().query) }
         composable<FixRoute> { com.marco.audiopro.ui.screens.FixScreen() }
+        composable<ProfileRoute> { com.marco.audiopro.ui.screens.ProfileScreen(nav) }
         composable<ExternalArtistRoute> { ExternalArtistScreen(it.toRoute<ExternalArtistRoute>().id, nav) }
         composable<ExternalAlbumRoute> { ExternalAlbumScreen(it.toRoute<ExternalAlbumRoute>().id, nav) }
         // El fondo es compartido: el reproductor entra creciendo y desvaneciéndose, sin tapar nada.
@@ -337,8 +341,8 @@ private fun PhoneShell(nav: NavHostController) {
         add(NavItem(LibraryRoute(), "Biblioteca", Icons.Default.LibraryMusic))
         add(NavItem(SearchRoute, "Buscar", Icons.Default.Search))
         add(NavItem(DiscoverRoute, "Descubrir", Icons.Default.Explore))
-        // Descargas se abre desde Biblioteca e Inicio; aquí va tu Last.fm, siempre a la mano.
-        add(NavItem(LastFmRoute, "Last.fm", Icons.Default.Insights))
+        // Tu perfil: Last.fm, ecualizador, descargas y ajustes, todo en un lugar.
+        add(NavItem(ProfileRoute, "Perfil", Icons.Default.Person))
     }
 
     Scaffold(

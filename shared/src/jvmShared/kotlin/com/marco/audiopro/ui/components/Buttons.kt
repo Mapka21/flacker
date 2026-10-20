@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,6 +47,26 @@ fun ShufflePill(onClick: () -> Unit) {
         Modifier.size(46.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(Icons.Default.Shuffle, "Aleatorio", tint = Hifi.Cream) }
+}
+
+/**
+ * Nombre del botón en un globito al pasar el mouse (PC), para que ningún ícono quede en
+ * misterio. En el celular no hace nada.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun Tip(text: String, content: @Composable () -> Unit) {
+    if (!com.marco.audiopro.core.LocalApp.current.isDesktop) { content(); return }
+    androidx.compose.material3.TooltipBox(
+        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(8.dp),
+        tooltip = {
+            PlainTooltip(
+                containerColor = Color(0xFF1B1C22), contentColor = Hifi.Text,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            ) { Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium) }
+        },
+        state = androidx.compose.material3.rememberTooltipState(),
+    ) { content() }
 }
 
 /** Fila estándar: reproducir, aleatorio y un slot extra a la derecha (descarga, favorito…). */

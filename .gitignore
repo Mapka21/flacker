@@ -11,3 +11,4 @@ captures/
 *.zip
 tools/fake-navidrome/rest/
 tools/fake-navidrome/lastfm/
+__pycache__/

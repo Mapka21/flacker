@@ -2,6 +2,7 @@
 import http.server
 import os
 import re
+import urllib.parse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -11,7 +12,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **kw)
 
     def log_message(self, *a):
-        pass
+        if os.environ.get("FAKE_LOG"):  # FAKE_LOG=1 imprime cada petición
+            super().log_message(*a)
 
     def send_head(self):
         # Last.fm falso: /2.0/?method=user.getinfo&... -> lastfm/user.getinfo
@@ -20,6 +22,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             path = os.path.join(ROOT, "lastfm", m.group(1).lower())
         else:
             path = self.translate_path(self.path.split("?")[0])
+            # Respuesta por id o tipo si existe (rest/getAlbum.al3, rest/getAlbumList2.newest); si no, la general.
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            for k in ("id", "type"):
+                v = q.get(k, [None])[0]
+                if v and os.path.isfile(f"{path}.{v}"):
+                    path = f"{path}.{v}"
+                    break
         if not os.path.isfile(path):
             self.send_error(404)
             return None
@@ -34,7 +43,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         else:
             self.send_response(200)
-        ctype = {"stream": "audio/wav", "getCoverArt": "image/png"}.get(os.path.basename(path), "application/json")
+        ctype = {"stream": "audio/wav", "getCoverArt": "image/png"}.get(os.path.basename(path).split(".")[0], "application/json")
         self.send_header("Content-Type", ctype)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))

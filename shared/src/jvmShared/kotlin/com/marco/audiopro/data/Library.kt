@@ -138,6 +138,8 @@ class CustomCovers(root: File) {
 
     companion object {
         const val LIKED = "liked"
+        /** Tu foto de perfil (viaja a tus otros dispositivos como las demás). */
+        const val PROFILE = "profile"
         fun playlist(id: String) = "playlist_$id"
         fun artist(id: String) = "artist_$id"
     }
