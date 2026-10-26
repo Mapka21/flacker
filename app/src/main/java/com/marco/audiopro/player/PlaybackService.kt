@@ -135,7 +135,11 @@ class PlaybackService : MediaSessionService() {
     /** La UI manda MediaItems sin URI (no cruzan el IPC): aquí se arma la URL de stream. */
     private fun resolve(item: MediaItem): MediaItem {
         item.toSong()?.externalUrl?.let { url ->
-            resolvedTransport[item.mediaId] = if (item.mediaId.startsWith("radio:")) "Radio en vivo" else "Muestra de 30 s (Deezer, MP3)"
+            resolvedTransport[item.mediaId] = when {
+                item.mediaId.startsWith("radio:") -> "Radio en vivo"
+                item.mediaId.startsWith("peer:") -> "Desde otro dispositivo · original"
+                else -> "Muestra de 30 s (Deezer, MP3)"
+            }
             return item.buildUpon().setUri(url).build()
         }
         container.downloads.completed(item.mediaId)?.let { req ->

@@ -93,7 +93,7 @@ class SyncService(
             var seen = emptySet<String>()
             var tick = 0
             while (isActive) {
-                val ids = connect.devices.value.map { it.id }.toSet()
+                val ids = connect.devices.value.filter { !it.paired }.map { it.id }.toSet()
                 val newcomers = ids - seen
                 seen = ids
                 if (newcomers.isNotEmpty() || tick % 12 == 0) pullAll()
@@ -110,7 +110,8 @@ class SyncService(
     }
 
     private suspend fun pullAll() = lock.withLock {
-        for (d in connect.devices.value) runCatching { pull(d) }
+        // Los emparejados son de otra cuenta: con ellos no se comparten ajustes.
+        for (d in connect.devices.value.filter { !it.paired }) runCatching { pull(d) }
     }
 
     private suspend fun pull(d: com.marco.audiopro.connect.RemoteDevice) {

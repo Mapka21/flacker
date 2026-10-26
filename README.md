@@ -49,6 +49,8 @@ una VPN como Tailscale.
   con portada propia y scrobbling a **Last.fm** con tu panel de estadísticas dentro de la app.
 - **Connect**: tu celular y tu PC se ven en la misma red y la música brinca de uno a otro sin cortarse. También
   transmite a la **tele**: Chromecast, Roku y DLNA (Samsung, LG…).
+- **Mandar a…**: pásale canciones, álbumes o playlists (los FLAC originales) a otro Flacker de tu Wi-Fi, al
+  estilo LocalSend. Empareja con un código a los de otra cuenta o sin servidor y úsalos con Connect.
 - **PC de verdad**: barra de título propia, controles en la vista previa de la barra de tareas, el panel
   multimedia de Windows, teclas multimedia, atajos como Spotify, clic derecho en todo y un **miniplayer iPod
   nano** que siempre queda encima.
@@ -86,7 +88,7 @@ cambia el volumen.
 Flacker is a hi-fi music player for **Android and Windows**, built with Kotlin and Compose Multiplatform from one
 shared codebase. It plays from **Navidrome / Subsonic** servers or straight from local files, with gapless hi-res
 playback, a 10-band parametric EQ, synced lyrics, audio visualizers, Spotify-style Connect between your devices,
-casting to Chromecast/Roku/DLNA, Last.fm stats and an iPod-nano mini player on Windows. The UI is in Spanish.
+LocalSend-style file sharing between Flackers on the same Wi-Fi, casting to Chromecast/Roku/DLNA, Last.fm stats and an iPod-nano mini player on Windows. The UI is in Spanish.
 Grab the APK or the Windows zip from [Releases](https://github.com/Mapka21/flacker/releases/latest).
 
 ## Para programadores

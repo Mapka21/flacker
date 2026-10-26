@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.SendToMobile
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.Icon
@@ -61,7 +62,9 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
     val liked = song.id in c.likes.ids.collectAsState().value
     var addTo by remember { mutableStateOf(false) }
     var story by remember { mutableStateOf(false) }
+    var sendTo by remember { mutableStateOf(false) }
     if (addTo) AddToPlaylistDialog(listOf(song)) { addTo = false }
+    if (sendTo) SendToDialog(listOf(song)) { sendTo = false }
     if (story) ShareStoryDialog(song) { story = false }
     AppMenu(expanded, onDismiss, offset, header = { MenuHeader(song.coverArt, song.title, song.artist) }) {
         if (!song.isPreview) {
@@ -84,6 +87,7 @@ fun SongMenu(song: Song, expanded: Boolean, onDismiss: () -> Unit, nav: NavContr
             AppMenuItem("Descargar", Icons.Outlined.Download) { store.download(listOf(song)); onDismiss() }
         }
         AppMenuItem("Compartir en historia", Icons.Default.IosShare) { onDismiss(); story = true }
+        if (!song.isPreview && !song.isRadio) AppMenuItem("Mandar a…", Icons.Default.SendToMobile) { onDismiss(); sendTo = true }
         if (nav != null && (song.albumId != null || song.artistId != null)) {
             AppMenuDivider()
             song.albumId?.let { id -> AppMenuItem("Ir al álbum", Icons.Default.Album) { onDismiss(); nav.openAlbum(id) } }

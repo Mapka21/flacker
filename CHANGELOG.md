@@ -2,6 +2,19 @@
 
 Lo más nuevo arriba. Las descargas de cada versión están en [Releases](https://github.com/Mapka21/flacker/releases).
 
+- **v3.2**:
+  - **Mandar a…** (como LocalSend): en el menú de una canción, un álbum o una playlist, elige otro Flacker de tu
+    Wi-Fi (de tu cuenta, de otra o sin servidor). El otro ve qué le mandas y acepta; le llegan los **archivos
+    originales** (de tu Navidrome o de tus archivos) con barra de progreso, se comprueba con SHA-256 que llegaron
+    completos y se guardan en **Música/Flacker/Artista/Álbum**. Lo que ya tiene no se vuelve a mandar. Sin
+    servidor, lo recibido aparece solo en tu biblioteca. En el celular, si Flacker está atrás, sale una
+    notificación para aceptar.
+  - **Emparejar**: en "Conectar a un dispositivo" salen los **otros Flacker en la red**; tócalo, revisa que los
+    dos muestren el mismo código y acepta allá. Ya emparejados se controlan y se pasan la música con Connect
+    aunque no tengan el mismo servidor (la música sale del que la tiene). Ajustes y API keys no se comparten con
+    emparejados. El ícono de cadena rota los olvida, aquí y allá.
+  - **Las dos cosas necesitan v3.2 en ambos dispositivos.**
+
 - **v3.1**:
   - **Tu perfil**: en la PC tu avatar arriba a la derecha (como Spotify) abre Perfil, Mi Last.fm, Ecualizador,
     Arreglar metadatos, Ajustes y Cerrar sesión (ahora pide confirmación). La página de **Perfil** junta tu foto

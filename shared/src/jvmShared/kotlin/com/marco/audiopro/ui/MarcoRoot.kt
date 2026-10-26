@@ -370,9 +370,14 @@ private fun PhoneShell(nav: NavHostController) {
                 com.marco.audiopro.ui.components.LocalOpenOffline provides { nav.navigate(DownloadsRoute) { launchSingleTop = true } },
             ) { AppNavHost(nav, Modifier.padding(pad)) }
             ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = pad.calculateBottomPadding() + 12.dp))
+            com.marco.audiopro.ui.components.TransfersPill(
+                Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = pad.calculateBottomPadding() + 64.dp),
+            )
             if (Immersive.on) ImmersiveScreen { Immersive.on = false }
         }
     }
+    com.marco.audiopro.ui.components.IncomingShareDialog()
+    com.marco.audiopro.ui.components.PairRequestDialog()
     // La PC mandó una canción para compartirla en historias desde el celular.
     c.connect.storyRequest.collectAsState().value?.let { s ->
         com.marco.audiopro.ui.components.ShareStoryDialog(s) { c.connect.storyRequest.value = null }

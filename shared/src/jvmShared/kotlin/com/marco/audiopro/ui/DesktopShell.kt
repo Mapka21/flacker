@@ -258,6 +258,9 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp),
         ) { PillPlayer(nav, onShowPanel = if (wide) ({ setRightHidden(false) }) else null) }
         ConnectToast(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp))
+        com.marco.audiopro.ui.components.TransfersPill(Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp))
+        com.marco.audiopro.ui.components.IncomingShareDialog()
+        com.marco.audiopro.ui.components.PairRequestDialog()
         // Pantalla completa (efectos mezclados + letra) encima de todo.
         androidx.compose.animation.AnimatedVisibility(Immersive.on, enter = fadeIn(tween(500)), exit = fadeOut(tween(300))) {
             ImmersiveScreen { Immersive.on = false }

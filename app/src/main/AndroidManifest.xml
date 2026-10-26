@@ -68,5 +68,10 @@
             android:name=".local.CastKeepAlive"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- Mientras se mandan o reciben canciones con otro Flacker de la red. -->
+        <service
+            android:name=".local.ShareKeepAlive"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

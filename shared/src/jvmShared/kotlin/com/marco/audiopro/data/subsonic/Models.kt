@@ -41,6 +41,8 @@ data class Song(
     val externalUrl: String? = null,
 ) {
     val isPreview: Boolean get() = externalUrl != null
+    /** Canción de otro dispositivo emparejado (suena desde allá, por [externalUrl]). */
+    val isPeer: Boolean get() = id.startsWith("peer:")
     /** Estación de radio en vivo (sin duración). */
     val isRadio: Boolean get() = id.startsWith("radio:")
 

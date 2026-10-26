@@ -210,7 +210,7 @@ class DesktopPlayer(
         g.setOption("reconnect_streamed", "1")
         g.setOption("rw_timeout", "20000000")
         g.start()
-        return Track(index, song, g, if (song.isRadio) "Radio en vivo" else if (song.isPreview) "Muestra de 30 s (Deezer, MP3)" else q.label)
+        return Track(index, song, g, if (song.isRadio) "Radio en vivo" else if (song.isPeer) "Desde otro dispositivo · original" else if (song.isPreview) "Muestra de 30 s (Deezer, MP3)" else q.label)
     }
 
     /** Abre (o reutiliza) la salida al sample rate de la pista; 24 bits si se puede. */

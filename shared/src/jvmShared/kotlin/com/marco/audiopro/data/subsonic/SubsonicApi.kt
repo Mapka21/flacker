@@ -157,7 +157,7 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
     var offlineQueue: com.marco.audiopro.data.ScrobbleQueue? = null
 
     suspend fun scrobble(id: String, submission: Boolean) {
-        if (id.startsWith("dz:") || id.startsWith("radio:")) return // muestras de Descubrir y radio: no son de tu servidor
+        if (id.startsWith("dz:") || id.startsWith("radio:") || id.startsWith("peer:")) return // muestras, radio y lo de otro dispositivo: no son de tu servidor
         val q = offlineQueue
         if (submission && q != null) { q.submit(id); return }
         runCatching { call("scrobble", mapOf("id" to id, "submission" to submission, "time" to System.currentTimeMillis())) }
@@ -181,6 +181,9 @@ class SubsonicApi(private val http: OkHttpClient, private val accountProvider: (
                 "maxBitRate" to quality.maxBitRate.takeIf { it > 0 },
             ),
         ).toString()
+
+    /** El archivo original tal cual (para mandarlo a otro dispositivo). */
+    fun downloadUrl(id: String): String = url("download", mapOf("id" to id)).toString()
 
     companion object {
         fun login(url: String, user: String, password: String): ServerAccount {

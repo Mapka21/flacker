@@ -34,6 +34,8 @@ interface AppGraph {
     val discover: DiscoverRepository
     /** Marco Connect: otros dispositivos con la app en la red. */
     val connect: ConnectService
+    /** Mandar y recibir canciones con otros Flacker de la red. */
+    val share: com.marco.audiopro.share.ShareService
     val player: PlayerController
     /** Radio por internet (radio-browser.info). */
     val radio: com.marco.audiopro.data.radio.RadioBrowser

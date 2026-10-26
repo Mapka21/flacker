@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SendToMobile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +45,7 @@ import com.marco.audiopro.data.CustomCovers
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.CoverEditButton
 import com.marco.audiopro.ui.components.DownloadButton
+import com.marco.audiopro.ui.components.SendToDialog
 import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.PlaylistNameDialog
@@ -68,6 +70,7 @@ fun PlaylistScreen(id: String, nav: NavController) {
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var sendTo by remember { mutableStateOf(false) }
 
     LoadBox(loader, Modifier.statusBarsPadding()) { pl ->
         val songs = pl.entry
@@ -101,6 +104,7 @@ fun PlaylistScreen(id: String, nav: NavController) {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Más", tint = Hifi.TextDim) }
                         AppMenu(menu, { menu = false }) {
                             AppMenuItem("Cambiar nombre", Icons.Default.Edit) { menu = false; renaming = true }
+                            if (songs.isNotEmpty()) AppMenuItem("Mandar a…", Icons.Default.SendToMobile) { menu = false; sendTo = true }
                             AppMenuDivider()
                             AppMenuItem("Borrar playlist", Icons.Default.Delete, destructive = true) { menu = false; deleting = true }
                         }
@@ -121,6 +125,7 @@ fun PlaylistScreen(id: String, nav: NavController) {
                 )
             }
         }
+        if (sendTo) SendToDialog(songs) { sendTo = false }
         if (renaming) {
             PlaylistNameDialog("Cambiar nombre", initial = pl.name, confirm = "Guardar", onDismiss = { renaming = false }) { name ->
                 renaming = false

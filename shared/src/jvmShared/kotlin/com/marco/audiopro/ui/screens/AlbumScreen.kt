@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SendToMobile
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -86,6 +87,7 @@ import com.marco.audiopro.ui.components.LoadBox
 import com.marco.audiopro.ui.components.PlayActions
 import com.marco.audiopro.ui.components.ScreenBackButton
 import com.marco.audiopro.ui.components.SectionHeader
+import com.marco.audiopro.ui.components.SendToDialog
 import com.marco.audiopro.ui.components.TrackRow
 import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.formatBytes
@@ -174,6 +176,7 @@ private fun AlbumHeader(album: Album, nav: NavController, onDetails: () -> Unit)
     val scope = rememberCoroutineScope()
     var starred by remember(album.id) { mutableStateOf(album.starred != null) }
     var addTo by remember { mutableStateOf(false) }
+    var sendTo by remember { mutableStateOf(false) }
     val songs = album.song
     if (addTo) AddToPlaylistDialog(songs) { addTo = false }
     BoxWithConstraints(Modifier.fillMaxWidth().statusBarsPadding()) {
@@ -233,6 +236,8 @@ private fun AlbumHeader(album: Album, nav: NavController, onDetails: () -> Unit)
                 DownloadButton(songs)
                 IconButton(onClick = { addTo = true }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Agregar a playlist", tint = Hifi.TextDim) }
                 IconButton(onClick = { c.player.enqueue(songs) }) { Icon(Icons.AutoMirrored.Filled.QueueMusic, "Agregar a la cola", tint = Hifi.TextDim) }
+                IconButton(onClick = { sendTo = true }) { Icon(Icons.Default.SendToMobile, "Mandar a otro dispositivo", tint = Hifi.TextDim) }
+                if (sendTo) SendToDialog(songs) { sendTo = false }
                 IconButton(onClick = onDetails) { Icon(Icons.Default.Info, "Información del álbum", tint = Hifi.TextDim) }
             }
         }

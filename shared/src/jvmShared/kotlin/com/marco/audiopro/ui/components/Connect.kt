@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tv
@@ -97,6 +98,8 @@ fun DevicesDialog(onDismiss: () -> Unit) {
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     val devices by c.connect.devices.collectAsState()
+    val nearby by c.connect.nearby.collectAsState()
+    val pairing by c.connect.pairing.collectAsState()
     val controlling by c.connect.controlling.collectAsState()
     val st by c.player.state.collectAsState()
     val vol = c.player.volume?.collectAsState()?.value
@@ -137,7 +140,7 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                 },
             )
 
-            if (devices.isEmpty()) {
+            if (devices.isEmpty() && nearby.isEmpty()) {
                 Text(
                     "No veo otros dispositivos. Abre Flacker en tu celular o PC conectados a la misma red." +
                         if (c.isDesktop) " Si Windows preguntó por el firewall, permite el acceso en redes privadas." else "",
@@ -167,6 +170,12 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                             )
                         }
                         if (active) Icon(Icons.Default.Check, null, tint = ConnectGreen)
+                        if (d.paired) Tip("Olvidar emparejamiento") {
+                            Icon(
+                                Icons.Default.LinkOff, "Olvidar emparejamiento", tint = Hifi.TextFaint,
+                                modifier = Modifier.size(30.dp).clip(CircleShape).bouncyClick { c.connect.unpair(d) }.padding(6.dp),
+                            )
+                        }
                     },
                     // Tocar un dispositivo = que la música suene allá (venga de aquí o de otro).
                     onClick = when {
@@ -177,6 +186,31 @@ fun DevicesDialog(onDismiss: () -> Unit) {
                         else -> null
                     },
                 )
+            }
+            // Flacker de otra cuenta o sin servidor: emparejarse con un código para usarlos con Connect.
+            if (nearby.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("OTROS FLACKER EN LA RED", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
+                nearby.forEach { d ->
+                    val code = pairing?.takeIf { it.first.id == d.id }?.second
+                    DeviceRow(
+                        icon = platformIcon(d.platform),
+                        name = d.name,
+                        subtitle = if (code != null) "Acepta en ${d.name}…" else "Otra cuenta · empareja para pasarle la música",
+                        active = false,
+                        trailing = {
+                            if (code == null) Text(
+                                "Emparejar", color = Hifi.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Hifi.Glass).padding(horizontal = 10.dp, vertical = 6.dp),
+                            ) else CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Hifi.Text)
+                        },
+                        onClick = if (pairing != null) null else ({ c.connect.startPairing(d) }),
+                    )
+                    if (code != null) {
+                        PairCode(code, Modifier.padding(top = 4.dp))
+                        Text("Debe salir el mismo código en ${d.name}.", fontSize = 12.sp, color = Hifi.TextDim, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
             }
             // Teles y bocinas: Chromecast, Roku y DLNA.
             Spacer(Modifier.height(14.dp))

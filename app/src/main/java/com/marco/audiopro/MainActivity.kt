@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
         container.localPlayer.connect()
         container.connect.start()
         container.sync
+        container.share // para que ya escuche si alguien te manda canciones
         setContent {
             CompositionLocalProvider(LocalApp provides container) {
                 MarcoTheme { MarcoRoot() }

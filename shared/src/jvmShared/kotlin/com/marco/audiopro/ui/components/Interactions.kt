@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SendToMobile
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
@@ -317,6 +318,7 @@ fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavCo
     val c = LocalApp.current
     val scope = rememberCoroutineScope()
     var addTo by remember { mutableStateOf<List<Song>?>(null) }
+    var sendTo by remember { mutableStateOf<List<Song>?>(null) }
     fun withSongs(block: (List<Song>) -> Unit) {
         onDismiss()
         scope.launch { runCatching { c.api.album(album.id).song }.onSuccess { if (it.isNotEmpty()) block(it) } }
@@ -331,12 +333,14 @@ fun AlbumMenu(album: Album, expanded: Boolean, onDismiss: () -> Unit, nav: NavCo
         c.downloads?.let { store ->
             AppMenuItem("Descargar", Icons.Default.Download) { withSongs { store.download(it) } }
         }
+        AppMenuItem("Mandar a…", Icons.Default.SendToMobile) { withSongs { sendTo = it } }
         if (nav != null && album.artistId != null) {
             AppMenuDivider()
             AppMenuItem("Ir al artista", Icons.Default.Person) { onDismiss(); nav.openArtist(album.artistId) }
         }
     }
     addTo?.let { AddToPlaylistDialog(it) { addTo = null } }
+    sendTo?.let { SendToDialog(it) { sendTo = null } }
 }
 
 /** Crear playlist vacía y abrirla (desde la barra lateral o la biblioteca). */

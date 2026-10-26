@@ -130,6 +130,10 @@ class DesktopGraph : AppGraph {
     override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect = ConnectService(
         System.getenv("COMPUTERNAME")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "PC", "windows", settings, desktopPlayer, scope,
+        relay = com.marco.audiopro.cast.CastRelay(http, api),
+    )
+    override val share = com.marco.audiopro.share.ShareService(
+        connect, api, http, FolderInbox(settings), File(dataDir, "recibiendo"), localLibrary, settings, scope,
     )
     /** Lo que ve la UI: este reproductor o el del dispositivo que controlas con Connect. */
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -145,7 +149,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "3.1.0"
+    override val versionName = "3.2.0"
     override val isDesktop = true
 
     fun shutdown() { desktopPlayer.shutdown(); prefsStore.flushNow() }

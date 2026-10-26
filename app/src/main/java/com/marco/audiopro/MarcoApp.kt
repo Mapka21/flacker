@@ -106,11 +106,18 @@ class AppContainer(private val context: Context) : AppGraph {
     override val lyrics = LyricsRepository(http, api, context.filesDir)
     override val lastFm = com.marco.audiopro.data.info.LastFmProfile(http)
     override val connect: ConnectService by lazy {
-        ConnectService(Build.MODEL ?: "Android", "android", settings, localPlayer, appScope) {
+        ConnectService(Build.MODEL ?: "Android", "android", settings, localPlayer, appScope, com.marco.audiopro.cast.CastRelay(http, api)) {
             // Sin esto muchos teléfonos descartan los anuncios UDP de la red.
             context.applicationContext.getSystemService(WifiManager::class.java)
                 ?.createMulticastLock("marco-connect")?.apply { setReferenceCounted(false); acquire() }
         }
+    }
+    override val share by lazy {
+        com.marco.audiopro.share.ShareService(
+            connect, api, http, com.marco.audiopro.local.MediaStoreInbox(context), File(context.cacheDir, "recibiendo"), localLibrary, settings, appScope,
+            onAttention = { com.marco.audiopro.local.notifyIncomingShare(context, it) },
+            keepAlive = { com.marco.audiopro.local.ShareKeepAlive.set(context, it) },
+        )
     }
     /** Transmitir a la tele; mientras transmite, un aviso en la barra mantiene viva la app (si no, Android la duerme). */
     override val cast by lazy {

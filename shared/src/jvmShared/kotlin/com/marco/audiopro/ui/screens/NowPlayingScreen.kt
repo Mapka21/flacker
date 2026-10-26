@@ -393,7 +393,7 @@ private fun LcdStrip(song: Song, engine: AudioEngine, modifier: Modifier, onClic
             if (!song.isLossless) song.bitRate?.takeIf { it > 0 }?.let { add("$it kbps") }
         }
         Text(parts.joinToString("  "), style = lcd, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (song.isPreview) {
+        if (song.isPreview && !song.isPeer) {
             Text("MUESTRA 30 s", style = lcd.copy(color = Hifi.Accent, fontSize = 10.sp))
             return@Row
         }
