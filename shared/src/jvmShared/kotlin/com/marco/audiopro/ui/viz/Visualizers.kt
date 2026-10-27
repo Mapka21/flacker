@@ -9,7 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameNanos
+import com.marco.audiopro.ui.components.animationFrames
+import com.marco.audiopro.ui.components.rememberAnimating
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -67,8 +68,9 @@ fun Visualizer(mode: VizMode, modifier: Modifier = Modifier, accent: Color = Hif
     val playing by rememberUpdatedState(c.player.state.collectAsState().value.isPlaying)
     val offset by rememberUpdatedState(c.settings.prefs.collectAsState().value.visualOffsetMs)
     val tick = remember { mutableLongStateOf(0L) }
+    val animating = rememberAnimating()
     LaunchedEffect(Unit) {
-        while (true) withFrameNanos { t ->
+        animationFrames(animating) { t ->
             analyzer.capture(offset, playing)
             tick.longValue = t
         }

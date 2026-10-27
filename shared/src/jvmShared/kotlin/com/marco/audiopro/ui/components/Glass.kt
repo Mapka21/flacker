@@ -34,7 +34,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -157,9 +156,10 @@ fun AmbientBackground(
     val scene = remember { VisualScene() }
     scene.measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val tick = remember { mutableLongStateOf(0L) }
+    val animating = rememberAnimating()
     LaunchedEffect(Unit) {
         var last = 0L
-        while (true) withFrameNanos { t ->
+        animationFrames(animating) { t ->
             val dt = if (last == 0L) 0.016f else ((t - last) / 1e9f).coerceIn(0f, 0.1f)
             last = t
             if (reactive) LiveAudio.update(c.engine.tap, t, playing, offset)

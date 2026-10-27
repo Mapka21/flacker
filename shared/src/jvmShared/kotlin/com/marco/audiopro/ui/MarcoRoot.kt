@@ -68,6 +68,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.awaitAnimating
+import com.marco.audiopro.ui.components.rememberAnimating
 import com.marco.audiopro.ui.components.bouncyClick
 import com.marco.audiopro.ui.components.glass
 import androidx.compose.ui.draw.clip
@@ -304,8 +306,10 @@ private fun AccentController() {
 fun rememberPlaybackPosition(intervalMs: Long = 250): State<Long> {
     val player = LocalApp.current.player
     val pos = remember { mutableLongStateOf(player.positionMs()) }
+    val animating = rememberAnimating()
     LaunchedEffect(Unit) {
         while (true) {
+            animating.awaitAnimating()
             pos.longValue = player.positionMs()
             delay(intervalMs)
         }

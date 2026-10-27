@@ -149,7 +149,7 @@ class DesktopGraph : AppGraph {
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
     override val downloads = null
     override val cache = null
-    override val versionName = "3.2.0"
+    override val versionName = "3.2.1"
     override val isDesktop = true
 
     fun shutdown() { desktopPlayer.shutdown(); prefsStore.flushNow() }
@@ -219,7 +219,8 @@ fun main() {
             // Botones ⏮ ⏯ ⏭ en la barra de tareas, "Reproduciendo" en el control multimedia de Windows
             // y la barra de título propia (como Discord): si se pudo, la app dibuja sus botones.
             val maximized = remember { derivedStateOf { windowState.placement == WindowPlacement.Maximized } }
-            LaunchedEffect(Unit) { Gamepad.start(this, player) { window.isFocused } }
+            // window.isFocused se queda en true aunque estés en un juego: Windows dice quién está al frente.
+            LaunchedEffect(Unit) { Gamepad.start(this, player) { com.marco.audiopro.ui.components.WindowForeground.on ?: window.isFocused } }
             LaunchedEffect(Unit) {
                 val custom = WindowsShell.install(
                     window, player, graph.http, { graph.api.coverUrl(it, 400) },

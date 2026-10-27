@@ -124,8 +124,9 @@ fun GlyphArt(seed: String, modifier: Modifier = Modifier) {
 /** Pastilla "EN VIVO" con un punto que late (radio). */
 @Composable
 fun LiveBadge(modifier: Modifier = Modifier) {
-    val t = rememberInfiniteTransition(label = "live")
-    val a by t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse), label = "a")
+    val animating by rememberAnimating()
+    val a = if (!animating) 1f else rememberInfiniteTransition(label = "live")
+        .animateFloat(0.35f, 1f, infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse), label = "a").value
     Row(
         modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = 9.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -139,8 +140,9 @@ fun LiveBadge(modifier: Modifier = Modifier) {
 /** Barritas de ecualizador que bailan (lo que está sonando). */
 @Composable
 fun EqBars(modifier: Modifier = Modifier, color: Color = Hifi.Accent, bars: Int = 4, height: Dp = 14.dp) {
-    val t = rememberInfiniteTransition(label = "eq")
-    val ph by t.animateFloat(0f, 2f * PI.toFloat(), infiniteRepeatable(tween(900, easing = LinearEasing)), label = "ph")
+    val animating by rememberAnimating()
+    val ph = if (!animating) 0f else rememberInfiniteTransition(label = "eq")
+        .animateFloat(0f, 2f * PI.toFloat(), infiniteRepeatable(tween(900, easing = LinearEasing)), label = "ph").value
     Canvas(modifier.size(width = (bars * 4).dp, height = height)) {
         val w = size.width / (bars * 2 - 1)
         repeat(bars) { i ->

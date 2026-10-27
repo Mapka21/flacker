@@ -411,9 +411,10 @@ private fun LcdStrip(song: Song, engine: AudioEngine, modifier: Modifier, onClic
 
 @Composable
 private fun TitleBlock(song: Song, nav: NavController) {
+    val animating by com.marco.audiopro.ui.components.rememberAnimating()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(song.title, style = Display.copy(fontSize = 26.sp, color = Color.White), maxLines = 1, modifier = Modifier.basicMarquee())
+            Text(song.title, style = Display.copy(fontSize = 26.sp, color = Color.White), maxLines = 1, modifier = if (animating) Modifier.basicMarquee() else Modifier)
             Text(
                 song.artist ?: "", fontSize = 18.sp, color = Hifi.OnArt, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable { song.artistId?.let(nav::openArtist) },

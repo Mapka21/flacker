@@ -299,7 +299,8 @@ private fun Stats(d: LfDashboard, wide: Boolean) {
 
 @Composable
 private fun NowPlayingCard(s: LfScrobble, onClick: () -> Unit) {
-    val pulse by rememberInfiniteTransition(label = "np").animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "p")
+    val animating by com.marco.audiopro.ui.components.rememberAnimating()
+    val pulse = if (!animating) 1f else rememberInfiniteTransition(label = "np").animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "p").value
     Row(
         Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().glassCard().bouncyClick(onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,

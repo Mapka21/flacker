@@ -103,9 +103,10 @@ fun LyricsPane(song: Song, modifier: Modifier = Modifier, fontSize: TextUnit = 3
  */
 @Composable
 private fun InstrumentalDots(progress: Float, size: Dp, modifier: Modifier = Modifier) {
-    val breathe by rememberInfiniteTransition(label = "dots").animateFloat(
+    val animating by rememberAnimating()
+    val breathe = if (!animating) 1f else rememberInfiniteTransition(label = "dots").animateFloat(
         0.88f, 1.08f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse), label = "b",
-    )
+    ).value
     Row(modifier.graphicsLayer { scaleX = breathe; scaleY = breathe; transformOrigin = TransformOrigin(0f, 0.5f) }) {
         for (i in 0..2) {
             val fill = if (progress < 0) 0.55f else ((progress * 3f - i).coerceIn(0f, 1f) * 0.75f + 0.25f)

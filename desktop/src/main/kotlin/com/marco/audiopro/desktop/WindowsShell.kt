@@ -2,6 +2,7 @@ package com.marco.audiopro.desktop
 
 import com.marco.audiopro.player.PlaybackState
 import com.marco.audiopro.player.PlayerController
+import com.marco.audiopro.ui.components.WindowForeground
 import com.sun.jna.Callback
 import com.sun.jna.CallbackReference
 import com.sun.jna.Function
@@ -87,6 +88,14 @@ object WindowsShell {
             player.state.map { Triple(it.current, it.isPlaying, it.durationMs) }.distinctUntilChanged().collect { (song, _, _) ->
                 val st = player.state.value
                 media?.update(st, player.positionMs(), coverFile(http, coverUrl(song?.coverArt)))
+            }
+        }
+        // Java no se entera cuando la ventana queda atrás o minimizada (sigue "enfocada"): se le pregunta
+        // a Windows. Con otra cosa al frente (un juego) los fondos animados se congelan.
+        scope.launch {
+            while (true) {
+                WindowForeground.on = User32Lib.I.GetForegroundWindow() == hwnd
+                delay(500)
             }
         }
         // La posición se vuelve a mandar de vez en cuando (y tras adelantar o regresar).
@@ -196,6 +205,7 @@ private interface User32Lib : Library {
     fun GetSystemMetricsForDpi(index: Int, dpi: Int): Int
     fun CreateIconIndirect(info: Pointer): Pointer?
     fun GetSystemMetrics(index: Int): Int
+    fun GetForegroundWindow(): Pointer?
 
     companion object { val I: User32Lib = Native.load("user32", User32Lib::class.java) }
 }

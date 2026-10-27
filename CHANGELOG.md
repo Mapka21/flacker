@@ -2,6 +2,14 @@
 
 Lo más nuevo arriba. Las descargas de cada versión están en [Releases](https://github.com/Mapka21/flacker/releases).
 
+- **v3.2.1**:
+  - **Ya no le roba al juego**: en la PC el fondo animado se redibujaba a la velocidad del monitor (hasta 165 fps)
+    aunque Flacker estuviera atrás o minimizado. Ahora, con otra ventana al frente, todo lo animado se congela
+    (la música sigue igual): de ~50-85 % de un núcleo a ~1 %. Con Flacker al frente lo animado va a ~60 fps
+    (antes ~160) y gasta como la tercera parte. La pantalla completa no se congela.
+  - **El control de Xbox ya no se cuela**: mientras jugabas, Flacker podía leer tu control (Y abría la pantalla
+    completa encima del juego, START pausaba, LB/RB cambiaban de canción). Ahora sólo con Flacker al frente.
+
 - **v3.2**:
   - **Mandar a…** (como LocalSend): en el menú de una canción, un álbum o una playlist, elige otro Flacker de tu
     Wi-Fi (de tu cuenta, de otra o sin servidor). El otro ve qué le mandas y acepta; le llegan los **archivos

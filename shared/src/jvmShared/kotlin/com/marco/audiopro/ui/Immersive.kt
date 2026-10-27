@@ -51,7 +51,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -196,10 +195,11 @@ fun ImmersiveScreen(onExit: () -> Unit) {
     val beat = remember { mutableFloatStateOf(0f) }
     val bass = remember { mutableFloatStateOf(0f) }
     val clock = remember { mutableFloatStateOf(0f) }
+    val animating = com.marco.audiopro.ui.components.rememberAnimating()
     LaunchedEffect(Unit) {
         val t0 = System.nanoTime()
         var last = 0L
-        while (true) withFrameNanos {
+        com.marco.audiopro.ui.components.animationFrames(animating) {
             beat.floatValue = LiveAudio.features.beat; bass.floatValue = LiveAudio.features.bass; clock.floatValue = (it - t0) / 1e9f
             if (last != 0L) com.marco.audiopro.ui.viz.VizControl.step(((it - last) / 1e9f).coerceAtMost(0.1f))
             last = it
@@ -338,10 +338,11 @@ private fun ImmersiveBar(song: Song, playing: Boolean) {
 private fun rememberSmoothPosition(): State<Long> {
     val player = LocalApp.current.player
     val pos = remember { mutableLongStateOf(player.positionMs()) }
+    val animating = com.marco.audiopro.ui.components.rememberAnimating()
     LaunchedEffect(player) {
         var est = player.positionMs().toDouble()
         var last = 0L
-        while (true) withFrameNanos { t ->
+        com.marco.audiopro.ui.components.animationFrames(animating) { t ->
             val dt = if (last == 0L) 0.0 else (t - last) / 1e6
             last = t
             val raw = player.positionMs()

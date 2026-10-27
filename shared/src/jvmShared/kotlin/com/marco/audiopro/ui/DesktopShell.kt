@@ -679,8 +679,9 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
     // La portada gira como disco mientras suena; en pausa se queda quieta (y no gasta CPU animando).
     val spin = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(st.isPlaying) {
-        if (st.isPlaying) while (true) {
+    val animating by com.marco.audiopro.ui.components.rememberAnimating()
+    LaunchedEffect(st.isPlaying, animating) {
+        if (st.isPlaying && animating) while (true) {
             spin.animateTo(spin.value + 360f, tween(12_000, easing = LinearEasing))
             spin.snapTo(spin.value % 360f)
         }
