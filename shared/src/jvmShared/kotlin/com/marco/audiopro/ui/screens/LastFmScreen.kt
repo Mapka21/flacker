@@ -1,11 +1,6 @@
 package com.marco.audiopro.ui.screens
 
 import com.marco.audiopro.ui.components.textInput
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -299,8 +294,8 @@ private fun Stats(d: LfDashboard, wide: Boolean) {
 
 @Composable
 private fun NowPlayingCard(s: LfScrobble, onClick: () -> Unit) {
-    val animating by com.marco.audiopro.ui.components.rememberAnimating()
-    val pulse = if (!animating) 1f else rememberInfiniteTransition(label = "np").animateFloat(0.4f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "p").value
+    val p by com.marco.audiopro.ui.components.rememberLoopPhase(1800)
+    val pulse = 0.4f + 0.6f * (1f - kotlin.math.abs(2f * p - 1f))
     Row(
         Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().glassCard().bouncyClick(onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,

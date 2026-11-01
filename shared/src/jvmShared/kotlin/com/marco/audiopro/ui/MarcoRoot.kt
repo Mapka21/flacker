@@ -68,6 +68,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import com.marco.audiopro.ui.components.AmbientBackground
+import com.marco.audiopro.ui.components.DesktopWindow
 import com.marco.audiopro.ui.components.awaitAnimating
 import com.marco.audiopro.ui.components.rememberAnimating
 import com.marco.audiopro.ui.components.bouncyClick
@@ -311,7 +312,7 @@ fun rememberPlaybackPosition(intervalMs: Long = 250): State<Long> {
         while (true) {
             animating.awaitAnimating()
             pos.longValue = player.positionMs()
-            delay(intervalMs)
+            delay(if (DesktopWindow.foreground == false) maxOf(intervalMs, 200) else intervalMs)
         }
     }
     return pos

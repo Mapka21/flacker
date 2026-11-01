@@ -36,7 +36,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -678,15 +677,16 @@ private fun PillPlayer(nav: NavHostController, onShowPanel: (() -> Unit)?) {
     val frac = if (st.durationMs > 0) (pos.toFloat() / st.durationMs).coerceIn(0f, 1f) else 0f
     val tint by rememberCoverTint(song.coverArt, Color.Black, 0.55f)
     // La portada gira como disco mientras suena; en pausa se queda quieta (y no gasta CPU animando).
-    val spin = remember { androidx.compose.animation.core.Animatable(0f) }
-    val animating by com.marco.audiopro.ui.components.rememberAnimating()
-    LaunchedEffect(st.isPlaying, animating) {
-        if (st.isPlaying && animating) while (true) {
-            spin.animateTo(spin.value + 360f, tween(12_000, easing = LinearEasing))
-            spin.snapTo(spin.value % 360f)
+    val spin = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val animating = com.marco.audiopro.ui.components.rememberAnimating()
+    LaunchedEffect(st.isPlaying) {
+        var last = 0L
+        if (st.isPlaying) com.marco.audiopro.ui.components.animationFrames(animating) { t ->
+            if (last != 0L) spin.floatValue = (spin.floatValue + ((t - last) / 1e9f).coerceAtMost(0.1f) * 30f) % 360f
+            last = t
         }
     }
-    val angle = spin.value
+    val angle = spin.floatValue
 
     var menu by remember { mutableStateOf<DpOffset?>(null) }
     Box(Modifier.onRightClick { menu = it }) {

@@ -159,7 +159,7 @@ fun AmbientBackground(
     val animating = rememberAnimating()
     LaunchedEffect(Unit) {
         var last = 0L
-        animationFrames(animating) { t ->
+        animationFrames(animating, lively = { preset != null }) { t ->
             val dt = if (last == 0L) 0.016f else ((t - last) / 1e9f).coerceIn(0f, 0.1f)
             last = t
             if (reactive) LiveAudio.update(c.engine.tap, t, playing, offset)

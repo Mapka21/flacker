@@ -1,10 +1,5 @@
 package com.marco.audiopro.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -124,9 +119,8 @@ fun GlyphArt(seed: String, modifier: Modifier = Modifier) {
 /** Pastilla "EN VIVO" con un punto que late (radio). */
 @Composable
 fun LiveBadge(modifier: Modifier = Modifier) {
-    val animating by rememberAnimating()
-    val a = if (!animating) 1f else rememberInfiniteTransition(label = "live")
-        .animateFloat(0.35f, 1f, infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse), label = "a").value
+    val p by rememberLoopPhase(1400)
+    val a = 0.35f + 0.65f * (1f - (2f * p - 1f).absoluteValue)
     Row(
         modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = 9.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -140,9 +134,8 @@ fun LiveBadge(modifier: Modifier = Modifier) {
 /** Barritas de ecualizador que bailan (lo que está sonando). */
 @Composable
 fun EqBars(modifier: Modifier = Modifier, color: Color = Hifi.Accent, bars: Int = 4, height: Dp = 14.dp) {
-    val animating by rememberAnimating()
-    val ph = if (!animating) 0f else rememberInfiniteTransition(label = "eq")
-        .animateFloat(0f, 2f * PI.toFloat(), infiniteRepeatable(tween(900, easing = LinearEasing)), label = "ph").value
+    val loop by rememberLoopPhase(900)
+    val ph = loop * 2f * PI.toFloat()
     Canvas(modifier.size(width = (bars * 4).dp, height = height)) {
         val w = size.width / (bars * 2 - 1)
         repeat(bars) { i ->

@@ -32,6 +32,18 @@ class WindowsShellTest {
     }
 
     @Test
+    fun aWindowIsCoveredOnlyWhenNothingOfItIsLeft() {
+        val window = ScreenRect(0, 0, 100, 100)
+        assertEquals(listOf(window), uncovered(listOf(window), ScreenRect(200, 0, 300, 100))) // otro monitor
+        assertEquals(emptyList<ScreenRect>(), uncovered(listOf(window), ScreenRect(-10, -10, 110, 110))) // juego encima
+        val half = uncovered(listOf(window), ScreenRect(0, 0, 50, 100))
+        assertEquals(listOf(ScreenRect(50, 0, 100, 100)), half)
+        val hole = uncovered(listOf(window), ScreenRect(40, 40, 60, 60))
+        assertEquals(4, hole.size)
+        assertEquals(emptyList<ScreenRect>(), uncovered(half, ScreenRect(50, 0, 100, 100))) // dos que juntas la tapan
+    }
+
+    @Test
     fun installsTaskbarButtonsAndMediaControls() {
         val player = FakePlayer()
         lateinit var frame: JFrame

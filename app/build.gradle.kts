@@ -13,8 +13,8 @@ android {
         applicationId = "com.marco.audiopro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 33
-        versionName = "3.2.1"
+        versionCode = 34
+        versionName = "3.2.2"
     }
 
     buildTypes {

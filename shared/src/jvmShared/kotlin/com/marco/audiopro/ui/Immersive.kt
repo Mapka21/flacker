@@ -199,7 +199,7 @@ fun ImmersiveScreen(onExit: () -> Unit) {
     LaunchedEffect(Unit) {
         val t0 = System.nanoTime()
         var last = 0L
-        com.marco.audiopro.ui.components.animationFrames(animating) {
+        com.marco.audiopro.ui.components.animationFrames(animating, lively = { true }) {
             beat.floatValue = LiveAudio.features.beat; bass.floatValue = LiveAudio.features.bass; clock.floatValue = (it - t0) / 1e9f
             if (last != 0L) com.marco.audiopro.ui.viz.VizControl.step(((it - last) / 1e9f).coerceAtMost(0.1f))
             last = it
@@ -342,7 +342,7 @@ private fun rememberSmoothPosition(): State<Long> {
     LaunchedEffect(player) {
         var est = player.positionMs().toDouble()
         var last = 0L
-        com.marco.audiopro.ui.components.animationFrames(animating) { t ->
+        com.marco.audiopro.ui.components.animationFrames(animating, lively = { true }) { t ->
             val dt = if (last == 0L) 0.0 else (t - last) / 1e6
             last = t
             val raw = player.positionMs()

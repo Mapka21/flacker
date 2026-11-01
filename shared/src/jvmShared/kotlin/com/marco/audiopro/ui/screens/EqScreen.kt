@@ -178,7 +178,7 @@ private fun EqGraph(cfg: EqConfig, engine: AudioEngine, selected: Int, onSelect:
     var clipSeenAt by remember { mutableLongStateOf(0L) }
     val animating = rememberAnimating()
     LaunchedEffect(Unit) {
-        animationFrames(animating) { t ->
+        animationFrames(animating, lively = { true }) { t ->
             analyzer.capture(offset, playing)
             analyzer.computeSpectrum()
             analyzer.logBands(spectrum, 20f, 20000f)

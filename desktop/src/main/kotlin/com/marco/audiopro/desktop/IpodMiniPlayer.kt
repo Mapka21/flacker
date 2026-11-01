@@ -47,7 +47,6 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.marco.audiopro.ui.viz.DuskPalette
@@ -322,9 +321,11 @@ private fun VizScreen(player: PlayerController, preset: VisualPreset, showVolume
     val playing by rememberUpdatedState(st.isPlaying)
     val scene = remember { VisualScene() }
     val tick = remember { mutableLongStateOf(0L) }
+    // El iPod es su propia ventana: siempre a la vista y con el tope de cuadros.
+    val animating = rememberUpdatedState(true)
     LaunchedEffect(Unit) {
         var last = 0L
-        while (true) withFrameNanos { t ->
+        com.marco.audiopro.ui.components.animationFrames(animating, lively = { true }) { t ->
             val dt = if (last == 0L) 0.016f else ((t - last) / 1e9f).coerceIn(0f, 0.1f)
             last = t
             LiveAudio.update(app.engine.tap, t, playing, 0)

@@ -2,7 +2,7 @@ package com.marco.audiopro.desktop
 
 import com.marco.audiopro.player.PlaybackState
 import com.marco.audiopro.player.PlayerController
-import com.marco.audiopro.ui.components.WindowForeground
+import com.marco.audiopro.ui.components.DesktopWindow
 import com.sun.jna.Callback
 import com.sun.jna.CallbackReference
 import com.sun.jna.Function
@@ -91,11 +91,13 @@ object WindowsShell {
             }
         }
         // Java no se entera cuando la ventana queda atrás o minimizada (sigue "enfocada"): se le pregunta
-        // a Windows. Con otra cosa al frente (un juego) los fondos animados se congelan.
+        // a Windows. Si nadie la puede ver, los fondos animados se congelan; en otro monitor siguen.
         scope.launch {
             while (true) {
-                WindowForeground.on = User32Lib.I.GetForegroundWindow() == hwnd
-                delay(500)
+                val foreground = User32Lib.I.GetForegroundWindow() == hwnd
+                DesktopWindow.foreground = foreground
+                DesktopWindow.visible = foreground || runCatching { isWindowSeen(hwnd) }.getOrDefault(true)
+                delay(1000)
             }
         }
         // La posición se vuelve a mandar de vez en cuando (y tras adelantar o regresar).
@@ -120,6 +122,45 @@ object WindowsShell {
         }
         return frame != null
     }
+
+    /** No está minimizada ni oculta ni en otro escritorio, y las ventanas de encima no la tapan toda. */
+    private fun isWindowSeen(hwnd: Pointer): Boolean {
+        val u = User32Lib.I
+        if (u.IsIconic(hwnd) || !u.IsWindowVisible(hwnd) || isCloaked(hwnd)) return false
+        var left = listOf(frameBounds(hwnd) ?: return true)
+        // De arriba hacia abajo: un juego encima se encuentra luego luego y ya no se revisa nada más.
+        var above = u.GetTopWindow(null)
+        while (above != null && above != hwnd && left.isNotEmpty()) {
+            if (u.IsWindowVisible(above) && !u.IsIconic(above)) {
+                // Las capas transparentes (overlays de Discord, de NVIDIA...) dejan ver lo de abajo.
+                val exStyle = u.GetWindowLongPtrW(above, GWL_EXSTYLE)?.let { Pointer.nativeValue(it) } ?: 0L
+                if (exStyle and (WS_EX_LAYERED or WS_EX_TRANSPARENT) == 0L && !isCloaked(above)) {
+                    frameBounds(above)?.let { left = uncovered(left, it) }
+                }
+            }
+            above = u.GetWindow(above, GW_HWNDNEXT)
+        }
+        return left.isNotEmpty()
+    }
+
+    private fun isCloaked(hwnd: Pointer): Boolean {
+        val m = Memory(4)
+        return DwmLib.I.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, m, 4) == 0 && m.getInt(0) != 0
+    }
+
+    /** Lo que se ve de la ventana, sin los bordes invisibles de Windows (maximizada se saldrían al otro monitor). */
+    private fun frameBounds(hwnd: Pointer): ScreenRect? {
+        val m = Memory(16)
+        if (DwmLib.I.DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, m, 16) != 0) return null
+        return ScreenRect(m.getInt(0), m.getInt(4), m.getInt(8), m.getInt(12))
+    }
+
+    private const val GW_HWNDNEXT = 2
+    private const val GWL_EXSTYLE = -20
+    private const val WS_EX_LAYERED = 0x00080000L
+    private const val WS_EX_TRANSPARENT = 0x00000020L
+    private const val DWMWA_EXTENDED_FRAME_BOUNDS = 9
+    private const val DWMWA_CLOAKED = 14
 
     /**
      * Barra de título oscura del mismo color que la app (como Spotify): modo oscuro y, en
@@ -188,6 +229,20 @@ object MediaKeyGate {
     }
 }
 
+/** Rectángulo en pixeles de pantalla (derecha y abajo no incluidos). */
+internal data class ScreenRect(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+/** Lo que queda de [pieces] después de ponerle encima [cover]. */
+internal fun uncovered(pieces: List<ScreenRect>, cover: ScreenRect): List<ScreenRect> = pieces.flatMap { p ->
+    val top = maxOf(p.top, cover.top); val bottom = minOf(p.bottom, cover.bottom)
+    val left = maxOf(p.left, cover.left); val right = minOf(p.right, cover.right)
+    if (left >= right || top >= bottom) listOf(p)
+    else listOf(
+        ScreenRect(p.left, p.top, p.right, top), ScreenRect(p.left, bottom, p.right, p.bottom),
+        ScreenRect(p.left, top, left, bottom), ScreenRect(right, top, p.right, bottom),
+    ).filter { it.left < it.right && it.top < it.bottom }
+}
+
 // ------------------------------------------------------------------ Win32 / COM / WinRT a mano
 
 @Suppress("FunctionName")
@@ -206,6 +261,10 @@ private interface User32Lib : Library {
     fun CreateIconIndirect(info: Pointer): Pointer?
     fun GetSystemMetrics(index: Int): Int
     fun GetForegroundWindow(): Pointer?
+    fun IsIconic(hwnd: Pointer): Boolean
+    fun IsWindowVisible(hwnd: Pointer): Boolean
+    fun GetWindow(hwnd: Pointer, cmd: Int): Pointer?
+    fun GetTopWindow(parent: Pointer?): Pointer?
 
     companion object { val I: User32Lib = Native.load("user32", User32Lib::class.java) }
 }
@@ -213,6 +272,7 @@ private interface User32Lib : Library {
 @Suppress("FunctionName")
 private interface DwmLib : Library {
     fun DwmSetWindowAttribute(hwnd: Pointer, attr: Int, value: Pointer, size: Int): Int
+    fun DwmGetWindowAttribute(hwnd: Pointer, attr: Int, value: Pointer, size: Int): Int
 
     companion object { val I: DwmLib = Native.load("dwmapi", DwmLib::class.java) }
 }

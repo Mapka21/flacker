@@ -2,6 +2,13 @@
 
 Lo más nuevo arriba. Las descargas de cada versión están en [Releases](https://github.com/Mapka21/flacker/releases).
 
+- **v3.2.2**:
+  - **Sigue moviéndose en tu otro monitor**: la v3.2.1 congelaba todo con sólo cambiar a otra ventana. Ahora sólo se
+    congela si de verdad no se ve (minimizada, en otro escritorio o tapada por completo, también en pantalla
+    completa). A la vista pero sin usarla va a ~20 fps, o ~30 en la pantalla completa y los visualizadores
+    grandes. Las barritas, el punto EN VIVO y el disco que gira ya no fuerzan a redibujar toda la ventana a la
+    velocidad del monitor.
+
 - **v3.2.1**:
   - **Ya no le roba al juego**: en la PC el fondo animado se redibujaba a la velocidad del monitor (hasta 165 fps)
     aunque Flacker estuviera atrás o minimizado. Ahora, con otra ventana al frente, todo lo animado se congela

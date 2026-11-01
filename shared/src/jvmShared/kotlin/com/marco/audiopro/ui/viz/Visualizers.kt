@@ -70,7 +70,7 @@ fun Visualizer(mode: VizMode, modifier: Modifier = Modifier, accent: Color = Hif
     val tick = remember { mutableLongStateOf(0L) }
     val animating = rememberAnimating()
     LaunchedEffect(Unit) {
-        animationFrames(animating) { t ->
+        animationFrames(animating, lively = { true }) { t ->
             analyzer.capture(offset, playing)
             tick.longValue = t
         }
