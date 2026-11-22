@@ -152,7 +152,7 @@ class DesktopGraph : AppGraph {
     private val offline = com.marco.audiopro.download.DesktopDownloads(System.getProperty("flacker.descargas")?.let(::File) ?: File(dataDir, "descargas"), http, api, settings, scope)
     override val downloads: com.marco.audiopro.download.OfflineStore? get() = offline.takeUnless { com.marco.audiopro.data.local.LocalMode.isOn(settings) }
     override val cache = null
-    override val versionName = "3.2.2"
+    override val versionName = "3.3"
     override val isDesktop = true
 
     fun shutdown() { desktopPlayer.shutdown(); prefsStore.flushNow() }

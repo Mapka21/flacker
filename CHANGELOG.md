@@ -2,6 +2,13 @@
 
 Lo más nuevo arriba. Las descargas de cada versión están en [Releases](https://github.com/Mapka21/flacker/releases).
 
+- **v3.3**:
+  - **Descargas en la PC**: ya no sólo en el celular. Baja una canción (⋮ → Descargar), un álbum, una playlist o tus
+    Me gusta con **⬇** y escúchalos sin servidor desde **Descargas** (barra lateral). Se guardan como archivos
+    normales en Artista/Álbum, en la calidad que elijas en Ajustes → Descargas. Lo que quede a medias se vuelve a
+    bajar al abrir, y sin conexión las pantallas ofrecen ir directo a tus descargas.
+  - **Agregar a playlist desde la canción que suena**: botón nuevo junto al corazón, en el celular y en la PC.
+
 - **v3.2.2**:
   - **Sigue moviéndose en tu otro monitor**: la v3.2.1 congelaba todo con sólo cambiar a otra ventana. Ahora sólo se
     congela si de verdad no se ve (minimizada, en otro escritorio o tapada por completo, también en pantalla

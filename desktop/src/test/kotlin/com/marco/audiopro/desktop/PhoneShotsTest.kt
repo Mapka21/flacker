@@ -111,6 +111,12 @@ class PhoneShotsTest {
         ui { nav!!.navigate(SettingsRoute) }; shot("p12-settings", 2000)
         ui { nav!!.navigate(com.marco.audiopro.ui.ProfileRoute) }; shot("p19-profile", 2500)
         ui { nav!!.navigate(PlayerRoute) }; shot("p13-player", 3500)
+        System.getenv("MARCO_TAP")?.split(",")?.map { it.toFloat() }?.let { (x, y) -> // toca un punto del reproductor (en dp)
+            ui { scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, androidx.compose.ui.geometry.Offset(x * d, y * d)) }
+            shot("p13-tap0", 80)
+            ui { scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, androidx.compose.ui.geometry.Offset(x * d, y * d)) }
+            shot("p13-tap", 2000)
+        }
         ui { nav!!.popBackStack() }
         ui { nav!!.navigate(com.marco.audiopro.ui.DownloadsRoute) }; shot("p14-downloads", 3000)
         ui { scene.close() }

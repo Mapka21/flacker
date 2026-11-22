@@ -47,6 +47,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -112,6 +113,7 @@ import com.marco.audiopro.ui.DspRoute
 import com.marco.audiopro.ui.components.CoverArt
 import com.marco.audiopro.ui.components.DevicesButton
 import com.marco.audiopro.ui.components.RemoteBadge
+import com.marco.audiopro.ui.components.AddToPlaylistDialog
 import com.marco.audiopro.ui.components.DownloadButton
 import com.marco.audiopro.ui.components.GlassChip
 import com.marco.audiopro.ui.components.LikeButton
@@ -409,6 +411,17 @@ private fun LcdStrip(song: Song, engine: AudioEngine, modifier: Modifier, onClic
     }
 }
 
+/** Agregar la que suena a una playlist (las muestras, la radio y las de otro dispositivo no son de tu servidor). */
+@Composable
+private fun AddToPlaylistButton(song: Song) {
+    if (song.isPreview || song.isRadio) return
+    var open by remember { mutableStateOf(false) }
+    androidx.compose.material3.IconButton(onClick = { open = true }) {
+        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Agregar a playlist", tint = Hifi.TextDim, modifier = Modifier.size(26.dp))
+    }
+    if (open) AddToPlaylistDialog(listOf(song)) { open = false }
+}
+
 @Composable
 private fun TitleBlock(song: Song, nav: NavController) {
     val animating by com.marco.audiopro.ui.components.rememberAnimating()
@@ -425,6 +438,7 @@ private fun TitleBlock(song: Song, nav: NavController) {
                 modifier = Modifier.clickable { song.albumId?.let(nav::openAlbum) },
             )
         }
+        AddToPlaylistButton(song)
         DownloadButton(listOf(song))
         LikeButton(song, size = 28.dp)
     }
