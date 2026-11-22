@@ -642,7 +642,7 @@ private fun SignalPathSheet(song: Song, engine: AudioEngine) {
         add(
             Triple(
                 "TRANSPORTE",
-                when { transcoded -> "${signal.transport} (transcodificado en el servidor)"; signal.transport.startsWith("Descargado") -> "${signal.transport} · desde el teléfono"; else -> "Archivo original sin transcodificar" },
+                when { transcoded -> "${signal.transport} (transcodificado en el servidor)"; signal.transport.startsWith("Descargado") -> "${signal.transport} · sin conexión"; else -> "Archivo original sin transcodificar" },
                 if (transcoded) Quality.LOSSY else Quality.LOSSLESS,
             ),
         )

@@ -142,7 +142,7 @@ fun DownloadsScreen() {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 12.dp)) {
                 Text("SIN CONEXIÓN", style = Mono.copy(color = Hifi.Accent, fontSize = 11.sp, letterSpacing = 1.sp))
-                Text("Tu música en el teléfono", style = Display.copy(fontSize = 28.sp))
+                Text(if (c.isDesktop) "Tu música en esta compu" else "Tu música en el teléfono", style = Display.copy(fontSize = 28.sp))
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "${songsLabel(done.size)} · ${albums.size} álbum${if (albums.size == 1) "" else "es"} · ${formatBytes(totalBytes)}",
@@ -224,7 +224,7 @@ private fun StorageBar(used: Long, free: Long) {
         Box(Modifier.fillMaxWidth(anim.coerceAtLeast(0.01f)).fillMaxHeight().background(Hifi.Accent))
     }
     Spacer(Modifier.height(4.dp))
-    Text("${formatBytes(used)} usados · ${formatBytes(free)} libres en el teléfono", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
+    Text("${formatBytes(used)} usados · ${formatBytes(free)} libres en ${if (LocalApp.current.isDesktop) "el disco" else "el teléfono"}", style = Mono.copy(color = Hifi.TextFaint, fontSize = 10.sp))
 }
 
 /** Lo que se está bajando, plegable para que no estorbe. */

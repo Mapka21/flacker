@@ -78,6 +78,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Radio
@@ -219,7 +220,11 @@ private fun DesktopShell(nav: NavHostController, onMiniPlayer: (() -> Unit)?) {
     var rightHidden by remember { mutableStateOf(c.settings.getString("right_hidden") == "1") }
     fun setRightHidden(v: Boolean) { rightHidden = v; c.settings.putString("right_hidden", if (v) "1" else "0") }
 
-    CompositionLocalProvider(LocalSearchQuery provides search) {
+    // Sin red, la pantalla de error ofrece ir directo a tus descargas.
+    CompositionLocalProvider(
+        LocalSearchQuery provides search,
+        com.marco.audiopro.ui.components.LocalOpenOffline provides { nav.openTab(DownloadsRoute) },
+    ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 1240.dp
         if (!Immersive.on) AmbientBackground(playback.current?.coverArt, intensity = intensity)
@@ -298,6 +303,7 @@ private fun Sidebar(nav: NavHostController, entry: NavBackStackEntry?, dest: Nav
         SidebarItem(Icons.Default.MusicNote, "Canciones", libTab == 2) { nav.openLibrary(2) }
         SidebarItem(Icons.Default.Favorite, "Me gusta", dest.isIn(LikedRoute::class)) { nav.openTab(LikedRoute) }
         SidebarItem(Icons.Default.LibraryMusic, "Playlists", libTab == 3) { nav.openLibrary(3) }
+        if (c.downloads != null) SidebarItem(Icons.Default.DownloadForOffline, "Descargas", dest.isIn(DownloadsRoute::class)) { nav.openTab(DownloadsRoute) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SectionLabel("Tus playlists") }
             Tip("Nueva playlist") {

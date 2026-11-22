@@ -145,14 +145,14 @@ fun SettingsScreen(nav: NavController) {
         if (c.downloads != null) SectionHeader("Descargas")
         if (c.downloads != null) Card {
             QualityPicker("Calidad de descarga", prefs.downloadQuality) { q -> c.settings.updatePrefs { it.copy(downloadQuality = q) } }
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!c.isDesktop) Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Descargar sólo con Wi-Fi", fontSize = 15.sp, modifier = Modifier.weight(1f))
                 Switch(
                     prefs.downloadWifiOnly, { on -> c.settings.updatePrefs { it.copy(downloadWifiOnly = on) } },
                     colors = SwitchDefaults.colors(checkedTrackColor = Hifi.Accent, checkedThumbColor = Color.Black),
                 )
             }
-            Hint("Las descargas se guardan en la memoria del teléfono y suenan sin conexión, aunque tu servidor esté apagado.")
+            Hint("Las descargas se guardan en ${if (c.isDesktop) "tu disco" else "la memoria del teléfono"} y suenan sin conexión, aunque tu servidor esté apagado.")
         }
 
         if (!c.isDesktop) {

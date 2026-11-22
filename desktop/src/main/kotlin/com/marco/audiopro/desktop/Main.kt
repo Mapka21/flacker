@@ -146,13 +146,22 @@ class DesktopGraph : AppGraph {
     /** Me gusta, playlists, portadas y ajustes al día entre tus dispositivos. */
     val sync by lazy { com.marco.audiopro.data.SyncService(settings, covers, likes, playlists, connect, scope) }
 
+    init { current = this; desktopPlayer.offline = { offline.file(it) } }
     init { scrobbles.onSynced = { n -> connect.notice.value = "Se sincronizaron $n scrobbles que tenías sin conexión" } }
-    override val downloads = null
+    /** Sin servidor (biblioteca local) no hay nada que descargar. -Dflacker.descargas=carpeta las guarda en otro lado. */
+    private val offline = com.marco.audiopro.download.DesktopDownloads(System.getProperty("flacker.descargas")?.let(::File) ?: File(dataDir, "descargas"), http, api, settings, scope)
+    override val downloads: com.marco.audiopro.download.OfflineStore? get() = offline.takeUnless { com.marco.audiopro.data.local.LocalMode.isOn(settings) }
     override val cache = null
     override val versionName = "3.2.2"
     override val isDesktop = true
 
     fun shutdown() { desktopPlayer.shutdown(); prefsStore.flushNow() }
+
+    companion object {
+        /** La app abierta: por aquí la maneja quien la arranca (el cyberdeck, con las teclas multimedia). */
+        @Volatile var current: DesktopGraph? = null
+            private set
+    }
 }
 
 fun main() {

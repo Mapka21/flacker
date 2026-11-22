@@ -443,7 +443,7 @@ fun DownloadButton(songs: List<Song>, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text("¿Quitar descarga?") },
-            text = { Text(if (songs.size == 1) "Se borra la copia local de esta canción." else "Se borran las ${songs.size} canciones del almacenamiento del teléfono.") },
+            text = { Text(if (songs.size == 1) "Se borra la copia local de esta canción." else "Se borran las ${songs.size} canciones descargadas.") },
             confirmButton = { TextButton(onClick = { downloads.remove(songs); confirm = false }) { Text("Quitar", color = Hifi.LedRed) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar") } },
             containerColor = Hifi.Panel,
